@@ -18,18 +18,34 @@
 	local util = require "luci.util"
 
 
-	-- make sims table for html rendering
-	local  sims = {}
+	local sims_config = {} 	-- got from UCI config
+	local sims_state = {}	-- got from realtime data
+	sims_state = {
+		["0"] = {
+			balance = 29.30,
+			balance_date = "15.05.2021",
+			rssi = 21,
+			bor = 0
+		},
+		["1"] = {
+			balance = 280.55,
+			balance_date = "15.05.2021",
+			rssi = 28,
+			bor = 1
+		}
+
+	}
+	util.dumptable(sims_state)
 	uci:foreach(config, "sim", function(a)
-		sims[#sims+1] = a
+		sims_config[#sims_config+1] = a
 	end)
-	util.dumptable(sims)
+	--util.dumptable(sims_config)
 	local i = 1
 %> 
 
 <% --[[=========== HTML ==========]] %>
 <div id="view">
-	<h2 name="content">Мобильное устройство дистанционного управлени</h2>
+	<h2 name="content">Мобильное устройство дистанционного управления</h2>
 	<div class="cbi-map-descr">Связь с мобильным устройством поддерживается основным и резервным каналом.</div>
 	<h3>Каналы связи (настройка SIM-карт)</h3>
 	
@@ -43,7 +59,15 @@
 			<div class="th">Баланс</div>
 			<div class="th center nowrap cbi-section-actions">Действия</div>
 		</div>
-		<% for k, v in util.kspairs(sims) do %>
+		<% for k, v in util.kspairs(sims_config) do
+			local index = tostring(v[".index"])
+			local is_active = (v.status == '1')
+			local balance = tostring(sims_state[index].balance) .. " " .. v.min_account_balance_unit
+			local balance_date = sims_state[index].balance_date
+			local highlighted_balance = (sims_state[index].balance < tonumber(v.min_account_balance))
+			local bor = sims_state[index].bor
+			if bor == 0 then bor =  "&#8211;" end
+		%>
 			<div class="tr cbi-rowstyle-<%=i%>">
 				<div class="td" data-title="N">
 					<%=v[".index"] + 1 %>
@@ -51,24 +75,29 @@
 				<div class="td" data-title="Наименование">
 					<%=v.name %>
 				</div>
-				<div class="td" data-title="Статус">
-					Активно
+				<div class="td status" data-title="Статус">
+					<%
+						if is_active then print('<i style="background-position: 0 -15px;">Активно</i>')
+						else print('<i>Не активно</i>')	end 
+					%>
 				</div>
 				<div class="td" data-title="Сигнал">
-					23 <%=v.min_signal_strength_unit %>
+					<%=sims_state[index].rssi %> <%=v.min_signal_strength_unit %>
 				</div>
 				<div class="td" data-title="Помехи">
-					&#8211;
+					<%=bor %>
 				</div>
-				<div class="td" data-title="Баланс">
-					<b>29,85 <%=v.min_account_balance_unit %></b> <br />
-					<small>(на 12.05.2021)</small>
+				<div class="td <% if highlighted_balance then print('balance-alert') end %>" data-title="Баланс">
+					<b><%=balance %></b> <br />
+					<small>(на <%=balance_date %>)</small>
 				</div>
 				<div class="nowrap cbi-section-actions td" style="text-align: right;">
-					<input type="button" class="cbi-button cbi-button-reset"
+					<input type="button" class="cbi-button cbi-button-apply"
 						onclick="activate_sim(this)"
 						value="Активировать"
-						disabled="disabled"
+						<%
+							if is_active then print('disabled="disabled"') end 
+						%>
 						style="display: initial;" />
 					<input type="button" class="cbi-button cbi-button-apply"
 						onclick="edit_sim(this)"
