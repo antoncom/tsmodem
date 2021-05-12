@@ -1,0 +1,84 @@
+<% 	--[[=========== STYLES ==========]] %>
+<%+ts_skw92a/css%>
+
+<% --[[=========== JS ==========]] %>
+<%+ts_skw92a/ui_utils/utils.js%>
+<%+ts_skw92a/ui_utils/external.js%>
+<%+ts_skw92a/ui_overrides/TextFieldStyled.js%>
+
+
+<% --[[=========== UI WIDGETS ==========]] %>
+<%+ts_skw92a/ui_widgets/UIEventBus.js%>
+
+<% --[[=========== LUA BACKEND ==========]] %>
+
+<%
+	local config = "ts_skw92a"
+	local uci = require "luci.model.uci".cursor()
+	local util = require "luci.util"
+
+
+	-- make sims table for html rendering
+	local  sims = {}
+	uci:foreach(config, "sim", function(a)
+		sims[#sims+1] = a
+	end)
+	util.dumptable(sims)
+	local i = 1
+%> 
+
+<% --[[=========== HTML ==========]] %>
+<div id="view">
+	<h2 name="content">Мобильное устройство дистанционного управлени</h2>
+	<div class="cbi-map-descr">Связь с мобильным устройством поддерживается основным и резервным каналом.</div>
+	<h3>Каналы связи (настройка SIM-карт)</h3>
+	
+	<div class="table">
+		<div class="tr table-titles">
+			<div class="th">N</div>
+			<div class="th" style="width: 33%;">Наименование</div>
+			<div class="th">Статус</div>
+			<div class="th">Сигнал</div>
+			<div class="th">Помехи</div>
+			<div class="th">Баланс</div>
+			<div class="th center nowrap cbi-section-actions">Действия</div>
+		</div>
+		<% for k, v in util.kspairs(sims) do %>
+			<div class="tr cbi-rowstyle-<%=i%>">
+				<div class="td" data-title="N">
+					<%=v[".index"] + 1 %>
+				</div>
+				<div class="td" data-title="Наименование">
+					<%=v.name %>
+				</div>
+				<div class="td" data-title="Статус">
+					Активно
+				</div>
+				<div class="td" data-title="Сигнал">
+					23 <%=v.min_signal_strength_unit %>
+				</div>
+				<div class="td" data-title="Помехи">
+					&#8211;
+				</div>
+				<div class="td" data-title="Баланс">
+					<b>29,85 <%=v.min_account_balance_unit %></b> <br />
+					<small>(на 12.05.2021)</small>
+				</div>
+				<div class="nowrap cbi-section-actions td" style="text-align: right;">
+					<input type="button" class="cbi-button cbi-button-reset"
+						onclick="activate_sim(this)"
+						value="Активировать"
+						disabled="disabled"
+						style="display: initial;" />
+					<input type="button" class="cbi-button cbi-button-apply"
+						onclick="edit_sim(this)"
+						data-alertid="<%=k%>"
+						value="Настроить"
+						style="display: initial;" />
+				</div>
+			</div>
+			<% i = (i%2) + 1 %>
+		<% end %>
+	</div>
+</div>
+<span id="btn_enable_spinner" class="btn_spinner"></span>
