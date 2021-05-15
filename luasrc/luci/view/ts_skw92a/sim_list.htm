@@ -110,4 +110,108 @@
 		<% end %>
 	</div>
 </div>
+
+<h3>Журнал событий</h3>
+<div class="table">
+	<div class="tr table-titles">
+		<div class="th" style="width: 150px;">Дата / время</div>
+		<div class="th" style="width: 33%;">Событие</div>
+		<div class="th">Источник</div>
+		<div class="th">Команда</div>
+		<div class="th" style="padding-left: 25px;">Ответ</div>
+
+	</div>
+	<div class="tr cbi-rowstyle-0">
+		<div class="td" data-title="Дата / время">
+			<b>2021-05-01</b><i>13:35:10</i>
+		</div>
+		<div class="td" data-title="Событие">
+			Сеть недоступна
+		</div>
+		<div class="td" data-title="Источник">
+			Модем
+		</div>
+		<div class="td" data-title="Команда">
+			AT+CREG=?
+		</div>
+		<div class="td" data-title="Ответ">
+			NOT READY
+		</div>
+	</div>
+
+	<div class="tr cbi-rowstyle-0">
+		<div class="td" data-title="Дата / время">
+			<b>2021-05-01</b><i>13:35:10</i>
+		</div>
+		<div class="td" data-title="Событие">
+			Переключение SIM-карт
+		</div>
+		<div class="td" data-title="Источник">
+			Микроконтроллер
+		</div>
+		<div class="td" data-title="Команда">
+			~0:SIM.SEL=1
+		</div>
+		<div class="td" data-title="Ответ">
+			OK
+		</div>
+	</div>
+
+	<div class="tr cbi-rowstyle-0">
+		<div class="td" data-title="Дата / время">
+			<b>2021-05-01</b><i>13:35:10</i>
+		</div>
+		<div class="td" data-title="Событие">
+			Связь установлена
+		</div>
+		<div class="td" data-title="Источник">
+			Модем
+		</div>
+		<div class="td" data-title="Команда">
+			AT+CSQ
+		</div>
+		<div class="td" data-title="Ответ">
+			22,99 (rssi, bor)
+		</div>
+	</div>
+
+	<div class="tr cbi-rowstyle-0">
+		<div class="td" data-title="Дата / время">
+			<b>2021-05-01</b><i>13:35:10</i>
+		</div>
+		<div class="td" data-title="Событие">
+			Остаток средств ниже нормы
+		</div>
+		<div class="td" data-title="Источник">
+			Модем
+		</div>
+		<div class="td" data-title="Команда">
+			AT+CUSD=*101#,15
+		</div>
+		<div class="td" data-title="Ответ">
+			29,85 (руб)
+		</div>
+	</div>
+
+	<div class="tr cbi-rowstyle-0">
+		<div class="td" data-title="Дата / время">
+			<b>2021-05-01</b><i>13:35:10</i>
+		</div>
+		<div class="td" data-title="Событие">
+			Переключение SIM-карт
+		</div>
+		<div class="td" data-title="Источник">
+			Пользователь
+		</div>
+		<div class="td" data-title="Команда">
+			~0:SIM.SEL=0
+		</div>
+		<div class="td" data-title="Ответ">
+			OK
+		</div>
+	</div>
+</div>
 <span id="btn_enable_spinner" class="btn_spinner"></span>
+
+
+
