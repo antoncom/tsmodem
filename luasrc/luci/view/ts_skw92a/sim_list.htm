@@ -5,6 +5,7 @@
 <%+ts_skw92a/ui_utils/utils.js%>
 <%+ts_skw92a/ui_utils/external.js%>
 <%+ts_skw92a/ui_overrides/TextFieldStyled.js%>
+<%+ts_skw92a/sim_modal%>
 
 
 <% --[[=========== UI WIDGETS ==========]] %>
@@ -35,11 +36,11 @@
 		}
 
 	}
-	util.dumptable(sims_state)
+	--util.dumptable(sims_state)
 	uci:foreach(config, "sim", function(a)
 		sims_config[#sims_config+1] = a
 	end)
-	--util.dumptable(sims_config)
+	util.dumptable(sims_config)
 	local i = 1
 %> 
 
@@ -61,10 +62,11 @@
 		</div>
 		<% for k, v in util.kspairs(sims_config) do
 			local index = tostring(v[".index"])
+			local simid = v[".name"]
 			local is_active = (v.status == '1')
-			local balance = tostring(sims_state[index].balance) .. " " .. v.min_account_balance_unit
+			local balance = tostring(sims_state[index].balance) .. " " .. v.balance_unit
 			local balance_date = sims_state[index].balance_date
-			local highlighted_balance = (sims_state[index].balance < tonumber(v.min_account_balance))
+			local highlighted_balance = (sims_state[index].balance < tonumber(v.balance_min))
 			local bor = sims_state[index].bor
 			if bor == 0 then bor =  "&#8211;" end
 		%>
@@ -82,7 +84,7 @@
 					%>
 				</div>
 				<div class="td" data-title="Сигнал">
-					<%=sims_state[index].rssi %> <%=v.min_signal_strength_unit %>
+					<%=sims_state[index].rssi %> <%=v.rssi_unit %>
 				</div>
 				<div class="td" data-title="Помехи">
 					<%=bor %>
@@ -94,6 +96,7 @@
 				<div class="nowrap cbi-section-actions td" style="text-align: right;">
 					<input type="button" class="cbi-button cbi-button-apply"
 						onclick="activate_sim(this)"
+						data-simid="<%=simid %>"
 						value="Активировать"
 						<%
 							if is_active then print('disabled="disabled"') end 
@@ -101,7 +104,7 @@
 						style="display: initial;" />
 					<input type="button" class="cbi-button cbi-button-apply"
 						onclick="edit_sim(this)"
-						data-alertid="<%=k%>"
+						data-simid="<%=simid %>"
 						value="Настроить"
 						style="display: initial;" />
 				</div>

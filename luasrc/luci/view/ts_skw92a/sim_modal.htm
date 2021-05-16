@@ -23,74 +23,40 @@ function widgetPopulation(uci_section, uci) {
 	}
 }
 
-function edit_relay(btn) {
+function edit_sim(btn) {
 	var globals_data = {}
-	var relay_id = btn.getAttribute("data-relay") || null;
+	var simid = btn.getAttribute("data-simid") || null;
 	L.require("ui").then(function(ui){
 		L.require("uci").then(function(uci) {
 			uci.load("<%=config%>").then(function(out){
-				globals_data = uci.get("<%=config%>", "globals");
-				var globals = widgetPopulation("globals", uci),
-					relay_data = uci.get("<%=config%>", relay_id),
-					embedded = relay_data["embedded"] == '1' ? true : false
-
-				var proto = new ui.Dropdown(relay_data["proto"], globals("proto"), { 
-					disabled: embedded, 
+				console.log(simid)
+				var sim_data = uci.get("<%=config%>", simid);
+				var comm = new ui.Dropdown('sim0', {'sim0': 'Переключить SIM'} , { 
+					disabled: true, 
 					sort: true });
 
-				var state_on_term = new ui.Textfield(globals("state")["1"], { 
-					optional: false,
-					datatype: "rangelength(2,64)" });
+				var rssi = new ui.Textfield(sim_data["rssi_min"], {
+					datatype: "rangelength(1,2)" });
 
-				var state_off_term = new ui.Textfield(globals("state")["0"], { 
-					optional: false,
-					datatype: "rangelength(2,64)" });
-
-				// Make dropdown for settings.relay.number = 1..16
-				var maxn = globals_data["relay_max_number"] || '0'
-				var rnums = {1: 1}
-				for (var i=1; i <= parseInt(maxn, 10); i++) {
-					rnums[i] = i
-				}
-				var relay_number = new ui.Dropdown(relay_data["number"], rnums, { disabled: embedded, sort: false });
-
-				var dest_addr = new ui.Textfield(relay_data["dest_addr"], { 
-					maxlength: 128, 
-					disabled: embedded,
-					datatype: "host" });
-
-				var dest_addr_port = new ui.Textfield(relay_data["dest_addr"] + ":" + relay_data["dest_port"], { 
-						maxlength: 128, 
-						disabled: embedded,
-						datatype: "hostport"
-					});
+				var timeout = new ui.Textfield(sim_data["timeout"], {
+					datatype: "rangelength(1,4)" });
 
 
 
-				var dest_port = new ui.Textfield(relay_data["dest_port"], { 
-					disabled: embedded,
-					datatype: "port" });
+				var balance_min = new ui.Textfield(sim_data["balance_min"], {
+					datatype: "rangelength(2,4)" });
 
-				var restart_time = new ui.TextFieldStyled(relay_data["restart_time"], { 
-						maxlength: 3, 
-						datatype: "uinteger",
-						htmlStyle: "width: 70px"	
-					});
+				var balance_ussd = new ui.Textfield(sim_data["balance_ussd"], {
+					datatype: "rangelength(3,8)" });
 
-				var login = new ui.TextFieldStyled(relay_data["login"], { 
-					disabled: embedded, 
-					datatype: "rangelength(3,8)",
-					htmlStyle: "width: 150px"
-				});
+				var balance_mask = new ui.Textfield(sim_data["balance_mask"], {
+					datatype: "rangelength(6,128)" });
 
-				var password = new ui.TextFieldStyled(relay_data["password"], { 
-						disabled: embedded, 
-						password: true,
-						datatype: "rangelength(4,16)",
-						htmlStyle: "width: 96px"
-					});
+console.log(sim_data)
 
-				var memo = new ui.Textfield(relay_data["name"], {
+
+
+				var memo = new ui.Textfield(sim_data["name"], {
 					datatype: "rangelength(4,128)" });
 
 
@@ -105,57 +71,44 @@ function edit_relay(btn) {
 									])
 								]),
 								E('div', { class: 'cbi-value' }, [
-									E('label', { 'class': 'cbi-value-title'}, _('Расшифровка состояния') + ":"),
-									E('div', { class: 'cbi-value-field' }, [
-										E('table', {class: 'cbi-2cols'}, [
-											E('tr', [E('td', [state_on_term.render()]), E('td', _(' - соответствует состоянию "Включено"'))]),
-											E('tr', [E('td', [state_off_term.render()]), E('td', _(' - соответствует состоянию "Выключено"'))])
-										])
-									])
-								]),
-								E('div', { class: 'cbi-value' }, [
-									E('label', { 'class': 'cbi-value-title' }, _('Протокол') + ":"),
+									E('label', { 'class': 'cbi-value-title' }, _('Команда') + ":"),
 									E('div', { class: 'cbi-value-field' }, [
 										E('div', { class: 'cbi-value-field-flex'}, [
-											E('div', { class: 'cbi-value-field-1col'}, [proto.render()]),
+											E('div', { class: 'cbi-value-field-1col'}, [comm.render()]),
 											E('div', { class: 'cbi-value-field-2col'}, [
 												E('div', { class: 'table modal-section-param'}, [
 													E('div', {class: 'tr table-titles'}, [
-														E('div', {class: 'th', style: 'width: 100%'}, _("Параметры протокола HTTP")),
+														E('div', {class: 'th', style: 'width: 100%'}, _("Параметры команды")),
 														E('div', {class: 'th'}, _("Значение")),
 													]),
 													E('div', {class: 'tr cbi-rowstyle-1'}, [
-														E('div', {class: 'td'}, "Адрес/порт удалённого реле"),
-														E('div', {class: 'td', style: "text-align: right;"}, [dest_addr_port.render()])
+														E('div', {class: 'td'}, "Уровень сигнала MIN, %"),
+														E('div', {class: 'td', style: "text-align: right;"}, [rssi.render()])
 													]),
 													E('div', {class: 'tr cbi-rowstyle-2'}, [
-														E('div', {class: 'td'}, "Логин"),
-														E('div', {class: 'td', style: "text-align: right;"}, [login.render()])
+														E('div', {class: 'td'}, "Время не в сети MAX, сек"),
+														E('div', {class: 'td', style: "text-align: right;"}, [timeout.render()])
 													]),
 													E('div', {class: 'tr cbi-rowstyle-1'}, [
-														E('div', {class: 'td'}, "Пароль"),
-														E('div', {class: 'td', style: "text-align: right;"}, [password.render()])
+														E('div', {class: 'td'}, "Баланс MIN, руб"),
+														E('div', {class: 'td', style: "text-align: right;"}, [balance_min.render()])
 													])
 												]),
 												E('div', { class: 'table modal-section-param'}, [
-													E('div', {class: 'tr table-titles'}, [
-														E('div', {class: 'th', style: 'width: 100%'}, _("Параметры подключения реле")),
-														E('div', {class: 'th'}, _("Значение")),
+													E('div', {class: 'tr cbi-rowstyle-2'}, [
+														E('div', {class: 'td', style: 'width: 100%'}, _("USSD-команда баланса")),
+														E('div', {class: 'td'}, [balance_ussd.render()]),
 													]),
 													E('div', {class: 'tr cbi-rowstyle-1'}, [
-														E('div', {class: 'td'}, "Номер реле на удалённом устройстве"),
-														E('div', {class: 'td', style: "text-align: right;"}, [relay_number.render()])
-													]),
-													E('div', {class: 'tr cbi-rowstyle-2'}, [
-														E('div', {class: 'td'}, "Время перезагрузки реле"),
-														E('div', {class: 'td', style: "text-align: right;"}, [restart_time.render()])
+														E('div', {class: 'td'}, "Шаблон SMS-сообщенияо балансе"),
+														E('div', {class: 'td', style: "text-align: right;"}, [balance_mask.render()])
 													])
 												]),
 												E('button', {
 													class: 'cbi-button cbi-button-apply',
 													disabled: 'disabled',
 													style: 'display: initial;'
-												}, _('Скрыть параметры подключения реле') )
+												}, _('Скрыть дополнительные параметры') )
 											])
 										])
 									])
@@ -169,26 +122,10 @@ function edit_relay(btn) {
 						E('div', { class: 'btn success', "name": "apply",
 							'click': ui.createHandlerFn(this, function() {
 								// Check all form validity
-								var widget_list = [proto, restart_time, dest_addr, dest_port, relay_number, login, password, state_on_term, state_off_term];
+								var widget_list = [comm, rssi, timeout, balance_min, balance_ussd, balance_mask, memo];
 								var form_valid = true;
-								for(var w of widget_list) {
-									if(!w.isValid()) {
-										form_valid = false
-										break;
-									}
-								}
 								if (form_valid) {
-									relay_data["proto"] = proto.getValue()
-									relay_data["restart_time"] = restart_time.getValue()
-									relay_data["dest_addr"] = dest_addr.getValue()
-									relay_data["dest_port"] = dest_port.getValue()
-									relay_data["number"] = relay_number.getValue()
-									relay_data["login"] = login.getValue()
-									relay_data["password"] = password.getValue()
-									globals_data["state"] = []
-									globals_data["state"][0] = "0." + state_off_term.getValue()
-									globals_data["state"][1] = "1." + state_on_term.getValue()
-									return handleEdit(relay_id, relay_data, globals_data);
+									return handleEdit(simid, sim_data, globals_data);
 								}
 								else {
 									return 0;
@@ -201,7 +138,7 @@ function edit_relay(btn) {
 
 				// Open modal
 				/*
-				L.showModal('Редактировать реле "' + relay_data["name"] +'"', [
+				L.showModal('Редактировать реле "' + sim_data["name"] +'"', [
 					E('div', { class: 'cbi-map', 'style': "margin-top: 1em;" }, [
 						E('div', { class: 'cbi-map-section' }, [
 							E('div', { class: 'cbi-map-section-node' }, [
@@ -267,17 +204,17 @@ function edit_relay(btn) {
 									}
 								}
 								if (form_valid) {
-									relay_data["proto"] = proto.getValue()
-									relay_data["restart_time"] = restart_time.getValue()
-									relay_data["dest_addr"] = dest_addr.getValue()
-									relay_data["dest_port"] = dest_port.getValue()
-									relay_data["number"] = relay_number.getValue()
-									relay_data["login"] = login.getValue()
-									relay_data["password"] = password.getValue()
+									sim_data["proto"] = proto.getValue()
+									sim_data["restart_time"] = restart_time.getValue()
+									sim_data["dest_addr"] = dest_addr.getValue()
+									sim_data["dest_port"] = dest_port.getValue()
+									sim_data["number"] = relay_number.getValue()
+									sim_data["login"] = login.getValue()
+									sim_data["password"] = password.getValue()
 									globals_data["state"] = []
 									globals_data["state"][0] = "0." + state_off_term.getValue()
 									globals_data["state"][1] = "1." + state_on_term.getValue()
-									return handleEdit(relay_id, relay_data, globals_data);
+									return handleEdit(simid, sim_data, globals_data);
 								}
 								else {
 									return 0;
@@ -291,8 +228,8 @@ function edit_relay(btn) {
 		})
 	})
 }
-function handleEdit(relay_id, relay_data, globals_data) {
-	send_action("edit", relay_id, { "relay_data": relay_data, "globals_data": globals_data } )
+function handleEdit(simid, sim_data, globals_data) {
+	send_action("edit", simid, { "sim_data": sim_data, "globals_data": globals_data } )
 }
 //]]>
 </script>
