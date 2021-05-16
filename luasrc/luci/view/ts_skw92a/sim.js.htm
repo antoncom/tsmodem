@@ -3,7 +3,7 @@
 
 function activate_sim(btn) {
 	var action = "switch",
-		relay_id = btn.getAttribute("data-sim"),
+		sim_id = btn.getAttribute("data-simid"),
 		payload = {"sim_data": {}, "globals_data": {}};
 	send_action(action, sim_id, payload);
 }
@@ -23,6 +23,20 @@ function send_action(action, sim_id, payload) {
 			location.assign('<%=luci.dispatcher.build_url("admin", "system", "sim_list")%>');
 		}
 	);
+}
+
+function toggle_more(ev) {
+	var extra_params = document.querySelector(".more-params");
+	var btn = ev.target;
+	if(btn.getAttribute("data-action") == "show") {
+		extra_params.style.display = "block";
+		btn.setAttribute("data-action", "hide")
+		btn.innerHTML = "Основные параметры"
+	} else if(btn.getAttribute("data-action") == "hide") {
+		extra_params.style.display = "none";
+		btn.setAttribute("data-action", "show")
+		btn.innerHTML = "Дополнительные параметры"
+	}
 }
 
 function spinner(element, state) {
