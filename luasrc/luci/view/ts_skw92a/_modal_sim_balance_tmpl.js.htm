@@ -1,0 +1,66 @@
+
+// enable Custom / Default switcher
+function allowTmplEdit() {
+	document.querySelector("[name='allow-tmpl-edit']").style.display = "none"
+	document.querySelector("[name='tmpl-custom']").style.display = "block"
+	document.querySelector("[name='tmpl-default']").style.display = "block"
+	//loadTmplCustom()
+}
+
+// load default templae to textarea
+function loadTmplDefault(eventId=undefined, channelId=undefined) {
+	/*
+	var tmpls = session.getLocalData("custom-alert-templates")
+	var evnt_id = eventId || event.getValue() || undefined
+	var chnl_id = channelId || alert_method.getValue() || undefined
+	alert_template.getTextArea().readOnly = true;
+
+	if(evnt_id && chnl_id) {
+		var storedTmpls = session.getLocalData("default-alert-templates")			
+		alert_template.setValue(storedTmpls[evnt_id][chnl_id])
+	} else {
+		alert_template.setValue("")
+	}
+	*/
+
+	balance_template.getTextArea().readOnly = true;
+	balance_template.setValue("Баланс 100 р.")
+	document.querySelector(".hwt-backdrop").style.backgroundColor = "#bbb";
+	document.querySelector(".hwt-input").style.color = "#666";
+	document.querySelector("[name='tmpl-custom']").style.backgroundImage = "none";
+	document.querySelector("[name='tmpl-default']").style.backgroundImage = "url(/luci-static/resources/icons/check-grey.png)";
+}
+
+// load custom template to textarea
+function loadTmplCustom(eventId=undefined, channelId=undefined) {
+	/*
+	var tmpls = session.getLocalData("custom-alert-templates")
+	var evnt_id = eventId || event.getValue() || undefined
+	var chnl_id = channelId || alert_method.getValue() || undefined
+	alert_template.getTextArea().readOnly = false;
+
+	if(evnt_id && chnl_id) {
+		var storedTmpls = session.getLocalData("custom-alert-templates")
+		alert_template.setValue(storedTmpls[evnt_id][chnl_id] + "\n")
+	} else {
+		alert_template.setValue("")
+	}
+	alert_template.getTextArea().focus()
+	*/
+	balance_template.setValue("Баланс %_RUB_% р.")
+	document.querySelector(".hwt-backdrop").style.backgroundColor = "#666";
+	document.querySelector(".hwt-input").style.color = "#000";
+	balance_template.getTextArea().readOnly = false;
+	balance_template.getTextArea().focus()
+	document.querySelector("[name='tmpl-default']").style.backgroundImage = "none";
+	document.querySelector("[name='tmpl-custom']").style.backgroundImage = "url(/luci-static/resources/icons/check.png)";
+}
+
+function saveTmplCustom(tmpltext, eventId=undefined, channelId=undefined) {
+	var tmpls = session.getLocalData("custom-alert-templates")
+	var evnt_id = eventId || event.getValue() || "1"
+	var chnl_id = channelId || alert_method.getValue() || "sms"
+	tmpls[evnt_id][chnl_id] = tmpltext
+	session.setLocalData("custom-alert-templates", tmpls)
+}
+

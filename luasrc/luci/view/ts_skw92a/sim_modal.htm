@@ -5,6 +5,7 @@
 	local globals = uci:get_all(config, "globals")
 	--util.dumptable(globals)
 %>
+
 <script type="text/javascript">
 //<![CDATA[
 
@@ -50,12 +51,21 @@ function edit_sim(btn) {
 				var balance_mask = new ui.Textfield(sim_data["balance_mask"], {
 					datatype: "rangelength(6,128)" });
 
-console.log(sim_data)
-
-
 
 				var memo = new ui.Textfield(sim_data["name"], {
 					datatype: "rangelength(4,128)" });
+
+				var balance_template = new ui.TextAreaHighlighted("Баланс %_RUB_% р.", { 
+					optional: true,
+					datatype: "rangelength(0,256)",
+					readonly: true,
+					highlights: ["%_RUB_%"]
+				});
+
+<%+ts_skw92a/_modal_sim_balance_tmpl.js%>
+
+				var balance_template_widget = balance_template.render()
+
 
 
 				L.showModal('Редактировать реле', [
@@ -94,12 +104,33 @@ console.log(sim_data)
 												]),
 												E('div', { class: 'table modal-section-param more-params'}, [
 													E('div', {class: 'tr cbi-rowstyle-2'}, [
-														E('div', {class: 'td', style: 'width: 100%'}, _("USSD-команда баланса")),
-														E('div', {class: 'td'}, [balance_ussd.render()]),
+														E('div', {class: 'td', style: 'width: 100%;'}, _("USSD-команда баланса")),
+														E('div', {class: 'td', style: "text-align: right;"}, [balance_ussd.render()]),
 													]),
 													E('div', {class: 'tr cbi-rowstyle-1'}, [
-														E('div', {class: 'td'}, "Шаблон SMS-сообщенияо балансе"),
-														E('div', {class: 'td', style: "text-align: right;"}, [balance_mask.render()])
+														E('div', {class: 'td', style: 'width: 100%; vertical-align: top;'}, "Шаблон SMS-сообщения о балансе"),
+														// E('div', {class: 'td', style: "text-align: right;"}, [balance_mask.render()])
+														E('div', { class: 'td' }, [
+															E('div', { class: 'cbi-value-field message-template' }, [
+																balance_template_widget,
+
+																E('a', { 
+																	name: 'tmpl-default',
+																	style: 'color: grey;',
+																	click: ui.createHandlerFn(this, function() {
+																		return loadTmplDefault();
+																	})
+																}, _('Оригинал')),
+																E('a', { 
+																	name: 'tmpl-custom',
+																	style: '',
+																	click: ui.createHandlerFn(this, function() {
+																		return loadTmplCustom();
+																	})
+																}, _('Шаблон')),
+
+															]),
+														]),
 													])
 												]),
 												E('button', {

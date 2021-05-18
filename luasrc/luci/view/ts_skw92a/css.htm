@@ -1,5 +1,6 @@
 <style type="text/css">
 	@import url('/luci-static/resources/ts_skw92a/fonts/fonts.css');
+	@import url('/luci-static/resources/ts_skw92a/jquery/jquery.highlight-within-textarea.css');
 
 
 	.btn_spinner {
@@ -31,8 +32,9 @@
 	max-width: 1000px;
 }
 
-.message-template {
-	width: 70%;
+.message-template,
+.cbi-value-field .message-template {
+	margin-left: 0px;
 }
 
 #modal_overlay .modal > * {
@@ -162,7 +164,7 @@ a[name='tmpl-default'], a[name='tmpl-custom'] {
     margin-left: 12px;
 	text-decoration: underline; 
 	float: right; 
-	display: none; 
+	display: block; 
 	cursor: pointer;
 	background-repeat: no-repeat;
 }
