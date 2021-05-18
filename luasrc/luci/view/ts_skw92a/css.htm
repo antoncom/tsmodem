@@ -239,7 +239,8 @@ a[name='tmpl-default'], a[name='tmpl-custom'] {
 	font-weight: bold;
 }
 
-.cbi-value-title.memo-edit {
+.cbi-value-title.memo-edit,
+.cbi-value-title.memo-view {
 	margin-top: 10px;
 }
 
@@ -248,7 +249,8 @@ a[name='tmpl-default'], a[name='tmpl-custom'] {
 	width: auto;
 }
 
-.cbi-value-field.memo-edit div input {
+.cbi-value-field.memo-edit div input,
+.cbi-value-field.memo-view div input {
 	border: 1px solid #333;
 	height: 45px;
 	background-color: #4C4C4C;
@@ -259,6 +261,13 @@ a[name='tmpl-default'], a[name='tmpl-custom'] {
 	font-size: 24px;
 	color: #FFFFFF;
 	padding-left: 20px;
+}
+
+.cbi-value-field.memo-view div input {
+	border: none;
+	background-color: white;
+	color: #444;
+	box-shadow: none;
 }
 
 .cbi-value-field table.cbi-2cols tr td {

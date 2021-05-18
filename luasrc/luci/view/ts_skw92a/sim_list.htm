@@ -7,6 +7,7 @@
 <%+ts_skw92a/ui_overrides/TextFieldStyled.js%>
 <%+ts_skw92a/sim.js%>
 <%+ts_skw92a/sim_modal%>
+<%+ts_skw92a/modal_switch_sim%>
 
 
 <% --[[=========== UI WIDGETS ==========]] %>
@@ -96,7 +97,7 @@
 				</div>
 				<div class="nowrap cbi-section-actions td" style="text-align: right;">
 					<input type="button" class="cbi-button cbi-button-apply"
-						onclick="activate_sim(this)"
+						onclick="switch_sim(this)"
 						data-simid="<%=simid %>"
 						value="Активировать"
 						<%
