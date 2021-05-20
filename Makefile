@@ -1,16 +1,17 @@
-SHELL := /bin/bash
+# Copyright 2017-2020 Dirk Brenken (dev@brenken.org)
+# This is free software, licensed under the Apache License, Version 2.0
 
-VM ?= openwrt.vm
-DST ?= /root/ts_luci_skw92a/
+include $(TOPDIR)/rules.mk
 
-install:
-	@echo "== Install ts_luci_skw92a"
-	@cp -fR luasrc/* /usr/lib/lua/
-	@cp -fR www/* /www/
-	@cp -fR root/etc/* /etc/
-	@/etc/init.d/uhttpd restart
+LUCI_TITLE:=LuCI TechnoSkver RTR01
+LUCI_DEPENDS:=+luci-compat
+LUCI_DESCRIPTION:=Double SIM management for Skw92A with Sim7600 modem integration.
+LUCI_PKGARCH:=all
 
-deploy:
-	@echo "== Deploy project to VM"
-	@rsync -avP . $(VM):$(DST) > /dev/null
-	@ssh $(VM) "cd $(DST) && make install"
+PKG_VERSION:=0.0.1
+PKG_LICENSE:=GPL-3.0-or-later
+
+include /home/anton/lua_projects/SKW92A/MAKING_A_PACKAGE/openwrt-sdk-19.07.7-ramips-mt76x8_gcc-7.5.0_musl.Linux-x86_64/feeds/luci/luci.mk
+# include ../../luci.mk
+
+# call BuildPackage - OpenWrt buildroot signature
