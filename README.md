@@ -41,5 +41,5 @@ OpenWrt LuCI page for Sim7600 modem management.
 3. make install
 4. Установить пакет luci_compat при помощи следующих команд:
 * **opkg update**
-* **opkg install luci_compat**
+* **opkg install luci-compat**
 5. Перезапустить виртуальную машину
