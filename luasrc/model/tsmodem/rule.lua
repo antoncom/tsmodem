@@ -14,13 +14,13 @@ local rule_setting = {
 		id = "action",
 		source = {
 			model = "tsmodem.driver",
-			proto = "STM32",
-			command = "~0:SIM.SEL=%_sim_id_%",
+			proto = "CUSTOM",
+			command = "switch",
 			params = {"sim_id"}
 		},
 		target = {
 			value = "",
-			state = false
+			ready = false
 		},
 		modifier = {
 			["1_logicfunc"] = "is_reg == 0"
@@ -35,7 +35,7 @@ local rule_setting = {
 		},
 		target = {
 			value = "",
-			state = false
+			ready = false
 		},
 		modifier = {
 			["1_formula"] = "tonumber(sim_id) + 1 - 2 * tonumber(sim_id) / 1"
@@ -50,7 +50,7 @@ local rule_setting = {
 		},
 		target = {
 			value = "",
-			state = false
+			ready = false
 		},
 		modifier = {
 			["1_parser"] = "tsmodem.parser.creg",
@@ -118,21 +118,37 @@ function rule:make()
 	-- Populate vars
 	self:populate(self.setting.sim_id)
 	self:populate(self.setting.is_reg)
-	--self:populate(self.setting.action)
+	self:populate(self.setting.action)
 
-end
-
-function rule:fresh()
-	-- Clear all values' target.value
-	-- Then, in next loop make() will be run again
 end
 
 function rule:populate(varlink)
 	local ubus_obj = varlink.source.model
-	local resp = self.conn:call(ubus_obj, "get", { command = varlink.source.command, proto = varlink.source.proto })
+	local command = ''
+	local body = {}
+
+	-- Add params to UBUS call
+	if(varlink.source.params) then
+		for i, param in varlink.source.params do
+			body[param] = rule.setting[param] and rule.setting[param].target.value
+		end
+	end
+
+	-- Choose UBUS method
+	if(varlink.source.proto == "CUSTOM") then
+		command = varlink.source.command
+
+	else if(util.contains({"AT", "STM32"}, varlink.source.proto)) then
+		command = varlink.source.proto
+		body["command"] = varlink.source.command
+	end
+		
+	-- Call UBUS
+	local resp = self.conn:call(ubus_obj, command, body)
 
 	varlink.target.value = resp[varlink.source.command]
 	varlink.target.value = rule:modify(varlink)
+	varlink.target.ready = true
 	print(varlink.id .. ".target.value = ", varlink.target.value)
 	
 end
@@ -144,7 +160,8 @@ function rule:modify(varlink)
 		if(name:sub(3) == "formula") then
 			-- parse formula, and execute
 			local formula = val
-			local luacode = "return(" .. string.gsub(formula, varlink.id, varlink.target.value) .. ")"
+			--local luacode = "return(" .. string.gsub(formula, varlink.id, varlink.target.value) .. ")"
+			local luacode = string.format("return(%s)", string.gsub(formula, varlink.id, varlink.target.value))
 			local result = loadstring(luacode)()
 			print("SIM_ID after formula:", result)
 			return result

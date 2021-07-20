@@ -81,44 +81,42 @@ function modem:make_ubus()
 			},
 			reg = {
 				function(req, msg)
-					local chunk, err, errcode = U.write(self.fds, "AT+CREG=2\r\nAT+CREG?\r\n")
+					--local chunk, err, errcode = U.write(self.fds, "AT+CREG=2\r\nAT+CREG?\r\n")
+					local chunk, err, errcode = U.write(self.fds, "AT+CREG?\r\n")
 					self.conn:reply(req, {rssi="chunk"});			
 				end, {id = ubus.INT32, msg = ubus.STRING }
 			},
-			get = {
+			AT = {
 				function(req, msg)
-					local resp = {}
-					if not (msg["proto"] and msg["command"]) then 
-						resp = { answer = "'proto' and 'command' are required to get result." } 
-						self.conn:reply(req, resp)
-						return
-					end
+					--local s = modem:stm32comm(msg["command"]) or self.conn:reply(req, {answer = "Unable to " .. msg["command"]})
+					local chunk, err, errcode = U.write(self.fds, msg["command"] .. "\r\n")
+					socket.sleep(0.3)
+					
+					local chunk, err, errcode = U.read(self.fds, 128)
+					resp = {[msg.command] = chunk}
 
-					if(msg["proto"] == "STM32") then
-						local s = modem:stm32comm(msg["command"]) or self.conn:reply(req, {answer = "Unable to " .. msg["command"]})
-						resp = {[msg.command] = s}
-					end
+					self.conn:reply(req, resp);
+				end, {id = ubus.INT32, msg = ubus.STRING }
+			},
+			STM32 = {
+				function(req, msg)
 
-					if(msg["proto"] == "AT") then
-						--local s = modem:stm32comm(msg["command"]) or self.conn:reply(req, {answer = "Unable to " .. msg["command"]})
-						local chunk, err, errcode = U.write(self.fds, msg["command"] .. "\r\n")
-						socket.sleep(0.3)
-						local chunk, err, errcode = U.read(self.fds, 128)
-						resp = {[msg.command] = chunk}
-					end
+					local s = modem:stm32comm(msg["command"]) or self.conn:reply(req, {answer = "Unable to " .. msg["command"]})
+					resp = {[msg.command] = s}
 
-					self.conn:reply(req, resp);						
+					self.conn:reply(req, resp);
 				end, {id = ubus.INT32, msg = ubus.STRING }
 			},
 			switch = {
 				function(req, msg)
+					log("switch", msg)
 					-- AT: stop AT-protocol requests
-					-- and clos modem port
+					-- and disconnect the driver from the modem port /dev/ttyUSB2
 					modem:unpoll()
 					socket.sleep(0.5)
 
 					-- STM: switch sim-card
-					modem:switch()
+					modem:switch(msg["sim_id"])
 			
 					-- TODO
 					-- Make "dmesg" reading to make delay smaller
@@ -126,16 +124,12 @@ function modem:make_ubus()
 					socket.sleep(12)
 					--
 
-					-- Reconnetc to the modem port, start polling
+					-- Reconnetc the driver to the modem port, start polling
 					modem:init()
 					modem:poll()
 
-				end, {id = ubus.INT32, msg = ubus.STRING }
-			},
-			phone = {
-				function(req, msg)
-					local chunk, err, errcode = U.write(self.fds, "ATD+79030507175;\r\n")
-					self.conn:reply(req, {message="ATD+79030507175;"});			
+					resp = {["switch"] = "ok"}
+					self.conn:reply(req, resp);
 				end, {id = ubus.INT32, msg = ubus.STRING }
 			},
 	    	-- You get notified when someone subscribes to a channel
@@ -146,15 +140,15 @@ function modem:make_ubus()
 	}
 	self.conn:add( ubus_objects )
 	self.ubus_objects = ubus_objects
+
 end
 
-function modem:switch()
-	local s = modem:stm32comm("~0:SIM.SEL=?") or log("Unable to ~0:SIM.SEL=?")
-	if(s == "0") then
-		s = modem:stm32comm("~0:SIM.SEL=1") or log("Unable to ~0:SIM.SEL=1")
-	elseif(s == "1") then
-		s = modem:stm32comm("~0:SIM.SEL=0") or log("Unable to ~0:SIM.SEL=0")
-	else return false end
+function modem:switch(sim_id)
+	print("modem:switch - sim_id", sim_id)
+	local s = modem:stm32comm("~0:SIM.SEL=" .. sim_id) or (function()
+		log("Unable to ~0:SIM.SEL=" .. sim_id)
+		return false
+	end)()
 	
 	socket.sleep(0.2)
 

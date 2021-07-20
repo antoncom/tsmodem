@@ -1,24 +1,29 @@
 
+require "os"
+require "ubus"
+
 local util = require "luci.util"
 local log = require "luci.model.tsmodem.util.log"
 local uloop = require "uloop"
 local flist = require "luci.model.tsmodem.util.filelist"
+local uci = require "luci.model.uci".cursor()
+
+local config = "msmodem"
 
 
 local rules = {}
 local rules_setting = {
 	name = "Группа правил управления модемом",
 	rules_list = {
-		id = "rules_lst",
+		id = "rules_list",
 		source = {
 			model = "tsmodem.rule",
 			proto = "UBUS",
 			command = "list"
 		},
 		target = {
-			value = {},
-			state = false
-		}
+			value = {}
+		},
 	},
 	tick_size_default = 2000
 }
@@ -36,20 +41,23 @@ function rules:make_ubus()
 				function(req, msg)
 					local rule_list = {}
 					-- TODO create a list of all rules, when the "group rules" functionality will be done
-					rule_list["name"] = self.setting.name
-					log("RULE_LIST", rule_list)
+					rule_list = self.setting
+					--log("RULE_LIST", rule_list)
 					--------------------------------
-					self.conn:reply(req, rule_list);
+					self.conn:reply(req, { rule_list = "0" })
+
 				end, {id = ubus.INT32, msg = ubus.STRING }
 			},
 	    	-- You get notified when someone subscribes to a channel
 			__subscriber_cb = function( subs )
-				print("RULE - total subs: ", subs )
+				print("*************RULE - total subs: ", subs )
 			end
-		}
+		},
 	}
 	self.conn:add( ubus_object )
 	self.ubus_object = ubus_object
+
+
 end
 
 
@@ -66,12 +74,15 @@ function rules:make()
 	end	
 end
 
+
 function rules:run_all(varlink)
 	-- run each rule
 	local rules = self.setting.rules_list.target.value
 	local state = ''
 	for name, rule in util.kspairs(rules) do
-		state = rule()
+		-- Initiate rule with link to the present (parent) module
+		-- Then the rule can send notification on the ubus object of parent module
+		state = rule(self)
 	end
 end
 

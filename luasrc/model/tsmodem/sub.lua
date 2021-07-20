@@ -3,6 +3,9 @@
 require "ubus"
 require "uloop"
 
+local log = require "luci.model.tsmodem.util.log"
+
+
 lpeg = require 'lpeg'
 
 CSQ = lpeg.P("\r\n")^0 * lpeg.P('+CSQ: ') *
@@ -30,8 +33,16 @@ local sub = {
 	end,
 }
 
+
+conn:subscribe("tsmodem.rule", {
+	notify = function(msg, name)
+		print("Event", name)
+		log("data", msg)
+	end
+})
+
 -- this is the call that does the subscribing
-conn:subscribe("tsmodem.driver", sub)
+-- conn:subscribe("tsmodem.driver", sub)
 
 
 uloop.run()

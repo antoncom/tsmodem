@@ -4,23 +4,33 @@ local uci = require "luci.model.uci".cursor()
 local util = require "luci.util"
 local log = require "luci.model.tsmodem.util.log"
 
+local ubus = require "ubus"
+
 local rule = {}
+rule.ubus = {}
+
 local rule_setting = {
 	name = "Переключить если не в сети",
+	id = "1_rule",
 	action = {
 		id = "action",
 		source = {
 			model = "tsmodem.driver",
-			proto = "STM32",
-			command = "~0:SIM.SEL=%_sim_id_%",
+			proto = "CUSTOM",
+			command = "switch",
 			params = {"sim_id"}
 		},
 		target = {
 			value = "",
-			state = false
+			ready = false
 		},
 		modifier = {
-			["1_logicfunc"] = "is_reg == 0"
+			["1_logicfunc"] = "if (is_reg == 0) then return true else return false end",
+			["2_event"] = {
+				ubus_name = "tsmodem.rule",
+				event_name = "sim_card_switched",
+				param_list = { "sim_id" },
+			}
 		}
 	},
 	sim_id = {
@@ -32,10 +42,10 @@ local rule_setting = {
 		},
 		target = {
 			value = "",
-			state = false
+			ready = false
 		},
 		modifier = {
-			["1_formula"] = "tonumber(sim_id) + 1 - 2 * tonumber(sim_id) / 1"
+			["1_formula"] = "return(sim_id + 1 - 2 * sim_id / 1)"
 		}
 	},
 	is_reg = {
@@ -47,80 +57,137 @@ local rule_setting = {
 		},
 		target = {
 			value = "",
-			state = false
+			ready = false
 		},
 		modifier = {
 			["1_parser"] = "tsmodem.parser.creg",
+			["2_formula"] = "if (is_reg == 1) then return '1' else return '0' end",
+			["3_event"] = {
+				ubus_name = "tsmodem.rule",
+				event_name = "is_reg_monitor",
+				param_list = { "is_reg" },
+			}
 		}
 	}
 }
 
 
-
 function rule:populate(varlink)
 	local ubus_obj = varlink.source.model
-	local resp = self.conn:call(ubus_obj, "get", { command = varlink.source.command, proto = varlink.source.proto })
+	local command = ''
+	local body = {}
 
-	varlink.target.value = resp[varlink.source.command]
-	varlink.target.value = rule:modify(varlink)
-	print(varlink.id .. ".target.value = ", varlink.target.value)
-	
+	-- Add params to UBUS call
+	if(varlink.source.params) then
+		for _, param in pairs(varlink.source.params) do
+			body[param] = rule.setting[param] and rule.setting[param].target.value
+		end
+	end
+
+	-- Choose UBUS method
+	if(varlink.source.proto == "CUSTOM") then
+		command = varlink.source.command
+
+	elseif(util.contains({"AT", "STM32"}, varlink.source.proto)) then
+		command = varlink.source.proto
+		body["command"] = varlink.source.command
+	end
+		
+	-- Call UBUS only if 'logicfunc' modifier is absent or returns true
+	local resp = ''
+	if(rule:logic(varlink) == true) then
+		resp = self.conn:call(ubus_obj, command, body)
+		varlink.target.value = resp[varlink.source.command]
+
+	-- Apply modifiers
+		rule:modify(varlink)
+		varlink.target.ready = true
+	end
 end
 
-function rule:modify(varlink)
-	local modifier = varlink.modifier
-	for name, val in util.kspairs(modifier) do
+-- Logic modifier realization
+function rule:logic(varlink) --[[
+	Substitute values instead variables
+	and check logic expression
+	]]
+	local modifier = varlink.modifier or {}
+	local result = true
+	local logic, luacode = '', ''
 
+	for mdf_name, mdf_val in util.kspairs(modifier) do
+		if(mdf_name:sub(3) == "logicfunc") then
+			logic = mdf_val
+			-- Iterate all variables and substitute its values to logic function
+			for varname, _ in pairs(self.setting) do
+				if(self.setting[varname].target) then
+					logic = logic:gsub(varname, self.setting[varname].target.value)
+				end
+			end
+			local luacode = logic
+			result = loadstring(luacode)() or false
+			break
+		end
+	end
+	return result	
+end
+
+
+function rule:modify(varlink) --[[
+	Apply modifiers
+	-------------]]
+	local modifier = varlink.modifier or {}
+	for name, val in util.kspairs(modifier) do
 		if(name:sub(3) == "formula") then
 			-- parse formula, and execute
 			local formula = val
-			local luacode = "return(" .. string.gsub(formula, varlink.id, varlink.target.value) .. ")"
-			local result = loadstring(luacode)()
-			print("SIM_ID after formula:", result)
-			return result
+			print("FORMULA", varlink.id)
+			log("VALUE", varlink.target.value)
+			local luacode = string.gsub(formula, varlink.id, varlink.target.value)
+			varlink.target.value = loadstring(luacode)() or ""
 		end
 
 		if(name:sub(3) == "parser") then
 			local parser = val
-			local result = require("luci.model." .. parser):match(varlink.target.value)
-			return  result
+			varlink.target.value = require("luci.model." .. parser):match(varlink.target.value) or ""
 		end
 
-		if(name:sub(3) == "logicfunc") then
-			-- parse logicfunc and execute
-			-- return result
+		if(name:sub(3) == "event") then
+			local event_name, ubus_name, params_list = '', '', varlink.modifier[name].param_list
+			ubus_name = varlink.modifier[name].ubus_name
+			event_name = varlink.modifier[name].event_name
+
+			-- Prepare params to send with notification for ubus
+			local params = {}
+			for i=1, #params_list do
+				params[params_list[i]] = self.setting[params_list[i]].target.value
+			end
+
+			self.conn:notify(self.ubus[ubus_name].__ubusobj, event_name, params)
 		end
+
 	end
 end
 
 function rule:make()
 	-- Populate variables from their source
-	-- During this process, apply logicfunc and formulas
-	-- Run infinit loop to repeat again
+	-- During this process, apply logicfunc and other modifiers
 
-	-- Populate vars
+	-- Populate vars and apply modifiers
 	self:populate(self.setting.sim_id)
 	self:populate(self.setting.is_reg)
-	--self:populate(self.setting.action)
+	-- Do action
+	self:populate(self.setting.action)
 
-end
-
-function rule:fresh()
-	-- Clear all values' target.value
-	-- Then, in next loop make() will be run again
 end
 
 local metatable = { 
-	__call = function(table)
+	__call = function(table, parent)
 		table.setting = rule_setting
-		
-		table.conn = ubus.connect()
-		if not table.conn then
-			error("rules() - Failed to connect ubus")
-		end
+
+		table.ubus = parent.ubus_object
+		table.conn = parent.conn
 		
 		table:make()
-		table.conn:close()
 
 		return table
 	end
