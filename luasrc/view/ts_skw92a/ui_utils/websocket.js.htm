@@ -1,0 +1,154 @@
+<script type="text/javascript">
+//<![CDATA[
+	window.addEventListener('DOMContentLoaded',function(e) {
+
+		var network_state = {
+			"0": ["Сеть недоступна", "NOT REGISTERED"],
+			"1": ["Активно", "REGISTERED"],
+			"2": ["Поиск сети", "SEARCHING"],
+			"3": ["Отказ в регистрации", "DENIED"],
+			"4": ["Неизвестно", "UNKNOWN"],
+			"5": ["Активно-роуминг", "ROAMING"],
+			"6": ["Не активна", "OK"],
+			"7": ["Переключение СИМ-карты", "OK"]
+		}
+
+
+		function sleep(ms) {
+		  return new Promise(resolve => setTimeout(resolve, ms));
+		}
+
+		function animationWrapper(str) {
+			var html = ''
+			str = "" + str
+			for (c=0; c < str.length; c++) {
+				html = html + '<span class="anime">' + str[c] + '</span>'
+			}
+			return(html)
+		}
+
+		async function update_with_animation(sim_id, varname, ui_data) {
+			var placeholder = '#simid-' + sim_id + ' .' + varname
+			var rendered = document.querySelector(placeholder)
+			
+			if(varname == "network_registration") {
+				var bgIcon_Y = -(ui_data[varname] * 15) // see www/luci-static/resources/ts_skw92a/img/icon_reg_status.png
+				rendered.innerHTML = '<i style="background-position: 0 ' + bgIcon_Y + 'px;">' + animationWrapper(network_state[ui_data[varname]][0]) + "</i>"
+			} else if (varname == "level" || varname == "error") {
+				rendered.innerHTML = animationWrapper(ui_data[varname] + " %")
+			} else if (varname == "balance") {
+				var balance_date = '<br><small>' + ui_data[balance_date] + '</small>'
+				rendered.innerHTML = animationWrapper(ui_data[varname] + " руб.") + balance_date;
+			}
+
+
+			$(placeholder + ' .anime').each(function() {
+				var that = $(this);
+			    setTimeout(function() { 
+			        that.animate({ fontSize: "15px", "font-weight": 900 }, 210 )
+			            .animate({ fontSize: "13px", "font-weight": 100 }, 210 );
+			    },that.index()*70);
+			});	
+
+			//await sleep(1000)
+		}
+
+		function update_journal(raw_data) {
+			var raw_html = `<div class="tr cbi-rowstyle-0">
+								<div class="td" data-title="Дата / время">
+									<b>{date}</b><i>{time}</i>
+								</div>
+								<div class="td" data-title="Событие">
+									{name}
+								</div>
+								<div class="td" data-title="Источник">
+									{source}
+								</div>
+								<div class="td" data-title="Команда">
+									{command}
+								</div>
+								<div class="td" data-title="Ответ">
+									{response}
+								</div>
+							</div>`
+			var journal = document.querySelector(".journal")
+			var journal_header = document.querySelector(".journal .table-titles")
+			var date = '', time = '';
+
+
+			for(var key in raw_data) {
+				var find = '\{' + key + '\}';
+				var re = new RegExp(find, 'g');
+
+				if(key == "datetime") {
+					date = raw_data["datetime"].split(" ")[0]
+					time = raw_data["datetime"].split(" ")[1]
+					raw_html = raw_html.replace(/\{date\}/, date)
+					raw_html = raw_html.replace(/\{time\}/, time)
+				} else if(key == "response") {
+					if(raw_data['response'].match(/^[0-9]+$/) != null) {
+						if(raw_data['response'] == 1) {
+							raw_html = raw_html.replace(re, '<span class="response REGISTERED">' + network_state[raw_data['response']][1]) + '</span>'
+
+						} else {
+							raw_html = raw_html.replace(re, network_state[raw_data['response']][1])
+						}
+					} else {
+						raw_html = raw_html.replace(re, "NOT PARSED")
+					}
+				} else {
+					raw_html = raw_html.replace(re, raw_data[key])
+				}
+			}
+			journal_header.insertAdjacentHTML('afterend', raw_html)
+		}
+
+
+
+	    window.socket = new WebSocket('ws://192.168.0.20:7890');
+	    try {
+		    window.socket.onopen = function(event) {
+		        
+		    };
+		    window.socket.onmessage = function(event) {
+		        //console.log(event.data)
+		        
+		        // Parse data received from Websocket
+		        // Update UI elements
+
+		        
+		        var ui_data = JSON.parse(event.data)
+				
+				var sim_id = ui_data["sim_id"] || false
+				if(sim_id) {
+					for(var k in ui_data) {
+			        	if(k != "sim_id") {
+			        		update_with_animation(sim_id, k, ui_data)
+			        	} 
+			        }	
+				}
+
+				if (ui_data["journal"] != undefined) {
+					update_journal(ui_data["journal"])
+				}
+				
+				
+		    };
+		    window.socket.onclose = function(event) {
+		        update_with_animation("0", "network_registration", {"network_registration": "4"})
+		        update_with_animation("1", "network_registration", {"network_registration": "4"})
+		    };
+
+		} catch (exception) {
+	    	console.log('Error' + exception)
+	        update_with_animation("0", "network_registration", {"network_registration": "4"})
+	        update_with_animation("1", "network_registration", {"network_registration": "4"})
+	    }
+
+
+
+
+
+	},true);
+//]]>
+</script>

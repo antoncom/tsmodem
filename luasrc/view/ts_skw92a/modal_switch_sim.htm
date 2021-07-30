@@ -26,10 +26,25 @@ function widgetPopulation(uci_section, uci) {
 function switch_sim(btn) {
 	var globals_data = {}
 	var simid = btn.getAttribute("data-simid") || null;
+
+	console.log("switch to ", simid)
+
+	var xhr = new XHR(false);
+	xhr.post('<%=luci.dispatcher.build_url("admin", "system", "sim_list", "action")%>/'+ '%h/%h'.format("switch", simid), {"sim_data": []},
+		function (x) {
+			if (!x) {
+				return;
+			}
+			//location.assign('<%=luci.dispatcher.build_url("admin", "system", "sim_list")%>');
+		}
+	);
+
+
+	//window.socket.send('{"event": "switch-sim", "simid": "' + simid + '"}')
 	L.require("ui").then(function(ui){
 		L.require("uci").then(function(uci) {
 			uci.load("<%=config%>").then(function(out){
-				var sim_data = uci.get("<%=config%>", simid);
+				var sim_data = uci.get("<%=config%>", "sim_" + simid);
 				var memo = new ui.Textfield(sim_data["name"], {
 					disabled: true
 				});

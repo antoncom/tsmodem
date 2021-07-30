@@ -3,6 +3,8 @@ local lpeg = require "lpeg"
 local uci = require "luci.model.uci".cursor()
 local util = require "luci.util"
 local log = require "luci.model.tsmodem.util.log"
+local sys  = require "luci.sys"
+
 
 local ubus = require "ubus"
 
@@ -18,19 +20,21 @@ local rule_setting = {
 			model = "tsmodem.driver",
 			proto = "CUSTOM",
 			command = "switch",
-			params = {"sim_id"}
+			params = {"sim_id_switch_to"}
 		},
 		target = {
 			value = "",
 			ready = false
 		},
 		modifier = {
-			["1_logicfunc"] = "if (is_reg == 0) then return true else return false end",
+			["1_logicfunc"] = "if (network_registration == 0) then return true else return false end",
+			--[[
 			["2_event"] = {
 				ubus_name = "tsmodem.rule",
 				event_name = "sim_card_switched",
-				param_list = { "sim_id" },
+				param_list = { "sim_id_switch_to" },
 			}
+			]]
 		}
 	},
 	sim_id = {
@@ -43,13 +47,25 @@ local rule_setting = {
 		target = {
 			value = "",
 			ready = false
-		},
-		modifier = {
-			["1_formula"] = "return(sim_id + 1 - 2 * sim_id / 1)"
 		}
 	},
-	is_reg = {
-		id = "is_reg",
+	sim_id_switch_to = {
+		id = "sim_id_switch_to",
+		source = {
+			model = "tsmodem.driver",
+			proto = "STM32",
+			command = "~0:SIM.SEL=?"
+		},
+		target = {
+			value = "",
+			ready = false
+		},
+		modifier = {
+			["1_formula"] = "return(tostring(sim_id_switch_to + 1 - 2 * sim_id_switch_to / 1))"
+		}
+	},
+	network_registration = {
+		id = "network_registration",
 		source = {
 			model = "tsmodem.driver",
 			proto = "AT",
@@ -61,11 +77,9 @@ local rule_setting = {
 		},
 		modifier = {
 			["1_parser"] = "tsmodem.parser.creg",
-			["2_formula"] = "if (is_reg == 1) then return '1' else return '0' end",
-			["3_event"] = {
-				ubus_name = "tsmodem.rule",
-				event_name = "is_reg_monitor",
-				param_list = { "is_reg" },
+			["2_formula"] = 'if ("network_registration" == "") then return "6" else return "network_registration" end',
+			["3_ui-update"] = {
+				param_list = { "network_registration", "sim_id" }
 			}
 		}
 	}
@@ -120,10 +134,12 @@ function rule:logic(varlink) --[[
 			-- Iterate all variables and substitute its values to logic function
 			for varname, _ in pairs(self.setting) do
 				if(self.setting[varname].target) then
-					logic = logic:gsub(varname, self.setting[varname].target.value)
+					logic = logic:gsub(varname, self.setting[varname].target.value) or ""
 				end
 			end
+
 			local luacode = logic
+
 			result = loadstring(luacode)() or false
 			break
 		end
@@ -140,15 +156,16 @@ function rule:modify(varlink) --[[
 		if(name:sub(3) == "formula") then
 			-- parse formula, and execute
 			local formula = val
-			print("FORMULA", varlink.id)
-			log("VALUE", varlink.target.value)
-			local luacode = string.gsub(formula, varlink.id, varlink.target.value)
+			local fval = varlink.target.value or ''
+			local luacode = string.gsub(formula, varlink.id, fval) or "return(false)"
 			varlink.target.value = loadstring(luacode)() or ""
 		end
 
 		if(name:sub(3) == "parser") then
 			local parser = val
-			varlink.target.value = require("luci.model." .. parser):match(varlink.target.value) or ""
+			local mval = varlink.target.value or ""
+			mval = require("luci.model." .. parser):match(mval) or ""
+			varlink.target.value = mval
 		end
 
 		if(name:sub(3) == "event") then
@@ -165,8 +182,25 @@ function rule:modify(varlink) --[[
 			self.conn:notify(self.ubus[ubus_name].__ubusobj, event_name, params)
 		end
 
+		if(name:sub(3) == "ui-update") then
+
+			local ui_data, params_list = '', varlink.modifier[name].param_list
+			-- Prepare params to send to UI
+			local params = {}
+			for i=1, #params_list do
+				params[params_list[i]] = self.setting[params_list[i]].target.value
+			end
+
+			ui_data = util.serialize_json(params)
+			sys.exec(string.format("echo '%s' > /tmp/wspipein.fifo", ui_data))
+		end
+
 	end
 end
+
+
+
+
 
 function rule:make()
 	-- Populate variables from their source
@@ -174,7 +208,7 @@ function rule:make()
 
 	-- Populate vars and apply modifiers
 	self:populate(self.setting.sim_id)
-	self:populate(self.setting.is_reg)
+	self:populate(self.setting.network_registration)
 	-- Do action
 	self:populate(self.setting.action)
 
@@ -186,8 +220,7 @@ local metatable = {
 
 		table.ubus = parent.ubus_object
 		table.conn = parent.conn
-		
-		table:make()
+		table:make()		
 
 		return table
 	end

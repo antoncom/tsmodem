@@ -19,10 +19,12 @@ local U = require "posix.unistd"
 local socket = require "socket"
 
 
-local config = "ts_modem"
+local config = "tsmodem"
 local section = "sim"
+
 local modem = {}
 modem.loaded = {}
+modem.tick_size = 200
 
 function modem:init_mk()
 	local sys  = require "luci.sys"
@@ -95,6 +97,8 @@ function modem:make_ubus()
 					local chunk, err, errcode = U.read(self.fds, 128)
 					resp = {[msg.command] = chunk}
 
+					modem:notify("AT", { command = msg["command"], response = chunk })
+
 					self.conn:reply(req, resp);
 				end, {id = ubus.INT32, msg = ubus.STRING }
 			},
@@ -109,24 +113,29 @@ function modem:make_ubus()
 			},
 			switch = {
 				function(req, msg)
-					log("switch", msg)
 					-- AT: stop AT-protocol requests
+					log('msg["sim_id"]', msg["sim_id"])
 					-- and disconnect the driver from the modem port /dev/ttyUSB2
-					modem:unpoll()
+--					modem:unpoll()
+					
+					local ok, errmsg = U.close(self.fds)
+					if not ok then error (errmsg) end
+					
 					socket.sleep(0.5)
 
 					-- STM: switch sim-card
 					modem:switch(msg["sim_id"])
+						
 			
 					-- TODO
 					-- Make "dmesg" reading to make delay smaller
 					-- and to ensure that serial port is ready
-					socket.sleep(12)
+					socket.sleep(15)
 					--
 
 					-- Reconnetc the driver to the modem port, start polling
 					modem:init()
-					modem:poll()
+--					modem:poll()
 
 					resp = {["switch"] = "ok"}
 					self.conn:reply(req, resp);
@@ -144,11 +153,21 @@ function modem:make_ubus()
 end
 
 function modem:switch(sim_id)
+	if not sim_id then return end
+
 	print("modem:switch - sim_id", sim_id)
 	local s = modem:stm32comm("~0:SIM.SEL=" .. sim_id) or (function()
 		log("Unable to ~0:SIM.SEL=" .. sim_id)
 		return false
 	end)()
+
+	modem:notify("STM32", { command = "~0:SIM.SEL=" .. sim_id, response = "OK" })
+
+	local uci_result, section = false, "sim_" .. sim_id
+	uci_result = uci:set("tsmodem", "sim_0", "status", "0")-- or error('uci set error: ' .. "tsmodem" .. ' sim_0 status => 0')
+	uci_result = uci:set("tsmodem", "sim_1", "status", "0")--  or error('uci set error: ' .. "tsmodem" .. ' sim_1 status => 0')
+	uci_result = uci:set("tsmodem", section , "status", sim_id)--  or error('uci set error: ' .. "tsmodem" .. ' ' .. section .. ' status: ' .. sim_id)
+	uci_result = uci:commit("tsmodem")-- or error('uci commit error, sim_id: ' .. sim_id)
 	
 	socket.sleep(0.2)
 
@@ -157,14 +176,16 @@ function modem:switch(sim_id)
 	and serial port is disconnected.
 	]]
 	s = modem:stm32comm("~0:SIM.RST=0") or log("Unable to reset modem (set low level)")
-	print("~0:SIM.RST=0", s)
 	if not s then return false end
+
+	modem:notify("STM32", { command = "~0:SIM.RST=0", response = "OK" })
 
 	socket.sleep(3)
 
 	s = modem:stm32comm("~0:SIM.RST=1") or log("Unable to reset modem (set hight level)")
-	print("~0:SIM.RST=1", s)
 	if not s then return false end
+
+	modem:notify("STM32", { command = "~0:SIM.RST=1", response = "OK" })
 
 	return true
 end
@@ -184,7 +205,7 @@ function modem:stm32comm(comm)
 	status = b[#b]
 	value = b[1]
 
-	modem:notify("STM-protocol-data", comm .. " : " .. value .. " : " .. status)
+	modem:notify("STM32", { command = comm,  response = value, ["status"] = status })
 
 	if(status == "OK") then 
 		return value 
@@ -194,14 +215,18 @@ function modem:stm32comm(comm)
 end
 
 function modem:notify(event_name, event_data)
-	self.conn:notify(self.ubus_objects["tsmodem.driver"].__ubusobj, event_name, { message = event_data })
+	self.conn:notify(self.ubus_objects["tsmodem.driver"].__ubusobj, event_name, event_data )
 end
 
 function modem:poll()
 	self.fds_ev = uloop.fd_add(self.fds, function(ufd, events)
 		local chunk, err, errcode = U.read(self.fds, 128)
 	    if chunk and (chunk ~= "\n") and (#chunk > 0) then
-			modem:notify("AT-protocol-data", chunk)
+			
+			--modem:notify("AT", {response = chunk})
+			print("----- Modem speech ----")
+			print(chunk)
+			print("===== End modem speech =====")
 		elseif(err) then
 			error(err) 
 		end
@@ -221,17 +246,17 @@ local metatable = {
 		table:init_mk()
 		table:init()
 		table:make_ubus()
-		table:poll()
+--		table:poll()
 
 		uloop.init()
 
 		local timer
 		function t()
-			print("2000 ms timer");
-			timer:set(2000)
+			--print(modem.tick_size .. " ms timer");
+			timer:set(modem.tick_size)
 		end
 		timer = uloop.timer(t)
-		timer:set(2000)
+		timer:set(modem.tick_size)
 
 
 		uloop.run()
