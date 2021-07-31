@@ -24,6 +24,7 @@ local section = "sim"
 
 local modem = {}
 modem.loaded = {}
+modem.restarting = false
 modem.tick_size = 200
 
 function modem:init_mk()
@@ -90,16 +91,24 @@ function modem:make_ubus()
 			},
 			AT = {
 				function(req, msg)
-					--local s = modem:stm32comm(msg["command"]) or self.conn:reply(req, {answer = "Unable to " .. msg["command"]})
-					local chunk, err, errcode = U.write(self.fds, msg["command"] .. "\r\n")
-					socket.sleep(0.3)
-					
-					local chunk, err, errcode = U.read(self.fds, 128)
-					resp = {[msg.command] = chunk}
+					local resp = {}
+					if(self.restarting == false) then
+						
+						local chunk, err, errcode = U.write(self.fds, msg["command"] .. "\r\n")
 
-					modem:notify("AT", { command = msg["command"], response = chunk })
+						socket.sleep(0.3)					
+						
+						local at_response, err, errcode = U.read(self.fds, 128)
+						local chunk = at_response or ""
 
-					self.conn:reply(req, resp);
+						resp = {[msg.command] = chunk}
+
+						modem:notify("AT", { command = msg["command"], response = chunk })
+						self.conn:reply(req, resp);
+					else
+						self.conn:reply(req, {});
+					end
+
 				end, {id = ubus.INT32, msg = ubus.STRING }
 			},
 			STM32 = {
@@ -113,6 +122,7 @@ function modem:make_ubus()
 			},
 			switch = {
 				function(req, msg)
+					self.restarting = true
 					-- AT: stop AT-protocol requests
 					log('msg["sim_id"]', msg["sim_id"])
 					-- and disconnect the driver from the modem port /dev/ttyUSB2
@@ -135,7 +145,7 @@ function modem:make_ubus()
 
 					-- Reconnetc the driver to the modem port, start polling
 					modem:init()
---					modem:poll()
+					self.restarting = false
 
 					resp = {["switch"] = "ok"}
 					self.conn:reply(req, resp);

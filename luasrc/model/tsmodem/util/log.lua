@@ -7,8 +7,10 @@ function log(title, obj)
 			util.perror("====== START ========")
 			util.dumptable(obj)
 			util.perror("====== END ========")
-		else
+		elseif(type(obj) == "string") then
 			util.perror(title .. " = " .. obj)
+		else
+			util.perror(title .. " = " .. tostring(obj))
 		end
 	else
 		util.perror(title)

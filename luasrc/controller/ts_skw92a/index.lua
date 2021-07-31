@@ -67,8 +67,8 @@ function do_sim_action(action, sim_id)
 			]]
 		end,
 		default = function(...)
-			http.prepare_content("text/plain")
-			http.write("0")
+			--http.prepare_content("text/plain")
+			--http.write("0")
 		end
 	}
 	if commands[action] then

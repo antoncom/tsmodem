@@ -8,7 +8,6 @@ local log = require "luci.model.tsmodem.util.log"
 local uloop = require "uloop"
 local flist = require "luci.model.tsmodem.util.filelist"
 local uci = require "luci.model.uci".cursor()
-
 local bit = require "bit"
 
 local F = require "posix.fcntl"
@@ -18,23 +17,26 @@ local config = "msmodem"
 
 
 local rules = {}
+rules.ubus_object = {}
+rules.fd_websocket = 0
+rules.conn = 0
+
 local rules_setting = {
-	name = "Группа правил управления модемом",
+	title = "Группа правил управления модемом",
 	rules_list = {
-		id = "rules_list",
 		source = {
 			model = "tsmodem.rule",
 			proto = "UBUS",
 			command = "list"
 		},
-		target = {
-			value = {}
-		},
+		target = {},
 	},
-	run_once = {"10_rule"},
 	tick_size_default = 800
 }
 
+function rules:notify(event_name, event_data)
+	self.conn:notify(self.ubus_objects["tsmodem.driver"].__ubusobj, event_name, { message = event_data })
+end
 
 function rules:make_ubus()
 	self.conn = ubus.connect()
@@ -46,20 +48,8 @@ function rules:make_ubus()
 		["tsmodem.rule"] = {
 			list = {
 				function(req, msg)
-					local rule_list = {}
 					-- TODO create a list of all rules, when the "group rules" functionality will be done
-					rule_list = self.setting
-					--log("RULE_LIST", rule_list)
-					--------------------------------
 					self.conn:reply(req, { rule_list = "0" })
-
-				end, {id = ubus.INT32, msg = ubus.STRING }
-			},
-			wspipein = {
-				function(req, msg)
-
-					sys.exec('echo "NEW Im here, in Lua!" > /tmp/wspipein.fifo')
-					self.conn:reply(req, { websocket = "ok" })
 
 				end, {id = ubus.INT32, msg = ubus.STRING }
 			},
@@ -75,38 +65,18 @@ function rules:make_ubus()
 end
 
 function rules:init_websocket()
-	local sys  = require "luci.sys"
-	local fds_ws, err, errnum = F.open("/tmp/wspipeout.fifo", bit.bor(F.O_RDONLY, F.O_NONBLOCK))
-	if not fds_ws then
-		print('Could not open serial port ', err, ':', errnum)
-		os.exit(1)
+	local fd_websocket, err, errnum = F.open("/tmp/wspipeout.fifo", bit.bor(F.O_RDONLY, F.O_NONBLOCK))
+	if not fd_websocket then
+		print('Could not open /tmp/wspipeout.fifo ', err, ':', errnum)
+		return
 	end
-	self.fds_ws = fds_ws
-end
-
-function rules:notify(event_name, event_data)
-	self.conn:notify(self.ubus_objects["tsmodem.driver"].__ubusobj, event_name, { message = event_data })
-end
-
-
-function rules:poll()
-	self.fds_ws_ev = uloop.fd_add(self.fds_ws, function(ufd, events)
-		local chunk, err, errcode = U.read(self.fds_ws, 128)
-	    if chunk and (chunk ~= "\n") and (#chunk > 0) then
-			-- modem:notify("AT-protocol-data", chunk)
-			print("CHUNK", chunk)
-		elseif(err) then
-			error(err) 
-		end
-	end, uloop.ULOOP_READ)
+	self.fd_websocket = fd_websocket
 end
 
 
 function rules:make()
-	-- include all rule files from ./rules folder
-	-- the rules are stored to setting.rules_list.target.value
 	local rules_path = util.libpath() .. "/model/tsmodem/rule"
-	local id, rules = '', self.setting.rules_list.target.value
+	local id, rules = '', self.setting.rules_list.target
 
 	local files = flist({path = rules_path, grep = ".lua"})
 	for i=1, #files do
@@ -117,15 +87,15 @@ end
 
 
 function rules:run_all(varlink)
-	-- run each rule
-	--print("run all " .. self.setting.tick_size_default)
-	local rules = self.setting.rules_list.target.value
+	local rules = self.setting.rules_list.target
 	local state = ''
 
 	for name, rule in util.kspairs(rules) do
+
 		-- Initiate rule with link to the present (parent) module
 		-- Then the rule can send notification on the ubus object of parent module
 		state = rule(self)
+
 	end
 end
 
@@ -134,12 +104,9 @@ local metatable = {
 		table.setting = rules_setting
 		local tick = table.setting.tick_size_default
 
-		--print("make_ubus() & make()  run: " .. os:clock())
 		table:make_ubus()
 		table:make()
-
 		table:init_websocket()
-		-- table:poll()
 		
 		-- looping
 		uloop.init()

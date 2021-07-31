@@ -31,7 +31,9 @@
 			var placeholder = '#simid-' + sim_id + ' .' + varname
 			var rendered = document.querySelector(placeholder)
 			
+			var value = ui_data[varname]
 			if(varname == "network_registration") {
+				if (value == "") value = "4"; // if no data received then put UNKNOWN state
 				var bgIcon_Y = -(ui_data[varname] * 15) // see www/luci-static/resources/ts_skw92a/img/icon_reg_status.png
 				rendered.innerHTML = '<i style="background-position: 0 ' + bgIcon_Y + 'px;">' + animationWrapper(network_state[ui_data[varname]][0]) + "</i>"
 			} else if (varname == "level" || varname == "error") {
@@ -79,6 +81,7 @@
 			for(var key in raw_data) {
 				var find = '\{' + key + '\}';
 				var re = new RegExp(find, 'g');
+				var value = '';
 
 				if(key == "datetime") {
 					date = raw_data["datetime"].split(" ")[0]
@@ -86,15 +89,22 @@
 					raw_html = raw_html.replace(/\{date\}/, date)
 					raw_html = raw_html.replace(/\{time\}/, time)
 				} else if(key == "response") {
-					if(raw_data['response'].match(/^[0-9]+$/) != null) {
+					value = raw_data['response'];
+					if(value.match(/^[0-9]+$/) != null) {
 						if(raw_data['response'] == 1) {
-							raw_html = raw_html.replace(re, '<span class="response REGISTERED">' + network_state[raw_data['response']][1]) + '</span>'
+							raw_html = raw_html.replace(re, '<span class="response REGISTERED">' + network_state[value][1]) + '</span>'
 
 						} else {
 							raw_html = raw_html.replace(re, network_state[raw_data['response']][1])
 						}
+					} else if(value == "OK") {
+						raw_html = raw_html.replace(re, "OK")
+					} else if(value == "ERROR") {
+						raw_html = raw_html.replace(re, "ERROR")
 					} else {
-						raw_html = raw_html.replace(re, "NOT PARSED")
+						// raw_html = raw_html.replace(re, "NOT PARSED")
+						// Don't add anyting to journal if blank response received
+						return
 					}
 				} else {
 					raw_html = raw_html.replace(re, raw_data[key])
