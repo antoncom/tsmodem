@@ -27,20 +27,28 @@
 			return(html)
 		}
 
+		var old_network_registration = "4"
 		async function update_with_animation(sim_id, varname, ui_data) {
 			var placeholder = '#simid-' + sim_id + ' .' + varname
 			var rendered = document.querySelector(placeholder)
 			
 			var value = ui_data[varname]
 			if(varname == "network_registration") {
-				if (value == "") value = "4"; // if no data received then put UNKNOWN state
-				var bgIcon_Y = -(ui_data[varname] * 15) // see www/luci-static/resources/ts_skw92a/img/icon_reg_status.png
-				rendered.innerHTML = '<i style="background-position: 0 ' + bgIcon_Y + 'px;">' + animationWrapper(network_state[ui_data[varname]][0]) + "</i>"
+				if (value == "") {
+					value = old_network_registration; // don't change if no data received
+				} else {
+					old_network_registration = value;
+				}
+
+				var bgIcon_Y = -(value * 15) // see www/luci-static/resources/ts_skw92a/img/icon_reg_status.png
+				rendered.innerHTML = '<i style="background-position: 0 ' + bgIcon_Y + 'px;">' + animationWrapper(network_state[value][0]) + "</i>"
+
 			} else if (varname == "level" || varname == "error") {
-				rendered.innerHTML = animationWrapper(ui_data[varname] + " %")
+				rendered.innerHTML = animationWrapper(value + " %")
+
 			} else if (varname == "balance") {
 				var balance_date = '<br><small>' + ui_data[balance_date] + '</small>'
-				rendered.innerHTML = animationWrapper(ui_data[varname] + " руб.") + balance_date;
+				rendered.innerHTML = animationWrapper(value + " руб.") + balance_date;
 			}
 
 
@@ -55,7 +63,37 @@
 			//await sleep(1000)
 		}
 
+
+		async function update_without_animation(sim_id, varname, ui_data) {
+			var placeholder = '#simid-' + sim_id + ' .' + varname
+			var rendered = document.querySelector(placeholder)
+			
+			var value = ui_data[varname]
+			if(varname == "network_registration") {
+				if (value == "") {
+					value = old_network_registration; // don't change if no data received
+				} else {
+					old_network_registration = value;
+				}
+
+				var bgIcon_Y = -(value * 15) // see www/luci-static/resources/ts_skw92a/img/icon_reg_status.png
+				rendered.innerHTML = '<i style="background-position: 0 ' + bgIcon_Y + 'px;">' + network_state[value][0] + "</i>"
+
+			} else if (varname == "level" || varname == "error") {
+				rendered.innerHTML = value + " %"
+
+			} else if (varname == "balance") {
+				var balance_date = '<br><small>' + ui_data[balance_date] + '</small>'
+				rendered.innerHTML = value + " руб." + balance_date;
+			}
+
+		}
+
+
+		window.update_with_animation = update_with_animation
+
 		function update_journal(raw_data) {
+
 			var raw_html = `<div class="tr cbi-rowstyle-0">
 								<div class="td" data-title="Дата / время">
 									<b>{date}</b><i>{time}</i>
@@ -97,10 +135,8 @@
 						} else {
 							raw_html = raw_html.replace(re, network_state[raw_data['response']][1])
 						}
-					} else if(value == "OK") {
-						raw_html = raw_html.replace(re, "OK")
-					} else if(value == "ERROR") {
-						raw_html = raw_html.replace(re, "ERROR")
+					} else if(value.indexOf("OK") >= 0 || value.indexOf("ERROR") >= 0 || value.indexOf("CONNECTED") >= 0) {
+						raw_html = raw_html.replace(re, value)
 					} else {
 						// raw_html = raw_html.replace(re, "NOT PARSED")
 						// Don't add anyting to journal if blank response received
@@ -112,6 +148,8 @@
 			}
 			journal_header.insertAdjacentHTML('afterend', raw_html)
 		}
+
+		window.update_journal = update_journal
 
 
 
@@ -130,17 +168,31 @@
 		        var ui_data = JSON.parse(event.data)
 				
 				var sim_id = ui_data["sim_id"] || false
+
 				if(sim_id) {
 					for(var k in ui_data) {
 			        	if(k != "sim_id") {
 			        		update_with_animation(sim_id, k, ui_data)
+
+			        		var inactive_sim_id = (parseInt(sim_id) == 0) ? "1" : "0"
+			        		update_without_animation(inactive_sim_id, "network_registration", {"network_registration": "4"})
 			        	} 
-			        }	
+			        }
+			        // Disable "Activate" button of currently activated Sim
+			        document.querySelector("input[type=button].sim-" + sim_id).disabled = true
+
+			        // Enable "Activate" button of another Sim only if current Sim has already activated
+			        var inactive_sim_id = (parseInt(sim_id) == 0) ? "1" : "0"
+			        if(ui_data["network_registration"] != "") {
+			        	document.querySelector("input[type=button].sim-" + inactive_sim_id).disabled = false
+			        }
 				}
 
 				if (ui_data["journal"] != undefined) {
 					update_journal(ui_data["journal"])
 				}
+
+
 				
 				
 		    };

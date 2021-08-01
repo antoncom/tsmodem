@@ -109,12 +109,13 @@
 					<small>(на <%=balance_date %>)</small>
 				</div>
 				<div class="nowrap cbi-section-actions td" style="text-align: right;">
-					<input type="button" class="cbi-button cbi-button-apply"
+					<input type="button" class="cbi-button cbi-button-apply sim-<%=simid %>"
 						onclick="switch_sim(this)"
 						data-simid="<%=simid %>"
 						value="Активировать"
+						disabled="disabled"
 						<%
-							if is_active then print('disabled="disabled"') end 
+							-- if is_active then print('disabled="disabled"') end 
 						%>
 						style="display: initial;" />
 					<input type="button" class="cbi-button cbi-button-apply"

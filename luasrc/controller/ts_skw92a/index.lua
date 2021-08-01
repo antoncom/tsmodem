@@ -1,6 +1,6 @@
 module("luci.controller.ts_skw92a.index", package.seeall)
 
-local config = "ts_skw92a"
+local config = "tsmodem"
 --local factory = "ts_skw92a"
 local http = require "luci.http"
 local uci = require "luci.model.uci".cursor()

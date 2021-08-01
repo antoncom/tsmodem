@@ -34,9 +34,11 @@ local rules_setting = {
 	tick_size_default = 800
 }
 
+--[[
 function rules:notify(event_name, event_data)
 	self.conn:notify(self.ubus_objects["tsmodem.driver"].__ubusobj, event_name, { message = event_data })
 end
+]]
 
 function rules:make_ubus()
 	self.conn = ubus.connect()
@@ -94,6 +96,7 @@ function rules:run_all(varlink)
 
 		-- Initiate rule with link to the present (parent) module
 		-- Then the rule can send notification on the ubus object of parent module
+
 		state = rule(self)
 
 	end

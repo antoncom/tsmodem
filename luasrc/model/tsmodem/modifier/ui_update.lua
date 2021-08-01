@@ -5,7 +5,6 @@ local sys  = require "luci.sys"
 
 function ui_update(varname, modifier, setting)
 
-	print("UI " .. varname)
 
 	local varlink = setting[varname] or {}
 	local param_list = modifier.param_list or {}

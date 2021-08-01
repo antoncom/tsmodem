@@ -18,6 +18,23 @@ local rule_setting = {
 		target_value = ""
 	},
 
+	lastreg_time = {
+		source_value = "",
+		target_value = "",
+		target_modifier = {
+			["1_formula"] = 'if("network_registration" == "1") then return(tostring(os.time())) end'
+		}
+	},
+
+	waiting_for_reg_time = {
+		source_value = "",
+		target_value = "",
+		target_modifier = {
+			["1_formula"] = 'if("lastreg_time" ~= "") then return(os.time() - tonumber("lastreg_time")) end'
+		}
+	},
+
+
 	action = {
 		source = {
 			model = "tsmodem.driver",
@@ -28,8 +45,11 @@ local rule_setting = {
 		source_value = "",
 		target_value = "",
 		target_modifier = {
-			--["1_logicfunc"] = 'if ("network_registration" == "0") then return true else return false end',
-			["1_logicfunc"] = 'return false',
+			["1_logicfunc_TODO"] = [[ if ( 
+					("network_registration" == "0" or "network_registration" == "")
+				and (tonumber("waiting_for_reg_time") and tonumber("waiting_for_reg_time") > 120) then return true else return false end 
+			]],
+			["1_logicfunc"] = 'return(false)'
 		}
 	},
 
@@ -66,7 +86,7 @@ local rule_setting = {
 		target_value = "",
 		target_modifier = {
 			["1_parser"] = "tsmodem.parser.creg",
-			["2_formula"] = 'if ("network_registration" == "") then return "4" else return "network_registration" end',
+			["2_formula"] = 'if ("network_registration" == "") then return "" else return "network_registration" end',
 			["3_ui-update"] = {
 				param_list = { "network_registration", "sim_id" }
 			}
@@ -84,37 +104,39 @@ end
 
 function rule:populate(varname)
 	local varlink = self.setting[varname]
-	local ubus_obj = varlink.source.model
-	local command = ''
-	local body = {}
+	if(varlink.source) then
+		local ubus_obj = varlink.source.model or false
+		local command = ''
+		local body = {}
 
-	-- Add params to UBUS call
-	if(varlink.source.params) then
-		for _, param in pairs(varlink.source.params) do
-			body[param] = rule.setting[param] and rule.setting[param].target_value
+		-- Add params to UBUS call
+		if(varlink.source.params) then
+			for _, param in pairs(varlink.source.params) do
+				body[param] = rule.setting[param] and rule.setting[param].target_value
+			end
 		end
-	end
 
-	-- Choose UBUS method
-	if(varlink.source.proto == "CUSTOM") then
-		command = varlink.source.command
+		-- Choose UBUS method
+		if(varlink.source.proto == "CUSTOM") then
+			command = varlink.source.command
 
-	elseif(util.contains({"AT", "STM32"}, varlink.source.proto)) then
-		command = varlink.source.proto
-		body["command"] = varlink.source.command
-	end
-		
-	-- Call UBUS only if 'logicfunc' modifier is absent or returns true
-	if(rule:logicfunc(varname) == true) then
+		elseif(util.contains({"AT", "STM32"}, varlink.source.proto)) then
+			command = varlink.source.proto
+			body["command"] = varlink.source.command
+		end
 
-		-- We put the data got from source to "source_value"
+		-- Call UBUS only if 'logicfunc' modifier is absent or returns true
+		if(rule:logicfunc(varname) == true) then
 
-		local resp = self.conn:call(ubus_obj, command, body)
-		varlink.source_value = resp[varlink.source.command] or ""
+			-- We put the data got from source to "source_value"
 
-		-- Before apply first modifier, we put unmodified source data to target
+			local resp = self.conn:call(ubus_obj, command, body)
+			varlink.source_value = resp[varlink.source.command] or ""
 
-		varlink.target_value = varlink.source_value or ""
+			-- Before apply first modifier, we put unmodified source data to target
+
+			varlink.target_value = varlink.source_value or ""
+		end
 	end
 end
 
@@ -132,6 +154,10 @@ function rule:make()
 	
 	self:populate("network_registration")
 	self:modify("network_registration")
+
+	self:modify("lastreg_time")
+	self:modify("waiting_for_reg_time")
+
 
 	-- Do action
 

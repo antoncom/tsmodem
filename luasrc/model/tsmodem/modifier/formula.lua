@@ -7,8 +7,6 @@ function formula(varname, formula, setting) --[[
 
 	-- Replace all variables with actual values
 
-	--print("FORMULA ", formula)
-
 	local luacode = (function(chunk) 
 		for name, _ in pairs(setting) do
 			if(type(setting[name].target_value) == "string") then
@@ -20,7 +18,28 @@ function formula(varname, formula, setting) --[[
 
 	-- Run chunk code and put result to target
 
-	varlink.target_value = loadstring(luacode)() or ""
+	local func = luacode and loadstring(luacode)
+	if func then
+		varlink.target_value = func() or "" -- TODO make an error notification "Error in Formula!"
+	end
+
+	if(varname == "lastreg_time") then
+		print("----------------")
+		print("FORMULA " .. varname)
+		print("FORMULA chunk" .. formula)
+		print("FORMULA luacode" .. luacode)
+		print("FORMULA result" .. varlink.target_value)
+	end
+
+	if(varname == "waiting_for_reg_time") then
+		print("----------------")
+		print("FORMULA " .. varname)
+		print("FORMULA chunk" .. formula)
+		print("FORMULA luacode" .. luacode)
+		print("FORMULA result" .. varlink.target_value)
+	end
+
+	
 
 end
 

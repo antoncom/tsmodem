@@ -14,7 +14,8 @@ local EVENT_TITLES = {
 	["~0:SIM.SEL=?"] = "Определение активной СИМ-карты",
 	["~0:SIM.SEL=1"] = "Переключение СИМ-карты",
 	["~0:SIM.RST=0"] = "Подан сигнал сброса на модем",
-	["~0:SIM.RST=1"] = "Снят сигнал сброса с модема"
+	["~0:SIM.RST=1"] = "Снят сигнал сброса с модема",
+	["GSM-attach"] 		= "Переподключение модема к /dev/ttyUSB2",
 }
 
 
@@ -47,11 +48,6 @@ local rule_setting = {
 		target_value = "",
 	},
 
-	event_command = {
-		source_value = "",
-		target_value = "",
-	},
-
 	event_command_old = {
 		source_value = "",
 		target_value = "",
@@ -60,13 +56,9 @@ local rule_setting = {
 		}	-- Does not update "event_response_old" if "event_response" is blank. Think that it was parsing mistake.
 	},
 
-	event_response = {
+	event_command = {
 		source_value = "",
 		target_value = "",
-		target_modifier = {
-			--["1_parser"] = "tsmodem.parser.stm"
-			["1_formula"] = 'if("event_response" == "OK") then return "1" end'
-		}
 	},
 
 	event_response_old = {
@@ -78,6 +70,14 @@ local rule_setting = {
 
 	},
 
+	event_response = {
+		source_value = "",
+		target_value = "",
+		target_modifier = {
+			--["1_parser"] = "tsmodem.parser.stm"
+			--["1_formula"] = 'if("event_response" == "OK") then return "1" end'
+		}
+	},
 
 	journal = {
 		source_value = "",
@@ -85,6 +85,7 @@ local rule_setting = {
 		target_modifier = {
 			["1_logicfunc"] = [[
 				if not (("event_command" == "event_command_old" and "event_response" == "event_response_old")
+					or	"event_response" == ""
 				) then return true else return false end
 			]],
 			["2_formula"] = [[return({ 
@@ -118,31 +119,44 @@ function rule:subscribe_once()
 			notify = function(data, proto)
 				if(proto == PROTO) then
 
+				--	log("::::: " .. proto, data)
+
 					local command = data["command"] or ""
+					local status = data["status"] or ""
 					local response = data["response"] or ""
+					if(type(status) == "string" and type(response) == "string") then
+						if(response ~= "") then
+							response = string.format('%s %s', response, status)
+						else
+							response = string.format('%s', status)
+						end
+					end
 
 					if(util.contains(possible_commands, command)) then
 
-						log("--- " .. PROTO .. " ----", data)
 
 						-- Populate self-generated and constants
 
-						for _, name in ipairs({"event_command_old", "event_response_old", "event_datetime", "title", "id"}) do
+						for _, name in ipairs({"event_datetime", "title", "id"}) do
 							self:modify(name)
 						end
 
+						
 						-- Populate data on subscribtion
 
 						self.setting.event_name.source_value = EVENT_TITLES[command] or ""
 						self:modify("event_name")
-	
+
+						self:modify("event_command_old")
 
 						self.setting.event_command.source_value = command or ""
 						self:modify("event_command")
 
+						self:modify("event_response_old")
 
 						self.setting.event_response.source_value = response or ""
 						self:modify("event_response")
+
 
 						-- Publish journal only if Logicfunc modifier returns True
 						

@@ -5,6 +5,7 @@ function activate_sim(btn) {
 	var action = "switch",
 		sim_id = btn.getAttribute("data-simid"),
 		payload = {"sim_data": {}, "globals_data": {}};
+
 	send_action(action, sim_id, payload);
 }
 

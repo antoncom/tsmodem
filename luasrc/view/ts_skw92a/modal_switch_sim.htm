@@ -27,8 +27,6 @@ function switch_sim(btn) {
 	var globals_data = {}
 	var simid = btn.getAttribute("data-simid") || null;
 
-	console.log("switch to ", simid)
-
 	var xhr = new XHR(false);
 	xhr.post('<%=luci.dispatcher.build_url("admin", "system", "sim_list", "action")%>/'+ '%h/%h'.format("switch", simid), {"sim_data": []},
 		function (x) {
@@ -39,6 +37,24 @@ function switch_sim(btn) {
 		}
 	);
 
+
+	var current_datetime = new Date()
+	var formatted_date = current_datetime.getFullYear() + "-" + (current_datetime.getMonth() + 1) + "-" + current_datetime.getDate() + " " + current_datetime.getHours() + ":" + current_datetime.getMinutes() + ":" + current_datetime.getSeconds() 
+
+	var user_jour = {
+			command: "Кнопка \"Активировать\"",
+			datetime: formatted_date,
+			name: "Пользователь переключил на SIM-карту #" + simid,
+			response: "OK",
+			source: "Пользователь"
+	}
+	// Add user action to the Journal
+	window.update_journal(user_jour)
+
+	// Disable "Activate" button to prevent switchig until previous switching completed
+	// Enable button is realized with "onmessage" in websocket.js.htm
+	document.querySelector("input[type=button].sim-0").disabled = true
+	document.querySelector("input[type=button].sim-1").disabled = true
 
 	//window.socket.send('{"event": "switch-sim", "simid": "' + simid + '"}')
 	L.require("ui").then(function(ui){
