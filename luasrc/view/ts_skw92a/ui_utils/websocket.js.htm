@@ -10,7 +10,7 @@
 			"4": ["Неизвестно", "UNKNOWN"],
 			"5": ["Активно-роуминг", "ROAMING"],
 			"6": ["Не активна", "OK"],
-			"7": ["Переключение СИМ-карты", "OK"]
+			"7": ["Переподключение", "OK"]
 		}
 
 
@@ -41,7 +41,11 @@
 				}
 
 				var bgIcon_Y = -(value * 15) // see www/luci-static/resources/ts_skw92a/img/icon_reg_status.png
-				rendered.innerHTML = '<i style="background-position: 0 ' + bgIcon_Y + 'px;">' + animationWrapper(network_state[value][0]) + "</i>"
+				if(value != "1" &&  window.lastreg_timer != "0" && window.lastreg_timer != undefined) {
+					rendered.innerHTML = '<i style="background-position: 0 ' + bgIcon_Y + 'px;">' + animationWrapper(network_state[value][0]) + "</i> (" + window.lastreg_timer + " сек.)"
+				} else {
+					rendered.innerHTML = '<i style="background-position: 0 ' + bgIcon_Y + 'px;">' + animationWrapper(network_state[value][0]) + "</i>"
+				}
 
 			} else if (varname == "level" || varname == "error") {
 				rendered.innerHTML = animationWrapper(value + " %")
@@ -154,12 +158,14 @@
 
 
 	    window.socket = new WebSocket('ws://192.168.0.20:7890');
+	    
+	    var modemDisconnected = false
+
 	    try {
 		    window.socket.onopen = function(event) {
 		        
 		    };
 		    window.socket.onmessage = function(event) {
-		        //console.log(event.data)
 		        
 		        // Parse data received from Websocket
 		        // Update UI elements
@@ -168,6 +174,20 @@
 		        var ui_data = JSON.parse(event.data)
 				
 				var sim_id = ui_data["sim_id"] || false
+				var network_registration = ui_data["network_registration"] || ""
+				
+				if(ui_data.lastreg_timer) {
+					window.lastreg_timer = 120 - parseInt(ui_data.lastreg_timer)
+				}
+
+
+
+				if(network_registration == "") { 
+					modemDisconnected = true
+				} else {
+					modemDisconnected = false
+				}
+
 
 				if(sim_id) {
 					for(var k in ui_data) {
@@ -183,12 +203,22 @@
 
 			        // Enable "Activate" button of another Sim only if current Sim has already activated
 			        var inactive_sim_id = (parseInt(sim_id) == 0) ? "1" : "0"
-			        if(ui_data["network_registration"] != "") {
+			        if(network_registration != "" && !modemDisconnected) {
 			        	document.querySelector("input[type=button].sim-" + inactive_sim_id).disabled = false
 			        }
 				}
 
 				if (ui_data["journal"] != undefined) {
+					if (ui_data["journal"]["response"] == "DISCONNECTED") {
+						modemDisconnected = true
+
+						document.querySelector("input[type=button].sim-0").disabled = true
+						document.querySelector("input[type=button].sim-1").disabled = true
+					}
+					if (ui_data["journal"]["response"] == "CONNECTED") {
+						modemDisconnected = false
+					}
+
 					update_journal(ui_data["journal"])
 				}
 

@@ -31,7 +31,8 @@ function do_sim_action(action, sim_id)
 			if not conn then
 				error("do_sim_switch_action - Failed to connect to ubus")
 			end
-			local resp = conn:call("tsmodem.driver", "switch", {["sim_id"] = sim_id})
+
+			local resp = conn:call("tsmodem.driver", "switch", {["sim_id_switch_to"] = sim_id})
 			util.perror("RESP")
 			util.perror(resp)
 --[[

@@ -21,25 +21,21 @@ function formula(varname, formula, setting) --[[
 	local func = luacode and loadstring(luacode)
 	if func then
 		varlink.target_value = func() or "" -- TODO make an error notification "Error in Formula!"
+	else
+		print("ERROR in [" .. varname .. "] FORMULA: " .. formula)
 	end
 
-	if(varname == "lastreg_time") then
+
+--[[
+	if(varname == "lastreg_timer") then
 		print("----------------")
 		print("FORMULA " .. varname)
 		print("FORMULA chunk" .. formula)
 		print("FORMULA luacode" .. luacode)
 		print("FORMULA result" .. varlink.target_value)
 	end
+]]
 
-	if(varname == "waiting_for_reg_time") then
-		print("----------------")
-		print("FORMULA " .. varname)
-		print("FORMULA chunk" .. formula)
-		print("FORMULA luacode" .. luacode)
-		print("FORMULA result" .. varlink.target_value)
-	end
-
-	
 
 end
 

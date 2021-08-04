@@ -24,7 +24,7 @@ local section = "sim"
 
 local modem = {}
 modem.loaded = {}
---modem.restarting = false
+modem.fds = nil
 modem.tick_size = 200
 
 function modem:init_mk()
@@ -51,24 +51,24 @@ end
 
 function modem:init()
 	if not self.fds then
-		local fds, err, errnum = F.open("/dev/ttyUSB2", bit.bor(F.O_RDWR, F.O_NONBLOCK))
-		if not fds then
-			--print('Could not open serial port ', err, ':', errnum)
-			return
-			--os.exit(1)
-		end
 
-		M.tcsetattr(fds, 0, {
-		   cflag = M.B115200 + M.CS8 + M.CLOCAL + M.CREAD,
-		   iflag = M.IGNPAR,
-		   oflag = M.OPOST,
-		   cc = {
-		      [M.VTIME] = 0,
-		      [M.VMIN] = 1,
-		   }
-		})
-		self.fds = fds
-		modem:notify("STM32", { command = "GSM-attach", response = "CONNECTED" })
+		local fds, err, errnum = F.open("/dev/ttyUSB2", bit.bor(F.O_RDWR, F.O_NONBLOCK))
+
+		if fds then
+
+			M.tcsetattr(fds, 0, {
+			   cflag = M.B115200 + M.CS8 + M.CLOCAL + M.CREAD,
+			   iflag = M.IGNPAR,
+			   oflag = M.OPOST,
+			   cc = {
+			      [M.VTIME] = 0,
+			      [M.VMIN] = 1,
+			   }
+			})
+			self.fds = fds
+			modem:notify("STM32", { command = "GSM-attach", response = "CONNECTED" })
+
+		end
 	end
 end
 
@@ -96,8 +96,7 @@ function modem:make_ubus()
 			AT = {
 				function(req, msg)
 					local resp = {}
-					--if(self.restarting == false) then
-					--print("##### FDS ", self.fds)
+
 					if(self.fds) then
 						
 						local chunk, err, errcode = U.write(self.fds, msg["command"] .. "\r\n")
@@ -111,8 +110,9 @@ function modem:make_ubus()
 
 						modem:notify("AT", { command = msg["command"], response = chunk })
 						self.conn:reply(req, resp);
+
 					else
-						self.conn:reply(req, {});
+						self.conn:reply(req, { command = msg["command"], response = chunk });
 					end
 
 				end, {id = ubus.INT32, msg = ubus.STRING }
@@ -120,7 +120,7 @@ function modem:make_ubus()
 			STM32 = {
 				function(req, msg)
 
-					local s = modem:stm32comm(msg["command"]) or self.conn:reply(req, {answer = "Unable to " .. msg["command"]})
+					local s = modem:stm32comm(msg["command"])
 					resp = {[msg.command] = s}
 
 					self.conn:reply(req, resp);
@@ -128,41 +128,31 @@ function modem:make_ubus()
 			},
 			switch = {
 				function(req, msg)
-					--self.restarting = true
-					-- AT: stop AT-protocol requests
-					log('msg["sim_id"]', msg["sim_id"])
-					-- and disconnect the driver from the modem port /dev/ttyUSB2
---					modem:unpoll()
-					
-					local ok, errmsg = U.close(self.fds)
-					if not ok then error (errmsg) end
-					self.fds = nil
-					modem:notify("STM32", { command = "GSM-attach", response = "DISCONNECTED" })
-
-					--socket.sleep(0.5)
-
-					-- STM: switch sim-card
-					modem:switch(msg["sim_id"])
+					if(self.fds) then
+						local ok, errmsg = U.close(self.fds)
+						if ok then 
 						
-			
-					-- TODO
-					-- Make "dmesg" reading to make delay smaller
-					-- and to ensure that serial port is ready
-					--socket.sleep(15)
-					--
+							socket.sleep(0.5)
+							self.fds = nil
 
-					-- Reconnetc the driver to the modem port, start polling
-					--modem:init()
-					--self.restarting = false
+							modem:notify("STM32", { command = "GSM-attach", response = "DISCONNECTED" })
+							modem:switch(msg["sim_id_switch_to"])
+							resp = {["switch"] = "switching-in-progress"}	
 
-					resp = {["switch"] = "ok"}
+						else
+
+							resp = {["switch"] = "ERROR: /dev/ttyUSB2: " .. errmsg}	
+							modem:notify("STM32", { command = "GSM-attach", response = "/dev/ttyUSB2 DISCONNECT ERROR" })
+
+						end
+					else
+						resp = {["switch"] = "switching-in-progress"}
+					end
+
 					self.conn:reply(req, resp);
+
 				end, {id = ubus.INT32, msg = ubus.STRING }
 			},
-	    	-- You get notified when someone subscribes to a channel
-			__subscriber_cb = function( subs )
-				print("total subs: ", subs )
-			end
 		}
 	}
 	self.conn:add( ubus_objects )
@@ -171,51 +161,33 @@ function modem:make_ubus()
 end
 
 function modem:switch(sim_id)
-	if not sim_id then return end
 
-	print("modem:switch - sim_id", sim_id)
-	local s = modem:stm32comm("~0:SIM.SEL=" .. sim_id) or (function()
-		log("Unable to ~0:SIM.SEL=" .. sim_id)
-		return false
-	end)()
+	modem:stm32comm("~0:SIM.SEL=" .. tostring(sim_id))
+	socket.sleep(0.1)
 
-	--modem:notify("STM32", { command = "~0:SIM.SEL=" .. sim_id, response = "OK" })
+	modem:stm32comm("~0:SIM.RST=0")
+	socket.sleep(1)
 
+	modem:stm32comm("~0:SIM.RST=1")
+	socket.sleep(0.1)
+
+end
+
+--[[
 	local uci_result, section = false, "sim_" .. sim_id
 	uci_result = uci:set("tsmodem", "sim_0", "status", "0")-- or error('uci set error: ' .. "tsmodem" .. ' sim_0 status => 0')
 	uci_result = uci:set("tsmodem", "sim_1", "status", "0")--  or error('uci set error: ' .. "tsmodem" .. ' sim_1 status => 0')
 	uci_result = uci:set("tsmodem", section , "status", sim_id)--  or error('uci set error: ' .. "tsmodem" .. ' ' .. section .. ' status: ' .. sim_id)
 	uci_result = uci:commit("tsmodem")-- or error('uci commit error, sim_id: ' .. sim_id)
-	
-
-
-	--socket.sleep(0.1)
-
-	--[[
-	It's required to reset modem. Otherwise modem responds with "AT+SIMCARD: NOT AVAILABLE" 
-	and serial port is disconnected.
-	]]
-	s = modem:stm32comm("~0:SIM.RST=0") or log("Unable to reset modem (set low level)")
-	if not s then return false end
-
-	--modem:notify("STM32", { command = "~0:SIM.RST=0", response = "OK" })
-
-	socket.sleep(1)
-
-	s = modem:stm32comm("~0:SIM.RST=1") or log("Unable to reset modem (set hight level)")
-	if not s then return false end
-
-	--modem:notify("STM32", { command = "~0:SIM.RST=1", response = "OK" })
-
-	return true
-end
+]]
 
 function modem:stm32comm(comm)
 	local buf, value, status = '','',''
 
+--	print("COMM: " .. comm)
 	U.write(self.fds_mk, comm .. "\r\n")
 	socket.sleep(0.1)
-	buf = U.read(self.fds_mk, 128) or 'ERROR: no stm32 buf'
+	buf = U.read(self.fds_mk, 128) or error('ERROR: no stm32 buf')
 
 	local b = util.split(buf)
 	if(b[#b] == '') then
@@ -227,59 +199,41 @@ function modem:stm32comm(comm)
 
 	if(value == status) then
 		modem:notify("STM32", { command = comm,  response = "", ["status"] = status })
-		log("_________ stm32comm _______", comm)
+--		if (comm == "~0:SIM.SEL=1" or comm == "~0:SIM.SEL=1") then
+--			log("_________ stm32comm _______", comm)
+--		end
 	else
 		modem:notify("STM32", { command = comm,  response = value, ["status"] = status })
-		log("_________ stm32comm _______", comm)
+--		if (comm == "~0:SIM.SEL=1" or comm == "~0:SIM.SEL=1") then
+--			log("_________ stm32comm _______", comm)
+--		end
 	end
 
 	if(status == "OK") then 
 		return value 
 	else 
-		return false 
+		return "ERROR" 
 	end
 end
+
+
 
 function modem:notify(event_name, event_data)
 	self.conn:notify(self.ubus_objects["tsmodem.driver"].__ubusobj, event_name, event_data )
 end
 
-function modem:poll()
-	self.fds_ev = uloop.fd_add(self.fds, function(ufd, events)
-		local chunk, err, errcode = U.read(self.fds, 128)
-	    if chunk and (chunk ~= "\n") and (#chunk > 0) then
-			
-			--modem:notify("AT", {response = chunk})
-			print("----- Modem speech ----")
-			print(chunk)
-			print("===== End modem speech =====")
-		elseif(err) then
-			error(err) 
-		end
-	end, uloop.ULOOP_READ)
-end
-
-
-function modem:unpoll()
-	self.fds_ev:delete()
-	local ok, errmsg = U.close(self.fds)
-	if not ok then error (errmsg) end
-end
-
 
 local metatable = { 
 	__call = function(table, ...)
-		print("__CALL")
+--		print("__CALL")
+
 		table:init_mk()
---		table:init()
 		table:make_ubus()
---		table:poll()
 
 		uloop.init()
 
 		local timer
 		function t()
-			--print(modem.tick_size .. " ms timer");
 			modem:init()
 			timer:set(modem.tick_size)
 		end

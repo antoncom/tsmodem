@@ -24,6 +24,7 @@ function widgetPopulation(uci_section, uci) {
 }
 
 function switch_sim(btn) {
+	btn.disabled = true;
 	var globals_data = {}
 	var simid = btn.getAttribute("data-simid") || null;
 
@@ -57,6 +58,7 @@ function switch_sim(btn) {
 	document.querySelector("input[type=button].sim-1").disabled = true
 
 	//window.socket.send('{"event": "switch-sim", "simid": "' + simid + '"}')
+	/*
 	L.require("ui").then(function(ui){
 		L.require("uci").then(function(uci) {
 			uci.load("<%=config%>").then(function(out){
@@ -178,6 +180,7 @@ function switch_sim(btn) {
 			})	
 		})
 	})
+	*/
 }
 function handleEdit(simid, sim_data, globals_data) {
 	send_action("edit", simid, { "sim_data": sim_data, "globals_data": globals_data } )

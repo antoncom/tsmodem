@@ -1,0 +1,35 @@
+#!/bin/sh /etc/rc.common
+ 
+START=55
+
+TSMODEM_PATH="/usr/lib/lua/luci/model/tsmodem"
+
+start() {        
+        
+        cd $TSMODEM_PATH && websocket/gwsocket &
+        sleep 1;
+
+        cd $TSMODEM_PATH && lua driver.lua &
+        sleep 1;
+
+        cd $TSMODEM_PATH && lua rules.lua &            
+        
+
+        echo "Tsmodem started."
+        echo "-------------------------------------------------------------------------------------"
+        echo "Type 'ubus list' to check whether UBUS tsmodem.driver and tsmodem.rule objects exist."
+        echo "-------------------------------------------------------------------------------------"
+
+}                 
+ 
+stop() {          
+
+        start-stop-daemon -s SIGINT -Kx lua rules.lua
+        start-stop-daemon -s SIGINT -Kx websocket/gwsocket
+        start-stop-daemon -s SIGINT -Kx lua driver.lua
+
+        echo "----------------"
+        echo "Tsmodem stopped."
+        echo "----------------"
+        
+}

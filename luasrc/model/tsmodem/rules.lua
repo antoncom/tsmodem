@@ -31,7 +31,7 @@ local rules_setting = {
 		},
 		target = {},
 	},
-	tick_size_default = 800
+	tick_size_default = 1000
 }
 
 --[[

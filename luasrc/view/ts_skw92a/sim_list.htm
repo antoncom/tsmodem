@@ -67,8 +67,8 @@
 	<div class="table">
 		<div class="tr table-titles">
 			<div class="th">N</div>
-			<div class="th" style="width: 33%;">Наименование</div>
-			<div class="th">Статус</div>
+			<div class="th">Наименование</div>
+			<div class="th" style="width: 33%;">Статус</div>
 			<div class="th">Сигнал</div>
 			<div class="th">Помехи</div>
 			<div class="th">Баланс</div>
@@ -78,7 +78,6 @@
 			local index = tostring(v[".index"])
 			local simid = v[".name"]:sub(5,5)
 			local is_active = (v.status == '1')
-			print(is_active)
 			local balance = tostring(sims_state[index].balance)
 			local balance_date = sims_state[index].balance_date
 			local highlighted_balance = (sims_state[index].balance < tonumber(v.balance_min))
@@ -89,7 +88,7 @@
 				<div class="td" data-title="N">
 					<%=v[".index"] + 1 %>
 				</div>
-				<div class="td" data-title="Наименование">
+				<div class="td" data-title="Наименование" style="white-space: nowrap;">
 					<%=v.name %>
 				</div>
 				<div class="td network_registration" style="width: 170px;" data-title="Статус">
@@ -104,7 +103,7 @@
 				<div class="td error" data-title="Помехи">
 					<%= bor %>
 				</div>
-				<div class="td <% if highlighted_balance then print('balance-alert') end %>" data-title="Баланс">
+				<div class="td <% if highlighted_balance then print('balance-alert') end %>" data-title="Баланс" style="white-space: nowrap;">
 					<span class="balance"><%= animationWrapper(balance, is_active) %></span> <%= v.balance_unit %><br />
 					<small>(на <%=balance_date %>)</small>
 				</div>
