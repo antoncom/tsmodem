@@ -1,0 +1,21 @@
+#!/bin/sh /etc/rc.common
+ 
+START=97
+
+start() {        
+        
+        /usr/libexec/tsmodem.sh
+
+}                 
+ 
+stop() {          
+
+        start-stop-daemon -s SIGINT -Kx lua rules.lua
+        start-stop-daemon -s SIGINT -Kx /usr/sbin/gwsocket
+        start-stop-daemon -s SIGINT -Kx lua driver.lua
+
+        echo "----------------"
+        echo "Tsmodem stopped."
+        echo "----------------"
+        
+}

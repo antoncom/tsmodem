@@ -3,6 +3,8 @@
 	@import url('/luci-static/resources/ts_skw92a/jquery/jquery.highlight-within-textarea.css');
 
 
+
+
 	.btn_spinner {
 		display: inline-block;
 		width: 0px;
@@ -387,11 +389,16 @@ h3 {
 	padding-bottom: 5px;
 }
 
-div.td.status i {
+div.td.network_registration i {
 	font-style: normal;
-	background-image: url('/luci-static/resources/ts_skw92a/img/icon_active-passive.png');
+	background-image: url('/luci-static/resources/ts_skw92a/img/icon_reg_status.png');
 	background-repeat: no-repeat;
 	padding-left: 19px;
+	background-position: 0 -90px;
+}
+
+div.td.network_registration {
+	white-space: nowrap;
 }
 
 div.td.balance-alert {
@@ -419,6 +426,10 @@ div.td[data-title='Ответ'] {
 	background-repeat: no-repeat;
 	background-position: 0 14px;
 	padding-left: 25px;
+}
+
+div.journal .response.REGISTERED {
+	color: darkgreen;
 }
 
 </style>
