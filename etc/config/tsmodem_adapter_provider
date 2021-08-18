@@ -1,0 +1,64 @@
+
+config adapter 'template'
+	option name '0'
+	option gate_address '0'
+	option balance_ussd '0'
+	option balance_mask '0'
+	option balance_example_message '0'
+
+config adapter
+	option editable '0'
+	option balance_example_message '368 р.'
+	option gate_address 'internet.beeline.ru'
+	option name 'Beeline'
+	option code '25099'
+	option balance_ussd '#102#'
+	option balance_mask ' Vash balans __RUB__ r.'
+	option balance_last_message 'Vash balans 8.20 r. Doverit. platezh *141# Uznat'\'' summu i stoimost'\'' *141*7# Info: 064012'
+
+config adapter
+	option editable '0'
+	option name 'MTS'
+	option code '25001'
+	option gate_address 'internet.mts.ru'
+	option balance_example_message 'Баланс:100р'
+	option balance_mask 'Balance:__RUB__r'
+	option balance_ussd '#100#'
+	option balance_last_message '5 8 7 2 5 A B = K 9"'
+
+config adapter
+	option editable '0'
+	option name 'Megafon'
+	option code '25002'
+	option balance_example_message 'Баланс:100р'
+	option balance_ussd '*100#'
+	option gate_address 'internet.megafon.ru'
+	option balance_mask '__RUB__ р.'
+	option balance_last_message '"'
+
+config adapter
+	option editable '0'
+	option name 'Tele2'
+	option code '25020'
+	option balance_example_message 'Баланс:100р'
+	option balance_ussd '*105#'
+	option balance_mask 'Баланс __RUB__ руб.'
+	option gate_address 'internet.tele2.ru'
+	option balance_last_message 'Баланс 6.00 pуб.'
+
+config adapter
+	option editable '1'
+	option name 'Yota'
+	option code '25011'
+	option gate_address 'internet'
+
+config adapter
+	option editable '1'
+	option name 'CUSTOM 1'
+	option gate_address 'internet'
+
+config adapter
+	option editable '1'
+	option name 'CUSTOM 2'
+	option gate_address 'internet'
+

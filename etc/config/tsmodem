@@ -1,0 +1,26 @@
+
+config sim 'sim_0'
+	option timeout_ping '120'
+	option signal_min '5'
+	option name 'Провайдер 1'
+	option timeout_signal '90'
+	option timeout_bal '120'
+	option timeout_reg '550'
+	option provider 'cfg022fa6'
+	option balance_min '10'
+
+config sim 'sim_1'
+	option timeout_ping '120'
+	option signal_min '5'
+	option name 'Провайдер 2'
+	option balance_min '600'
+	option timeout_signal '120'
+	option timeout_reg '90'
+	option timeout_bal '90'
+	option provider 'cfg042fa6'
+	option balance_time '1667018613'
+
+config debug 'debug'
+	option enable '0'
+	option type 'all'
+
