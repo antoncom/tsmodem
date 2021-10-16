@@ -1,8 +1,3 @@
---[[
-This script has to be made as daemon.
-https://oldwiki.archive.openwrt.org/inbox/procd-init-scripts
-https://forum.openwrt.org/t/tracking-ubus-listeners/11360
-]]
 
 local bit = require "bit"
 local lpeg = require "lpeg"
@@ -85,12 +80,8 @@ function modem:init_mk()
 	})
 	self.fds_mk = fds_mk
 
-	local res, sim_id = modem:stm32comm("~0:SIM.SEL=?")
-	if res == "OK" then
-		modem:update_state("sim", tostring(sim_id), "~0:SIM.SEL=?")
-	else
-		-- TODO: log error	
-	end
+	modem:stm32comm("~0:SIM.SEL=?")
+
 end
 
 function modem:init()
@@ -125,7 +116,7 @@ function modem:init()
 			modem.state.reg.time = tostring(os.time())
 
 		end
-	
+
 	end
 end
 
@@ -139,11 +130,11 @@ function modem:make_ubus()
 		["tsmodem.driver"] = {
 			reg = {
 				function(req, msg)
-					
-					local resp = { 
+
+					local resp = {
 						command = modem.state.reg.command,
-						value = modem.state.reg.value, 
-						time = modem.state.reg.time 
+						value = modem.state.reg.value,
+						time = modem.state.reg.time
 					}
 					self.conn:reply(req, resp);
 
@@ -151,11 +142,11 @@ function modem:make_ubus()
 			},
 			sim = {
 				function(req, msg)
-					
-					local resp = { 
+
+					local resp = {
 						command = modem.state.sim.command,
-						value = modem.state.sim.value, 
-						time = modem.state.sim.time 
+						value = modem.state.sim.value,
+						time = modem.state.sim.time
 					}
 					self.conn:reply(req, resp);
 
@@ -163,11 +154,11 @@ function modem:make_ubus()
 			},
 			signal = {
 				function(req, msg)
-					
-					local resp = { 
+
+					local resp = {
 						command = modem.state.signal.command,
-						value = modem.state.signal.value, 
-						time = modem.state.signal.time 
+						value = modem.state.signal.value,
+						time = modem.state.signal.time
 					}
 					self.conn:reply(req, resp);
 
@@ -175,11 +166,11 @@ function modem:make_ubus()
 			},
 			balance = {
 				function(req, msg)
-					
-					local resp = { 
+
+					local resp = {
 						command = modem.state.balance.command,
-						value = modem.state.balance.value, 
-						time = modem.state.balance.time 
+						value = modem.state.balance.value,
+						time = modem.state.balance.time
 					}
 					self.conn:reply(req, resp);
 
@@ -187,10 +178,10 @@ function modem:make_ubus()
 			},
 			usb = {
 				function(req, msg)
-					
-					local resp = { 
+
+					local resp = {
 						command = modem.state.usb.command,
-						value = modem.state.usb.value, 
+						value = modem.state.usb.value,
 						time = modem.state.usb.time,
 					}
 					self.conn:reply(req, resp);
@@ -200,10 +191,10 @@ function modem:make_ubus()
 
 			stm = {
 				function(req, msg)
-					
-					local resp = { 
+
+					local resp = {
 						command = modem.state.stm.command,
-						value = modem.state.stm.value, 
+						value = modem.state.stm.value,
 						time = modem.state.stm.time,
 					}
 					self.conn:reply(req, resp);
@@ -215,12 +206,12 @@ function modem:make_ubus()
 				function(req, msg)
 
 					if self:is_connected(self.fds) then
-						
-						if (modem.state.usb.value ~= "disconnected") then 
+
+						if (modem.state.usb.value ~= "disconnected") then
 
 							modem:unpoll()
 							socket.sleep(0.5)
-						
+
 							if(modem.state.sim.value == "0") then
 								modem:switch("1")
 							else
@@ -265,94 +256,72 @@ function modem:update_state(param, value, command)
 	end
 end
 
+function modem:update_state_stm_command(command)
+	local state = modem.state["stm"]
+	state.command = command
+end
+
+function modem:update_state_stm_value(value)
+	local state = modem.state["stm"]
+	local newval = tostring(value)
+	if state.value ~= newval then
+		state.value = newval
+		state.time = tostring(os.time())
+
+		-- Update Sim current id in the driver state
+		if(state.command == "~0:SIM.SEL=?") then
+			modem.state["sim"].command = "~0:SIM.SEL=?"
+			modem.state["sim"].value = newval
+			modem.state["sim"].time = state.time
+		end
+	end
+end
+
+function modem:update_mk_state(value, command)
+
+	local state = modem.state["stm"]
+	local newval = tostring(value)
+	local newcomm = tostring(command)
+
+
+	if (state.value ~= newval or state.command ~= newcomm) then
+		state.value = newval
+		state.command = newcomm
+		state.time = tostring(os.time())
+	end
+end
+
 function modem:is_connected(fd)
 	return fd and U.isatty(fd)
 end
 
 function modem:switch(sim_id)
 
-	modem:update_state("reg", "7", "AT+CREG?")
-	modem:update_state("signal", "0", "AT+CSQ")
+	modem:unpoll()
+	modem:stm32comm("~0:SIM.SEL=" .. tostring(sim_id))
 
-	local res, val = modem:stm32comm("~0:SIM.SEL=" .. tostring(sim_id))
-	if res == "OK" then
+	uloop.timer(function()
+		modem:stm32comm("~0:SIM.SEL=?")
 
-		modem:update_state("sim", sim_id, "~0:SIM.SEL=" .. tostring(sim_id))
-		modem:update_state("stm", "OK", "~0:SIM.SEL=" .. tostring(sim_id))
+		uloop.timer(function()
+			modem:stm32comm("~0:SIM.RST=0")
 
-	else
-		modem:update_state("stm", "ERROR", "~0:SIM.SEL=" .. tostring(sim_id))
-	end
+			uloop.timer(function()
+				modem:stm32comm("~0:SIM.RST=1")
+			end, 900)
+		end, 900)
+	end, 900)
 
-	socket.sleep(0.4)
-
-	res, val = modem:stm32comm("~0:SIM.RST=0")
-	if res == "OK" then
-
-		modem:update_state("stm", "OK", "~0:SIM.RST=0")
-		modem:update_state("usb", "disconnected", "/dev/ttyUSB2 close")
-
-
-	else
-
-		modem:update_state("stm", "ERROR", "~0:SIM.RST=0")
-		modem:update_state("usb", "disconnected", "/dev/ttyUSB2 close")
-
-	end
-
-	socket.sleep(0.8)
-
-	res, val = modem:stm32comm("~0:SIM.RST=1")
-	if res == "OK" then
-
-		modem:update_state("stm", "OK", "~0:SIM.RST=1")
-		modem:update_state("usb", "disconnected", "/dev/ttyUSB2 close")
-
-	else
-
-		modem:update_state("stm", "ERROR", "~0:SIM.RST=1")
-		modem:update_state("usb", "disconnected", "/dev/ttyUSB2 close")
-
-	end
-	socket.sleep(0.4)
-
+	return res, val
 end
 
---[[
-	local uci_result, section = false, "sim_" .. sim_id
-	uci_result = uci:set("tsmodem", "sim_0", "status", "0")-- or error('uci set error: ' .. "tsmodem" .. ' sim_0 status => 0')
-	uci_result = uci:set("tsmodem", "sim_1", "status", "0")--  or error('uci set error: ' .. "tsmodem" .. ' sim_1 status => 0')
-	uci_result = uci:set("tsmodem", section , "status", sim_id)--  or error('uci set error: ' .. "tsmodem" .. ' ' .. section .. ' status: ' .. sim_id)
-	uci_result = uci:commit("tsmodem")-- or error('uci commit error, sim_id: ' .. sim_id)
-]]
 
 function modem:stm32comm(comm)
-	local buf, value, status = '','',''
-
+	modem:update_state_stm_command(comm)
 	U.write(self.fds_mk, comm .. "\r\n")
-	socket.sleep(0.1)
-	buf = U.read(self.fds_mk, 1024) or error('ERROR: no stm32 buf')
-
-	local b = util.split(buf)
-	if(b[#b] == '') then
-		table.remove(b, #b)
-	end
-
-	status = b[#b]
-	value = b[1]
-
-
-	if(status == "OK") then
-		return status, value
-	else
-		return "ERROR"
-	end
 end
 
 
---function modem:notify(event_name, event_data)
---	self.conn:notify(self.ubus_objects["tsmodem.driver"].__ubusobj, event_name, event_data )
---end
 
 function modem:poll()
 	if (not self.fds_ev) and modem:is_connected(self.fds) then
@@ -397,6 +366,32 @@ function modem:unpoll()
 	end
 end
 
+function modem:stm32_poll()
+	if (not self.stm32_fds_ev) and modem:is_connected(self.fds_mk) then
+
+		self.stm32_fds_ev = uloop.fd_add(self.fds_mk, function(ufd, events)
+
+			local chunk, err, errcode = U.read(self.fds_mk, 1024)
+
+			local b = util.split(chunk)
+			if(b[#b] == '') then
+				table.remove(b, #b)
+			end
+
+			if (#b == 2) then
+				value = b[1]
+				status = b[2]
+			elseif (#b == 1) then
+				value = b[1]
+			else
+				value = "ERROR"
+			end
+
+			modem:update_state_stm_value(value)
+
+		end, uloop.ULOOP_READ)
+	end
+end
 
 local metatable = {
 	__call = function(table, ...)
@@ -407,6 +402,7 @@ local metatable = {
 
 		uloop.init()
 		modem:poll()
+		modem:stm32_poll()
 
 		local timer
 		function t()

@@ -32,15 +32,37 @@ local rule_setting = {
 		}
 	},
 
-	event_stm_old = {
+	event_stm_command_old = {
 		input = "",
 		output = "",
 		subtotal = "",
 		modifier = {
-			["1_formula"] = [[ return("event_stm")]]
+			["1_formula"] = [[ return("event_stm_command")]]
 		}
 	},
-	event_stm = {
+
+	event_stm_command = {
+		source = {
+			model = "tsmodem.driver",
+			method = "stm",
+			param = "command"
+		},
+		input = "",
+		output = "",
+		subtotal = "",
+		modifier = {}
+	},
+
+	event_stm_value_old = {
+		input = "",
+		output = "",
+		subtotal = "",
+		modifier = {
+			["1_formula"] = [[ return("event_stm_value")]]
+		}
+	},
+
+	event_stm_value = {
 		source = {
 			model = "tsmodem.driver",
 			method = "stm",
@@ -56,7 +78,7 @@ local rule_setting = {
 		output = "",
 		subtotal = "",
 		modifier = {
-			["1_formula"] = [[ if "event_stm" ~= "event_stm_old" then return "true" else return "false" end	]]
+			["1_formula"] = [[ if( "event_stm_command" ~= "event_stm_command_old" or  "event_stm_command" ~= "event_stm_command_old") then return "true" else return "false" end ]]
 		}
 	},
 	event_stm_command = {
@@ -83,7 +105,7 @@ local rule_setting = {
 					name = "Выполнение команды",
 					source = "Микроконтроллер",
 					command = "event_stm_command",
-					response = "event_stm"
+					response = "event_stm_value"
 				})]],
 			["3_ui-update"] = {
 				param_list = { "journal" }
@@ -112,13 +134,16 @@ function rule:make()
 
 	self:load("title"):modify()
 	self:load("event_datetime"):modify()
-	self:load("event_stm_old"):modify()
-	self:load("event_stm"):modify()
-	self:load("event_stm_changed"):modify()
+	self:load("event_stm_command_old"):modify()
 	self:load("event_stm_command"):modify()
 
+	self:load("event_stm_value_old"):modify()
+	self:load("event_stm_value"):modify()
+
+	self:load("event_stm_changed"):modify()
+
 	self:load("journal"):modify()
-		
+
 end
 
 
