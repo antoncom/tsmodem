@@ -51,11 +51,35 @@ function rules:make_ubus()
 					for rule_file, rule_obj in util.kspairs(self.setting.rules_list.target) do
 						rlist[rule_file] = rule_obj.setting.title.output
 					end
-					
+
 					self.conn:reply(req, { rule_list = rlist })
 
 				end, {id = ubus.INT32, msg = ubus.STRING }
 			},
+
+			vars = {
+				function(req, msg)
+					local vlist = {}
+					local rules = self.setting.rules_list.target
+					local rule_name = msg["rule"]
+					if not rule_name then
+						self.conn:reply(req, { ["error"] = "Rule name was not found. Try 'list' to see all names."})
+						return
+					end
+
+					if rules[rule_name] and rules[rule_name].setting  then
+						for varname, varparams in pairs(rules[rule_name].setting) do
+							vlist[varname] = (type(varparams["output"]) == "table") and util.serialize_json(varparams["output"]) or varparams["output"]
+						end
+					else
+						self.conn:reply(req, { ["error"] = string.format("Rule '%s' was not found.", tostring(rule_name)) })
+					end
+
+					self.conn:reply(req, { variables = vlist })
+
+				end, {id = ubus.INT32, msg = ubus.STRING }
+			},
+
 	    	-- You get notified when someone subscribes to a channel
 			__subscriber_cb = function( subs )
 				print("*************RULE - total subs: ", subs )
@@ -85,7 +109,7 @@ function rules:make()
 	for i=1, #files do
 		id = util.split(files[i], '.lua')[1]
 		rules[id] = require("luci.model.tsmodem.rule." .. id)
-	end	
+	end
 end
 
 
@@ -103,7 +127,7 @@ function rules:run_all(varlink)
 	end
 end
 
-local metatable = { 
+local metatable = {
 	__call = function(table)
 		table.setting = rules_setting
 		local tick = table.setting.tick_size_default
@@ -111,7 +135,7 @@ local metatable = {
 		table:make_ubus()
 		table:make()
 		table:init_websocket()
-		
+
 		-- looping
 		uloop.init()
 

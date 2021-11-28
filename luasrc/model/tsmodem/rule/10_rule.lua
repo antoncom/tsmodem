@@ -24,22 +24,33 @@ local rule_setting = {
 	},
 
 	event_datetime = {
+		source = {
+			model = "tsmodem.driver",
+			method = "usb",
+			param = "time"
+		},
 		input = "",
 		output = "",
 		subtotal = nil,
 		modifier = {
-			["1_formula"] = 'return(os.date("%Y-%m-%d %H:%M:%S"))'
+			["1_formula"] = 'return(os.date("%Y-%m-%d %H:%M:%S", tonumber("event_datetime")))'
 		}
 	},
 
-	event_usb_old = {
+	event_is_new = {
+		source = {
+			model = "tsmodem.driver",
+			method = "usb",
+			param = "unread"
+		},
 		input = "",
 		output = "",
-		subtotal = "",
+		subtotal = nil,
 		modifier = {
-			["1_formula"] = [[ return("event_usb")]]
+
 		}
 	},
+
 	event_usb = {
 		source = {
 			model = "tsmodem.driver",
@@ -51,14 +62,7 @@ local rule_setting = {
 		subtotal = "",
 		modifier = {}
 	},
-	event_usb_changed = {
-		input = "",
-		output = "",
-		subtotal = "",
-		modifier = {
-			["1_formula"] = [[ if "event_usb" ~= "event_usb_old" then return "true" else return "false" end	]]
-		}
-	},
+
 	event_usb_command = {
 		source = {
 			model = "tsmodem.driver",
@@ -77,7 +81,7 @@ local rule_setting = {
 		output = "",
 		subtotal = nil,
 		modifier = {
-			["1_logicfunc"] = [[ if ("event_usb_changed" == "true") then return true else return false end ]],
+			["1_logicfunc"] = [[ if ("event_is_new" == "true") then return true else return false end ]],
 			["2_formula"] = [[return({
 					datetime = "event_datetime",
 					name = "Изменилось состояние порта /dev/ttyUSB2",
@@ -112,12 +116,11 @@ function rule:make()
 
 	self:load("title"):modify()
 	self:load("event_datetime"):modify()
-	self:load("event_usb_old"):modify()
+	self:load("event_is_new"):modify()
 	self:load("event_usb"):modify()
-	self:load("event_usb_changed"):modify()
 	self:load("event_usb_command"):modify()
 
-	self:load("journal"):modify()
+	self:load("journal"):modify():clear()
 
 end
 

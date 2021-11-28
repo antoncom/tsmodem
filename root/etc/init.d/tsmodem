@@ -13,6 +13,7 @@ stop() {
         start-stop-daemon -s SIGINT -Kx lua rules.lua
         start-stop-daemon -s SIGINT -Kx /usr/sbin/gwsocket
         start-stop-daemon -s SIGINT -Kx lua driver.lua
+        start-stop-daemon -s SIGINT -Kx clean_tmp_luci.sh
 
         echo "----------------"
         echo "Tsmodem stopped."

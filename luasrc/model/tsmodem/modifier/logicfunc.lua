@@ -10,7 +10,7 @@ function logic:logicfunc(varname, setting) --[[
 	and check logic expression
 	]]
 	local varlink = setting[varname] or {}
-	local logic_body, result = '', true
+	local logic_body, result, status = '', true, true
 
 	for name, value in util.kspairs(varlink.modifier) do
 		if(name:sub(3) == "logicfunc") then
@@ -22,22 +22,29 @@ function logic:logicfunc(varname, setting) --[[
 				end
 			end
 
---[[
-			if(varname == "do_switch_result") then
-				log(varname, logic_body)
-			end
-]]
+
+			--if(varname == "do_switch_low_signal") then
+				--log(varname, logic_body)
+			--end
+
 
 			local func = logic_body and loadstring(logic_body)
 			if func then
-				result = func()
+				status, result = pcall(func)
+				if status == false then
+					print("ERROR in [" .. varname .. "] LOGICFUNC: " .. result)
+					log(varname, logic_body)
+					return false
+				end
 			else
 				print("ERROR in [" .. varname .. "] LOGICFUNC: " .. logic_body)
+				log(varname, logic_body)
 				return false
 			end
 
 			if not (result == true or result == false) then
 				print("ERROR in [" .. varname .. "] LOGICFUNC returns NIL: " .. logic_body)
+				log(varname, logic_body)
 				result = false
 
 			end

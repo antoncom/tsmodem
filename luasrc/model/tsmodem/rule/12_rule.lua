@@ -24,22 +24,33 @@ local rule_setting = {
 	},
 
 	event_datetime = {
+		source = {
+			model = "tsmodem.driver",
+			method = "reg",
+			param = "time"
+		},
 		input = "",
 		output = "",
 		subtotal = nil,
 		modifier = {
-			["1_formula"] = 'return(os.date("%Y-%m-%d %H:%M:%S"))'
+			["1_formula"] = 'return(os.date("%Y-%m-%d %H:%M:%S", tonumber("event_datetime")))'
 		}
 	},
 
-	event_reg_old = {
+	event_is_new = {
+		source = {
+			model = "tsmodem.driver",
+			method = "reg",
+			param = "unread"
+		},
 		input = "",
 		output = "",
-		subtotal = "",
+		subtotal = nil,
 		modifier = {
-			["1_formula"] = [[ return("event_reg")]]
+
 		}
 	},
+
 	event_reg = {
 		source = {
 			model = "tsmodem.driver",
@@ -51,14 +62,6 @@ local rule_setting = {
 		subtotal = "",
 		modifier = {}
 	},
-	event_reg_changed = {
-		input = "",
-		output = "",
-		subtotal = "",
-		modifier = {
-			["1_formula"] = [[ if "event_reg" ~= "event_reg_old" then return "true" else return "false" end	]]
-		}
-	},
 
 
 	journal = {
@@ -66,7 +69,7 @@ local rule_setting = {
 		output = "",
 		subtotal = nil,
 		modifier = {
-			["1_logicfunc"] = [[ if ("event_reg_changed" == "true") then return true else return false end ]],
+			["1_logicfunc"] = [[ if ("event_is_new" == "true") then return true else return false end ]],
 			["2_formula"] = [[return({
 					datetime = "event_datetime",
 					name = "Изменился статус регистрации в сети",
@@ -96,17 +99,16 @@ function rule:load(varname, ...)
 	return loadvar(rule, varname, ...)
 end
 
-
 function rule:make()
 
 	self:load("title"):modify()
 	self:load("event_datetime"):modify()
-	self:load("event_reg_old"):modify()
+	self:load("event_is_new"):modify()
 	self:load("event_reg"):modify()
-	self:load("event_reg_changed"):modify()
 
-	self:load("journal"):modify()
-		
+	self:load("journal"):modify():clear() -- clear cache
+
+
 end
 
 

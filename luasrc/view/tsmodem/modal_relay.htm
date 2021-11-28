@@ -1,0 +1,208 @@
+<%
+	local config = "tsmodem"
+	local uci = require "luci.model.uci".cursor()
+	local util = require "luci.util"
+	local log = require "luci.model.netping.log"
+
+%>
+<%
+	local adapter_list = require "luci.model.tsmodem.adapter_list"
+	local dropdown, dropdown_js, name = {}, '', ''
+	for adptype, adapter in pairs(adapter_list) do
+		print(adapter():render("cssfile"))
+		print(adapter():render("validator"))
+		print(adapter():render("widgetfile"))
+		dropdown[#dropdown+1] = string.format('"%s": "%s"', adapter():getName(), adapter():getLabel())
+	end
+	dropdown_js = "{" .. table.concat(dropdown, ", ") .. "}"
+
+
+%>
+<%+tsmodem/ui_widget/UIAdapterEmpty.js%>
+<%+tsmodem/ui_override/DropdownProto.js%>
+
+<script type="text/javascript">
+//<![CDATA[
+
+function edit_sim(btn) {
+	var globals_data = {}
+	var simid = btn.getAttribute("data-simid") || null;
+	L.require("ui").then(function(ui){
+		L.require("uci").then(function(uci) {
+			uci.load("<%=config%>").then(function(out){
+				var sim_data = uci.get("<%=config%>", "sim_" + simid);
+				var	adapter_data = {},
+					adapter_widgets = [];
+
+				var proto = new ui.DropdownProto(sim_data["proto"], <%= dropdown_js %>, {
+					disabled: embedded,
+					sort: true
+				});
+
+
+				var rssi = new ui.Textfield(sim_data["signal_min"], {
+					datatype: "rangelength(1,2)" });
+
+				var balance_min = new ui.Textfield(sim_data["balance_min"], {
+					datatype: "rangelength(2,4)" });
+
+				var timeout_reg = new ui.Textfield(sim_data["timeout_reg"], {
+					datatype: "rangelength(1,4)" });
+
+				var timeout_signal = new ui.Textfield(sim_data["timeout_signal"], {
+					datatype: "rangelength(1,4)" });
+
+				var timeout_bal = new ui.Textfield(sim_data["timeout_bal"], {
+					datatype: "rangelength(1,4)" });
+
+
+				// ADAPTER INITS
+				<%
+					for adptype, adapter in pairs(adapter_list) do
+						print(adapter():render("jsinit"))
+					end
+				%>
+
+
+				var memo = new ui.Textfield(sim_data["name"], {
+					datatype: "rangelength(4,128)" });
+
+				var emptyProto = new ui.AdapterEmpty()
+
+
+				L.showModal('Редактировать настройки Сим-карты', [
+					E('div', { class: 'cbi-map' }, [
+						E('div', { class: 'cbi-map-section' }, [
+							E('div', { class: 'cbi-map-section-node' }, [
+								E('div', { class: 'cbi-value' }, [
+									E('label', { 'class': 'cbi-value-title memo-edit' }, _('Памятка') + ":"),
+									E('div', { class: 'cbi-value-field memo-edit' }, [
+										memo.render()
+									])
+								]),
+
+								E('div', {class: 'tr cbi-rowstyle-2'}, [
+									E('div', {class: 'td'}, "Уровень сигнала MIN, " + sim_data["signal_unit"]),
+									E('div', {class: 'td', style: "text-align: right;"}, [rssi.render()])
+								]),
+								E('div', {class: 'tr cbi-rowstyle-2'}, [
+									E('div', {class: 'td'}, "Баланс MIN, " + sim_data["balance_unit"]),
+									E('div', {class: 'td', style: "text-align: right;"}, [balance_min.render()])
+								]),
+
+								E('div', { class: 'cbi-value' }, [
+									E('label', { 'class': 'cbi-value-title' }, _('Сеть') + ":"),
+									E('div', { class: 'cbi-value-field' }, [
+										E('div', { class: 'cbi-value-field-flex'}, [
+											E('div', { class: 'cbi-value-field-1col'}, [
+												proto.render()
+
+											]),
+											E('div', { class: 'cbi-value-field-2col'}, [
+												// ADAPTER WIDGETS RENDER
+												emptyProto.render(),
+												<%
+													for atype, adapter in pairs(adapter_list) do
+														print(adapter():render("jsrender") .. ",\n")
+													end
+												%>
+												E('div', {class: 'tr cbi-rowstyle-1'}, [
+													E('div', {class: 'td'}, "Время не в сети MAX, " + sim_data["timeout_unit"]),
+													E('div', {class: 'td', style: "text-align: right;"}, [timeout_reg.render()])
+												]),
+												E('div', { class: 'table modal-section-param more-params'}, [
+													E('div', {class: 'tr cbi-rowstyle-0'}, [
+														E('div', {class: 'td'}, "Задержка переключения Сим при низком уровне сигнала, " + sim_data["timeout_unit"]),
+														E('div', {class: 'td', style: "text-align: right;"}, [timeout_signal.render()])
+													]),
+													E('div', {class: 'tr cbi-rowstyle-1'}, [
+														E('div', {class: 'td'}, "Задержка переключения Сим при низком балансе, " + sim_data["timeout_unit"]),
+														E('div', {class: 'td', style: "text-align: right;"}, [timeout_bal.render()])
+													]),
+												]),
+												E('button', {
+													'class': 'cbi-button cbi-button-apply',
+													'data-action': 'show',
+													'style': 'display: initial;',
+													'click': ui.createHandlerFn(this, 'toggle_more')
+												}, _('Дополнительные параметры') )
+											])
+										])
+									])
+								]),
+							])
+						])
+					]),
+
+					E('div', { class: 'cbi-value-field' }, [
+						E('div', {
+							class: 'btn',
+							click: function() { L.hideModal() }
+						}, _('Закрыть')),
+						' ',
+						E('div', { class: 'btn success', "name": "apply",
+							'click': ui.createHandlerFn(this, function() {
+								// We load all adapters' data, but only selected protocol data will pass the validation
+								<%
+									for atype, adapter in pairs(adapter_list) do
+										print(string.format('adapter_data["%s"] = %s', atype, adapter():render("getvalues")))
+										print(string.format('adapter_widgets["%s"] = %s', atype, adapter():render("getfields")))
+									end
+								%>
+
+								var widget_list = []
+								// Remove inactive adapter's data
+								for(name in adapter_data)	{
+									if(name != proto.getValue()) {
+										delete adapter_data[name]
+										delete adapter_widgets[name]
+									}
+								}
+
+								// Check all form validity
+								var widget_list = [proto, rssi, timeout_signal, timeout_bal, timeout_reg, balance_min, memo];
+								if(adapter_widgets[proto.getValue()] != undefined) {
+									widget_list = widget_list.concat(adapter_widgets[proto.getValue()])
+								}
+
+								var form_valid = true;
+								for(var w of widget_list) {
+									w.triggerValidation()
+									if(!w.isValid()) {
+										form_valid = false
+										break;
+									}
+								}
+
+								if (form_valid) {
+									sim_data["name"] = memo.getValue()
+									sim_data["proto"] = proto.getValue()
+
+									sim_data["signal_min"] = rssi.getValue()
+									sim_data["balance_min"] = balance_min.getValue()
+
+									sim_data["timeout_reg"] = timeout_reg.getValue()
+									sim_data["timeout_signal"] = timeout_signal.getValue()
+									sim_data["timeout_bal"] = timeout_bal.getValue()
+									return handleEdit(simid, sim_data, adapter_data);
+
+								}
+								else {
+									return 0;
+								}
+
+							})
+						}, _('Сохранить'))
+					])
+				]);
+			})
+		})
+	})
+}
+
+function handleEdit(simid, sim_data, adapter_data) {
+	send_action("edit", simid, { "sim_data": sim_data, "adapter_data": adapter_data } )
+}
+
+//]]>
+</script>

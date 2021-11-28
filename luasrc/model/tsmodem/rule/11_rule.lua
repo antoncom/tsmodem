@@ -24,41 +24,33 @@ local rule_setting = {
 	},
 
 	event_datetime = {
+		source = {
+			model = "tsmodem.driver",
+			method = "stm",
+			param = "time"
+		},
 		input = "",
 		output = "",
 		subtotal = nil,
 		modifier = {
-			["1_formula"] = 'return(os.date("%Y-%m-%d %H:%M:%S"))'
+			["1_formula"] = 'return(os.date("%Y-%m-%d %H:%M:%S", tonumber("event_datetime")))'
 		}
 	},
 
-	event_stm_old = {
-		input = "",
-		output = "",
-		subtotal = "",
-		modifier = {
-			["1_formula"] = [[ return("event_stm")]]
-		}
-	},
-	event_stm = {
+	event_is_new = {
 		source = {
 			model = "tsmodem.driver",
 			method = "stm",
-			param = "value"
+			param = "unread"
 		},
 		input = "",
 		output = "",
-		subtotal = "",
-		modifier = {}
-	},
-	event_stm_changed = {
-		input = "",
-		output = "",
-		subtotal = "",
+		subtotal = nil,
 		modifier = {
-			["1_formula"] = [[ if "event_stm" ~= "event_stm_old" then return "true" else return "false" end	]]
+
 		}
 	},
+
 	event_stm_command = {
 		source = {
 			model = "tsmodem.driver",
@@ -72,18 +64,32 @@ local rule_setting = {
 	},
 
 
+	event_stm_value = {
+		source = {
+			model = "tsmodem.driver",
+			method = "stm",
+			param = "value"
+		},
+		input = "",
+		output = "",
+		subtotal = "",
+		modifier = {}
+	},
+
+
+
 	journal = {
 		input = "",
 		output = "",
 		subtotal = nil,
 		modifier = {
-			["1_logicfunc"] = [[ if ("event_stm_changed" == "true") then return true else return false end ]],
+			["1_logicfunc"] = [[ if ("event_is_new" == "true") then return true else return false end ]],
 			["2_formula"] = [[return({
 					datetime = "event_datetime",
 					name = "Выполнение команды",
 					source = "Микроконтроллер",
 					command = "event_stm_command",
-					response = "event_stm"
+					response = "event_stm_value"
 				})]],
 			["3_ui-update"] = {
 				param_list = { "journal" }
@@ -112,13 +118,12 @@ function rule:make()
 
 	self:load("title"):modify()
 	self:load("event_datetime"):modify()
-	self:load("event_stm_old"):modify()
-	self:load("event_stm"):modify()
-	self:load("event_stm_changed"):modify()
+	self:load("event_is_new"):modify()
 	self:load("event_stm_command"):modify()
+	self:load("event_stm_value"):modify()
 
-	self:load("journal"):modify()
-		
+	self:load("journal"):modify():clear()
+
 end
 
 

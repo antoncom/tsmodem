@@ -1,4 +1,4 @@
-# ts_luci_skw92a
+# tsmodem
 
 OpenWrt LuCI page for Sim7600 modem management.
 
@@ -36,8 +36,8 @@ OpenWrt LuCI page for Sim7600 modem management.
 
 ## Инструкция по установке
 
-1. git clone https://github.com/antoncom/ts_luci_skw92a.git
-2. cd ts_luci_skw92a
+1. git clone https://github.com/antoncom/tsmodem.git
+2. cd tsmodem
 3. make install
 4. Установить пакет luci_compat при помощи следующих команд:
 * **opkg update**

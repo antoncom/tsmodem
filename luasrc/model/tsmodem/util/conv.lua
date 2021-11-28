@@ -1,5 +1,5 @@
 
-require "lpeg"
+
 
 local code_table = {
   ["0416"] = "Ж",
@@ -21,7 +21,7 @@ end
 
 local i = 1
 local word = ""
-for c in string.gmatch(ucs,".") do 
+for c in string.gmatch(ucs,".") do
   char = char .. c
   if (math.fmod(i,4) == 0) then
     word = word ..code_table[char]
@@ -30,5 +30,5 @@ for c in string.gmatch(ucs,".") do
     char = ""
   end
   i = i + 1
-end 
+end
 print(word)

@@ -1,0 +1,231 @@
+<!-- tsmodem_adapter_provider JS/HTML chank -->
+<script type="text/javascript">
+//<![CDATA[
+L.require('ui').then(function(ui) {
+	L.require('dom').then(function(dom) {
+		L.require("uci").then(function(uci) {
+			uci.load("tsmodem_adapter_provider").then(function(out){
+				var UIAdapterProvider = ui.AbstractElement.extend(/** @lends LuCI.ui.Textarea.prototype */ {
+					__init__: function(adapters) {
+
+						this.fields = {};
+						this.adapter_id = "";
+						this.gsm_id = ""
+						this.adapters = adapters;
+						this.needsToSave = false;
+						this.isActive = false;
+
+						// -------------------------------------------------------
+						// Change the protocol name, config, and form fields below
+						//--------------------------------------------------------
+						this.proto = ""
+						this.config = "tsmodem_adapter_provider"
+						//--------------------------------------------------------
+
+
+						var section = this.addSection();
+
+
+						this.fields = {
+
+							"name": new ui.Textfield("", {
+								datatype: "rangelength(3,128)",
+								optional: false
+							}),
+
+							"gate_address": new ui.Textfield("", {
+								datatype: "rangelength(3,128)",
+								optional: false
+							}),
+
+							"balance_ussd": new ui.Textfield("", {
+								datatype: "rangelength(3,8)",
+								optional: false
+							}),
+
+							"balance_mask": new ui.TextAreaHighlighted("", {
+								optional: true,
+								datatype: "rangelength(0,256)",
+								readonly: true,
+								highlights: ["%_RUB_%"],
+							}),
+						}
+						//--------------------------------------------------------
+					},
+
+					/** @override */
+					render: function() {
+						var classActive = (this.isActive) ? ' active' : ''
+						var container = E('div', { class: 'table modal-section-param adapter provider' + classActive}, [
+							E('div', {class: 'tr table-titles'}, [
+								E('div', {class: 'th', style: 'width: 100%'}, _("Параметры сети " + this.proto)),
+								E('div', {class: 'th', style: "text-align: right;"}, _("Значение")),
+							]),
+
+							E('div', {class: 'tr cbi-rowstyle-2'}, [
+								E('div', {class: 'td', style: 'width: 100%;'}, _("Название провайдера")),
+								E('div', {class: 'td', style: "text-align: right;"}, [this.fields["name"].render()]),
+							]),
+
+							E('div', {class: 'tr cbi-rowstyle-1'}, [
+								E('div', {class: 'td', style: 'width: 100%;'}, _("Адрес интернет-шлюза")),
+								E('div', {class: 'td', style: "text-align: right;"}, [this.fields["gate_address"].render()]),
+							]),
+
+							E('div', {class: 'tr cbi-rowstyle-2'}, [
+								E('div', {class: 'td', style: 'width: 100%;'}, _("USSD-команда баланса")),
+								E('div', {class: 'td', style: "text-align: right;"}, [this.fields["balance_ussd"].render()]),
+							]),
+							E('div', {class: 'tr cbi-rowstyle-1'}, [
+								E('div', {class: 'td', style: 'width: 100%; vertical-align: top;'}, "Шаблон SMS-сообщения о балансе"),
+								//E('div', {class: 'td', style: "text-align: right;"}, [this.fields["balance_mask"].render()]),
+								E('div', { class: 'td' }, [
+									E('div', { class: 'cbi-value-field message-template' }, [
+										this.fields["balance_mask"].render(),
+
+										E('a', {
+											name: 'tmpl-default',
+											style: 'color: grey;',
+											click: ui.createHandlerFn(this, function() {
+												return this.loadTmplDefault();
+											})
+										}, _('Оригинал')),
+										E('a', {
+											name: 'tmpl-custom',
+											style: '',
+											click: ui.createHandlerFn(this, function() {
+												return this.loadTmplCustom();
+											})
+										}, _('Шаблон')),
+
+									]),
+								]),
+							]),
+							// Add new fields html-markup here
+							//
+						])
+						return this.bind(container);
+					},
+
+
+					/** @private */
+					bind: function(container) {
+						this.node = container
+						var self = this
+						dom.bindClassInstance(container, this);
+
+						// Cusom override:
+						// We subscribe EventBus event which is emitted by "DropdownProto" widget (see ui_override)
+						window.EventBus.register(this.node, 'bus-proto-changed', [],
+							function(ev) {
+								if(ev.detail["proto"] != undefined) {
+									var gsm_id = ev.detail["proto"]
+									self.gsm_id = gsm_id
+									var gsm_data = self.adapters[gsm_id]
+
+									self.fields["name"].setValue(gsm_data["name"])
+									self.fields["gate_address"].setValue(gsm_data["gate_address"])
+									self.fields["balance_ussd"].setValue(gsm_data["balance_ussd"])
+									self.fields["balance_mask"].setValue(gsm_data["balance_mask"])
+
+									container.classList.add("active")
+									self.isActive = true
+								} else {
+									container.classList.remove("active")
+									self.isActive = false
+								}
+							}
+						);
+						return container;
+					},
+
+					// {
+					//	"fieldname": "value"
+					// }
+					getValue: function() {
+						var data = {}
+						for (var name in this.fields) {
+							data[name] = this.fields[name].getValue() || ''
+						}
+						return data;
+					},
+
+					getFields: function() {
+						var data = []
+						for (var name in this.fields) {
+							data.push(this.fields[name])
+						}
+						return data;
+					},
+
+					// if user filled in protocol at first time, then
+					// we need to prepare uci section initially
+					addSection: function() {
+						var sec = uci.get(this.config, this.adapter_id)
+						if(sec == null) {
+							sec = uci.add(this.config, "provider", this.adapter_id)
+							sec = uci.get(this.config, this.adapter_id)
+						}
+						return(sec)
+					},
+
+					nearleyValidator: function(field, errormsg) {
+						return function(user_input_text) {
+							// this function is declared at "ui_adapter/"netping_luci_relay_adapter_http.valid.js.htm"
+							var gramma = tsmodem_adapter_provider_valid(field)
+							const parser = new nearley.Parser(nearley.Grammar.fromCompiled(gramma));
+							try {
+								var pf = parser.feed(user_input_text)
+								if (pf.results.length > 0)
+									return true // it's a requirement of LuCI widget API
+								else
+									return errormsg
+							}
+							catch (e) {
+								return errormsg
+							}
+						}
+					},
+
+					// enable Custom / Default switcher
+					allowTmplEdit: function() {
+						document.querySelector("[name='allow-tmpl-edit']").style.display = "none"
+						document.querySelector("[name='tmpl-custom']").style.display = "block"
+						document.querySelector("[name='tmpl-default']").style.display = "block"
+						//loadTmplCustom()
+					},
+
+					// load default templae to textarea
+					loadTmplDefault: function(eventId=undefined, channelId=undefined) {
+						this.fields["balance_mask"].getTextArea().readOnly = true;
+						this.fields["balance_mask"].setValue("Баланс 100 р.")
+						document.querySelector(".hwt-backdrop").style.backgroundColor = "#bbb";
+						document.querySelector(".hwt-input").style.color = "#666";
+						document.querySelector("[name='tmpl-custom']").style.backgroundImage = "none";
+						document.querySelector("[name='tmpl-default']").style.backgroundImage = "url(/luci-static/resources/icons/check-grey.png)";
+					},
+					// load custom template to textarea
+					loadTmplCustom: function(eventId=undefined, channelId=undefined) {
+						this.fields["balance_mask"].setValue(this.adapters[this.gsm_id]["balance_mask"])
+						document.querySelector(".hwt-backdrop").style.backgroundColor = "#fff";
+						document.querySelector(".hwt-input").style.color = "#000";
+						this.fields["balance_mask"].getTextArea().readOnly = false;
+						this.fields["balance_mask"].getTextArea().focus()
+						document.querySelector("[name='tmpl-default']").style.backgroundImage = "none";
+						document.querySelector("[name='tmpl-custom']").style.backgroundImage = "url(/luci-static/resources/icons/check.png)";
+					},
+					saveTmplCustom: function(tmpltext, eventId=undefined, channelId=undefined) {
+						var tmpls = session.getLocalData("custom-alert-templates")
+						var evnt_id = eventId || event.getValue() || "1"
+						var chnl_id = channelId || alert_method.getValue() || "sms"
+						tmpls[evnt_id][chnl_id] = tmpltext
+						session.setLocalData("custom-alert-templates", tmpls)
+					},
+				});
+				ui["tsmodem_adapter_provider"] = UIAdapterProvider;
+			});
+		});
+	});
+});
+//]]>
+</script>

@@ -1,0 +1,22 @@
+
+config adapter 'template'
+	option name '0'
+	option gate_address '0'
+	option balance_ussd '0'
+	option balance_mask '0'
+	option balance_example_message '0'
+
+config adapter
+	option balance_example_message '368 р.'
+	option gate_address 'internet.beeline.ru'
+	option name 'Beeline'
+	option balance_ussd '*102#'
+	option balance_mask '%_RUB_% р.'
+
+config adapter
+	option name 'MTS'
+	option gate_address 'internet.mts.ru'
+	option balance_ussd '*102#'
+	option balance_mask '%_RUB_% р.'
+	option balance_example_message '777 р.'
+

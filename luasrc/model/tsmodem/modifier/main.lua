@@ -12,9 +12,8 @@ local main = {
 function main:modify(varname, setting) --[[
 	Apply modifiers to the target value
 	---------------------------------]]
-	
-	local varlink = setting[varname] or {}
 
+	local varlink = setting[varname] or {}
 
 
 	-- Before the modifier apply, we load intermediate "subtotal"
@@ -43,11 +42,16 @@ function main:modify(varname, setting) --[[
 
 	end
 
-
 	-- After all modifiers was applied, we put result to "output"
-
-	varlink.output = varlink.subtotal and string.format("%s", tostring(varlink.subtotal))
-	varlink.subtotal = nil
+	if(varlink.subtotal) then
+		if(type(varlink.subtotal) == "table") then
+			varlink.output = util.serialize_json(varlink.subtotal)
+		else
+			--if(varname == "signal_normal_last_time") then print(":::: ", varlink.subtotal) end
+			varlink.output = string.sub(varlink.subtotal, 1)
+		end
+		varlink.subtotal = nil
+	end
 
 
 

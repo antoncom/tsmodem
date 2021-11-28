@@ -9,8 +9,6 @@ local modifier = require "modifier.main"
 local logicfunc = require "modifier.logicfunc"
 
 
-local reg_timeout = 90
-
 local rule = {}
 rule.ubus = {}
 rule.is_busy = false
@@ -22,61 +20,6 @@ local rule_setting = {
 		subtotal = nil,
 		modifier = {}
 	},
-	signal = {
-		source = {
-			model = "tsmodem.driver",
-			method = "signal",
-			param = "value"
-		},
-		input = "",
-		output = "",
-		subtotal = nil,
-		modifier = {
-			["1_formula"] = 'if ("signal" == "99" or "signal" == "31" or "signal" == "" or "signal" == "0") then return("-") else return("signal") end',
-			["2_formula"] = 'if ("network_registration" == "7" or "network_registration" == "6" or "network_registration" == "0") then return("-") else return("signal") end',
-			["3_formula"] = 'if ("signal" ~= "-") then return(tostring(math.ceil(tonumber("signal") * 100 / 31))) else return("signal") end',
-		}
-	},
-	network_registration = {
-		source = {
-			model = "tsmodem.driver",
-			method = "reg",
-			param = "value"
-		},
-		input = "",
-		output = "",
-		subtotal = nil,
-		modifier = {
-			["1_ui-update"] = {
-				param_list = { "network_registration", "sim_id", "signal" }
-			}
-		}
-	},
-
-	changed_reg_time = {
-		source = {
-			model = "tsmodem.driver",
-			method = "reg",
-			param = "time"
-		},
-		input = "",
-		output = "",
-		subtotal = nil,
-		modifier = {}
-	},
-
-	lastreg_timer = {
-		input = "",
-		output = "",
-		subtotal = nil,
-		modifier = {
-			["1_formula"] = 'if ("network_registration" ~= "1" and "network_registration" ~= "7") then return( tostring(os.time() - tonumber("changed_reg_time")) ) else return("0") end ',
-			["2_ui-update"] = {
-				param_list = { "lastreg_timer" }
-			}
-		}
-	},
-
 
 	sim_id = {
 		source = {
@@ -90,6 +33,71 @@ local rule_setting = {
 		modifier = {}
 	},
 
+	uci_section = {
+		input = "",
+		output = "",
+		subtotal = nil,
+		modifier = {
+			["1_formula"] = [[ if ("sim_id" == "0" or "sim_id" == "1") then return ("sim_" .. "sim_id") else return "sim_0" end ]]
+		}
+	},
+
+	uci_timeout_reg = {
+		source = {
+			model = "uci",
+			config = "tsmodem",
+			section = "uci_section",
+			option = "timeout_reg"
+		},
+		input = "",
+		output = "",
+		subtotal = nil,
+		modifier = {
+			["1_formula"] = [[ if ( "uci_timeout_reg" == "" or tonumber("uci_timeout_reg") == nil ) then return "99" else return "uci_timeout_reg" end ]]
+		}
+	},
+
+	network_registration = {
+		source = {
+			model = "tsmodem.driver",
+			method = "reg",
+			param = "value"
+		},
+		input = "",
+		output = "",
+		subtotal = nil,
+		modifier = {
+			["1_ui-update"] = {
+				param_list = { "network_registration", "sim_id" }
+			}
+		}
+	},
+
+	changed_reg_time = {
+		source = {
+			model = "tsmodem.driver",
+			method = "reg",
+			param = "time"
+		},
+		input = "",
+		output = "",
+		subtotal = nil,
+		modifier = {
+			["1_formula"] = 'if("changed_reg_time" == "" or tonumber("changed_reg_time") == nil) then return "0" else return "changed_reg_time" end'
+		}
+	},
+
+	lastreg_timer = {
+		input = "",
+		output = "",
+		subtotal = nil,
+		modifier = {
+			["1_formula"] = 'if ("network_registration" ~= "1" and "network_registration" ~= "7") then return( tostring(os.time() - tonumber("changed_reg_time")) ) else return("0") end ',
+			["2_ui-update"] = {
+				param_list = { "lastreg_timer", "sim_id" }
+			}
+		}
+	},
 
 	do_switch_result = {
 		source = {
@@ -105,11 +113,20 @@ local rule_setting = {
 					( "do_switch_result" ~= "not-ready-to-switch" )
 				and	( "do_switch_result" ~= "disconnected" )
 				and	( "network_registration" ~= "1" )
-				and ( tonumber("lastreg_timer") > ]] .. tostring(reg_timeout) .. [[ )
+				and ( tonumber("lastreg_timer") > tonumber("uci_timeout_reg") )
 			) then return true else return false end ]],
+		},
+		["2_formula"] = [[return({
+				datetime = "event_datetime",
+				name = "Нет регистрации в сети: переключение на другую Сим",
+				source = "Микроконтроллер",
+				command = "do_switch_result",
+				response = "OK"
+			})]],
+		["3_ui-update"] = {
+			param_list = { "do_switch_result" }
 		}
 	},
-
 }
 
 function rule:logicfunc(varname)
@@ -120,7 +137,6 @@ function rule:modify(varname)
 	return modifier:modify(varname, self.setting)
 end
 
-
 function rule:load(varname, ...)
 	return loadvar(rule, varname, ...)
 end
@@ -130,12 +146,14 @@ function rule:make()
 
 	self:load("title"):modify()
 	self:load("sim_id"):modify()
-	self:load("signal"):modify()
+	self:load("uci_section"):modify()
+	self:load("uci_timeout_reg"):modify()
 	self:load("network_registration"):modify()
 	self:load("changed_reg_time"):modify()
 	self:load("lastreg_timer"):modify()
 
-	self:load("do_switch_result")
+	self:load("do_switch_result"):modify():clear()
+
 
 end
 
