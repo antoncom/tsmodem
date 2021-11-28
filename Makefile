@@ -5,25 +5,28 @@
 include $(TOPDIR)/rules.mk
 
 LUCI_TITLE:=LuCI TechnoSkver RTR01
-LUCI_DEPENDS:=+openssh-sftp-server +luci-compat +luaposix +luabitop +lpeg +coreutils-sleep +libubox-lua +luasocket +coreutils-stty +libopenssl1.1 +comgt +kmod-usb-serial +kmod-usb-serial-option +kmod-usb-serial-wwan +usb-modeswitch +kmod-usb-core +luci-app-uhttpd +luci-ssl-openssl +luci-proto-3g
+LUCI_DEPENDS:=+openssh-sftp-server +luci-compat +luaposix +luabitop +lpeg +coreutils-sleep +libubox-lua +luasocket +coreutils-stty +comgt +kmod-usb-serial +kmod-usb-serial-option +kmod-usb-serial-wwan +usb-modeswitch +kmod-usb-core +luci-app-uhttpd +luci-proto-3g
 LUCI_DESCRIPTION:=Double SIM management for Skw92A with Sim7600 modem integration.
 LUCI_PKGARCH:=all
 
 PKG_NAME:=tsmodem
-PKG_VERSION:=1.5.5
+PKG_VERSION:=1.5.6
 PKG_LICENSE:=GPL-3.0-or-later
 
 
 define Package/$(PKG_NAME)/postinst
 	#!/bin/sh
 	sleep 1;
-	cd /usr/sbin
-	tar -xf /root/ts_skw92a/gwsocket.tar
+	#cd /usr/sbin
+	#tar -xf /root/ts_skw92a/gwsocket.tar
 	
-	uci set uhttpd.main.cert='/root/ts_skw92a/server.pem'
-	uci set uhttpd.main.key='/root/ts_skw92a/server.key'
-	uci set uhttpd.main.redirect_https='1'
-	uci commit uhttpd
+	#uci set uhttpd.main.cert='/root/ts_skw92a/server.pem'
+	#uci set uhttpd.main.key='/root/ts_skw92a/server.key'
+	#uci set uhttpd.main.redirect_https='1'
+	#uci commit uhttpd
+	#/etc/init.d/uhttpd restart
+
+	uci set uhttpd.main.redirect_https='0'
 	/etc/init.d/uhttpd restart
 
 	uci set luci.ccache.enable='0'

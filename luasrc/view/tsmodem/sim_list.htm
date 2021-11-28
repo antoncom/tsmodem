@@ -90,7 +90,6 @@
 			<div class="th">Наименование</div>
 			<div class="th" style="width: 33%;">Статус</div>
 			<div class="th">Сигнал</div>
-			<div class="th">Помехи</div>
 			<div class="th">Баланс</div>
 			<div class="th center nowrap cbi-section-actions">Действия</div>
 		</div>
@@ -123,12 +122,6 @@
 					-->
 					-
 				</div>
-				<div class="td error" data-title="Помехи">
-					<!--
-					<%= bor %>
-					-->
-					-
-				</div>
 				<!--
 				<div class="td <% if highlighted_balance then print('balance-alert') end %>" data-title="Баланс" style="white-space: nowrap;">
 					<span class="balance"><%= animationWrapper(balance, is_active) %></span> <%= v.balance_unit %><br />
@@ -153,7 +146,7 @@
 						%>
 						style="display: initial;" />
 
-					<input type="button" class="cbi-button cbi-button-apply"
+					<input type="button" class="cbi-button cbi-button-apply sim-<%=simid %>-settings"
 						onclick="edit_sim(this)"
 						data-simid="<%=simid %>"
 						value="Настроить"

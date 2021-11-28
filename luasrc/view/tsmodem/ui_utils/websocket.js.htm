@@ -16,6 +16,7 @@ local uci_signal_min = {
 	L.require("uci").then(function(uci) {
 		uci.load("tsmodem").then(function(out){
 			window.low_signal_timer = 0;
+			window.overlay_type = "";
 			window.uci_timeout_signal = {}
 			window.uci_timeout_signal["sim_0"] = uci.get("tsmodem", "sim_0", "timeout_signal")
 			window.uci_timeout_signal["sim_1"] = uci.get("tsmodem", "sim_1", "timeout_signal")
@@ -78,6 +79,7 @@ local uci_signal_min = {
 				} else if (varname == "signal" && value != "101") {
 					if(window.low_signal_timer != undefined && window.low_signal_timer >= 1) {
 						rendered.innerHTML = animationWrapper(value + " %")  + "&nbsp;<small><font color='red'>( .." + window.low_signal_timer + " сек.) </font></small>";
+
 					} else {
 						rendered.innerHTML = animationWrapper(value + " %");
 					}
@@ -197,7 +199,8 @@ local uci_signal_min = {
 
 
 			var host = window.location.host;
-		    window.socket = new WebSocket('wss://' + host + ':7890');
+		    //window.socket = new WebSocket('wss://' + host + ':7890');
+		    window.socket = new WebSocket('ws://' + host + ':7890');
 
 		    var modemDisconnected = false
 
@@ -220,14 +223,20 @@ local uci_signal_min = {
 
 					if(ui_data.lastreg_timer && parseInt(ui_data.lastreg_timer) > 0) {
 						window.lastreg_timer = parseInt(window.uci_timeout_reg[sid]) - parseInt(ui_data.lastreg_timer)
+					} else {
+						//window.lastreg_timer = 0
 					}
 
 					if(ui_data.lowbalance_timer) {
 						window.lowbalance_timer = parseInt(window.uci_timeout_balance[sid]) - parseInt(ui_data.lowbalance_timer)
+					} else {
+						//window.lowbalance_timer = 0
 					}
 
 					if(ui_data.low_signal_timer && (parseInt(ui_data.low_signal_timer) > 0)) {
 						window.low_signal_timer = parseInt(window.uci_timeout_signal["sim_" + sid]) - parseInt(ui_data.low_signal_timer)
+					} else {
+						//window.low_signal_timer = 0
 					}
 
 
@@ -278,6 +287,36 @@ local uci_signal_min = {
 						update_with_animation(sim_id, "sim_balance", ui_data)
 
 					}
+
+					// Show overlay and block any user's activities
+					if(ui_data["event_switch_state"] != undefined && ui_data["event_switch_state"] == "begin") {
+						document.querySelector("input[type=button].sim-0-settings").disabled = true
+						document.querySelector("input[type=button].sim-1-settings").disabled = true
+
+						document.querySelector("input[type=button].sim-0").disabled = true
+						document.querySelector("input[type=button].sim-1").disabled = true
+						if ($("#overlay").length > 0) {
+							removeOverlay();
+							displayOverlay('Переключение Сим-карты..');
+						} else {
+							displayOverlay('Переключение Сим-карты..');
+						}
+					}
+
+					// Hide overlay and allow any user's activities
+					if(ui_data["event_switch_state"] != undefined && ui_data["event_switch_state"] == "end") {
+						if ($("#overlay").length > 0) {
+							removeOverlay();
+						}
+
+						document.querySelector("input[type=button].sim-0-settings").disabled = false
+						document.querySelector("input[type=button].sim-1-settings").disabled = false
+
+						document.querySelector("input[type=button].sim-0").disabled = false
+						document.querySelector("input[type=button].sim-1").disabled = false
+					}
+
+
 
 					//if(ui_data["signal"] != undefined) {
 					//	update_with_animation(sim_id, "signal", ui_data)

@@ -8,7 +8,8 @@ lua driver.lua &
 sleep 2;
 
 echo "[tsmodem] Websocket daemon starting.."
-/usr/sbin/gwsocket --ssl-cert=/root/ts_skw92a/server.pem --ssl-key=/root/ts_skw92a/server.key --port=7890 &
+#/usr/sbin/gwsocket --ssl-cert=/root/ts_skw92a/server.pem --ssl-key=/root/ts_skw92a/server.key --port=7890 &
+/usr/sbin/gwsocket --port=7890 &
 
 sleep 2;
 

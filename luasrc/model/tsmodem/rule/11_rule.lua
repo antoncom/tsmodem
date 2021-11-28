@@ -76,6 +76,18 @@ local rule_setting = {
 		modifier = {}
 	},
 
+	--[[ After switching SIM was completed it sends "end" to web interface in order to hide overlay and allow any user activities ]]
+	event_switch_state = {
+		input = "",
+		output = "",
+		subtotal = "",
+		modifier = {
+			["1_formula"] = [[ if ( (string.sub("event_stm_command",1,12) == "~0:SIM.RST=1") and ("event_is_new" == "true") ) then return "end" else return "" end ]],
+			["2_ui-update"] = {
+				param_list = { "event_switch_state" }
+			}
+		}
+	},
 
 
 	journal = {
@@ -121,6 +133,7 @@ function rule:make()
 	self:load("event_is_new"):modify()
 	self:load("event_stm_command"):modify()
 	self:load("event_stm_value"):modify()
+	self:load("event_switch_state"):modify()
 
 	self:load("journal"):modify():clear()
 

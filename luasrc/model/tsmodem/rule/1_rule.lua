@@ -99,6 +99,24 @@ local rule_setting = {
 		}
 	},
 
+	--[[ Before switching SIM it sends "begin" to web interface in order to show overlay and block any user activities ]]
+	event_switch_state = {
+		input = "",
+		output = "",
+		subtotal = "",
+		modifier = {
+			["1_formula"] = [[ if (
+					( "do_switch_result" ~= "not-ready-to-switch" )
+				and	( "do_switch_result" ~= "disconnected" )
+				and	( "network_registration" ~= "1" )
+				and ( tonumber("lastreg_timer") > tonumber("uci_timeout_reg") )
+			) then return "begin" else return "" end ]],
+			["2_ui-update"] = {
+				param_list = { "event_switch_state" }
+			}
+		}
+	},
+
 	do_switch_result = {
 		source = {
 			model = "tsmodem.driver",
@@ -151,6 +169,7 @@ function rule:make()
 	self:load("network_registration"):modify()
 	self:load("changed_reg_time"):modify()
 	self:load("lastreg_timer"):modify()
+	self:load("event_switch_state"):modify()
 
 	self:load("do_switch_result"):modify():clear()
 

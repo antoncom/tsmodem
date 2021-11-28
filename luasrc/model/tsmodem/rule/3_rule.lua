@@ -144,6 +144,23 @@ local rule_setting = {
 		}
 	},
 
+	--[[ Before switching SIM it sends "begin" to web interface in order to show overlay and block any user activities ]]
+	event_switch_state = {
+		input = "",
+		output = "",
+		subtotal = "",
+		modifier = {
+			["1_formula"] = [[ if (
+					( "do_switch_low_signal" ~= "not-ready-to-switch" )
+				and	( "do_switch_low_signal" ~= "disconnected" )
+				and	( tonumber("signal") < tonumber("uci_signal_min") )
+				and ( tonumber("low_signal_timer") > tonumber("uci_timeout_signal") )
+			) then return "begin" else return "" end ]],
+			["2_ui-update"] = {
+				param_list = { "event_switch_state" }
+			}
+		}
+	},
 
 	do_switch_low_signal = {
 		source = {
@@ -192,6 +209,7 @@ function rule:make()
 	self:load("signal_time"):modify()
 	self:load("signal_normal_last_time"):modify()
 	self:load("low_signal_timer"):modify()
+	self:load("event_switch_state"):modify()
 
 	self:load("do_switch_low_signal"):modify():clear()
 
