@@ -27,8 +27,8 @@ local uci_signal_min = {
 			window.uci_timeout_reg["1"] = uci.get("tsmodem", "sim_1", "timeout_reg")
 
 			window.uci_timeout_bal = {}
-			window.uci_timeout_bal["0"] = uci.get("tsmodem", "sim_0", "timeout_bal")
-			window.uci_timeout_bal["1"] = uci.get("tsmodem", "sim_1", "timeout_bal")
+			window.uci_timeout_bal["sim_0"] = uci.get("tsmodem", "sim_0", "timeout_bal")
+			window.uci_timeout_bal["sim_1"] = uci.get("tsmodem", "sim_1", "timeout_bal")
 
 			var network_state = {
 				"0": ["Сеть недоступна", "NOT REGISTERED"],
@@ -84,13 +84,13 @@ local uci_signal_min = {
 						rendered.innerHTML = animationWrapper(value + " %");
 					}
 
-				} else if (varname == "sim_balance") {
+				} else if (varname == "sim_balance" && value != "" && value != "-") {
 					var balance_date = '<br><small>' + ui_data["event_datetime"] + '</small>';
 					//if(window.lowbalance_timer != undefined and window.lowbalance_timer > 0) {
-					if(window.lowbalance_timer != undefined) {
-						rendered.innerHTML = animationWrapper(value + " руб.") + "..." + window.lowbalance_timer + "сек." + balance_date;
+					if(window.lowbalance_timer != undefined && window.lowbalance_timer > 0) {
+						rendered.innerHTML = value + " руб. " + "&nbsp;<small><font color='red'>( .." + window.lowbalance_timer + " сек.) </font></small>" + balance_date;
 					} else {
-						rendered.innerHTML = animationWrapper(value + " руб.") + balance_date;
+						rendered.innerHTML = value + " руб." + balance_date;
 					}
 				}
 
@@ -227,8 +227,9 @@ local uci_signal_min = {
 						//window.lastreg_timer = 0
 					}
 
-					if(ui_data.lowbalance_timer) {
-						window.lowbalance_timer = parseInt(window.uci_timeout_balance[sid]) - parseInt(ui_data.lowbalance_timer)
+					if(ui_data.lowbalance_timer && (parseInt(ui_data.lowbalance_timer) > 0)) {
+						window.lowbalance_timer = parseInt(window.uci_timeout_bal["sim_" + sid]) - parseInt(ui_data.lowbalance_timer)
+						console.log(window.lowbalance_timer)
 					} else {
 						//window.lowbalance_timer = 0
 					}
@@ -238,6 +239,15 @@ local uci_signal_min = {
 					} else {
 						//window.low_signal_timer = 0
 					}
+
+
+					if(ui_data.sim_balance_ussd_response && ui_data.sim_balance_ussd_response != "") {
+						console.log("Original USSD responce: " + ui_data.sim_balance_ussd_response)
+					} else {
+						//window.low_signal_timer = 0
+					}
+
+
 
 
 					if(network_registration == "" || network_registration == "7") {
