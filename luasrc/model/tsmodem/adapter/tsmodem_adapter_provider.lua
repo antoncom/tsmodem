@@ -108,19 +108,19 @@ function provider:render(optname, ...)
 		end,
 
 		jsinit = function()
-			return string.format("var %s = new ui.%s(adapters)", adapter_jsname, adapter_jsname)
+			return string.format("window.%s = new ui.%s(adapters)", adapter_jsname, adapter_jsname)
 		end,
 
 		jsrender = function()
-			return  adapter_jsname .. ".render()"
+			return  "window." .. adapter_jsname .. ".render()"
 		end,
 
 		getvalues = function()
-			return  adapter_jsname .. ".getValue()"
+			return  "window." .. adapter_jsname .. ".getValue()"
 		end,
 
 		getfields = function()
-			return  adapter_jsname .. ".getFields()"
+			return "window." .. adapter_jsname .. ".getFields()"
 		end,
 
 		-- All trivial options are rendered as is

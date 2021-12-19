@@ -37,13 +37,16 @@ function switch_sim(btn) {
 
 	if ($("#overlay").length > 0) {
 		removeOverlay();
-		displayOverlay('Переключение Сим-карты..');
+		displayOverlay('<%:Switching the SIM card.. %>');
 	} else {
-		displayOverlay('Переключение Сим-карты..');
+		displayOverlay('<%:Switching the SIM card.. %>');
 	}
 
 
 	var xhr = new XHR(false);
+	//console.log('<%=luci.dispatcher.build_url("admin", "system", "sim_list", "action")%>/'+ '%h/%h'.format("switch", simid))
+
+
 	xhr.post('<%=luci.dispatcher.build_url("admin", "system", "sim_list", "action")%>/'+ '%h/%h'.format("switch", simid), {"sim_data": [], "adapter_data": []},
 		function (x) {
 			if (!x) {
@@ -54,16 +57,15 @@ function switch_sim(btn) {
 		}
 	);
 
-
 	var current_datetime = new Date()
 	var formatted_date = current_datetime.getFullYear() + "-" + (current_datetime.getMonth() + 1) + "-" + current_datetime.getDate() + " " + current_datetime.getHours() + ":" + current_datetime.getMinutes() + ":" + current_datetime.getSeconds()
 
 	var user_jour = {
-			command: "Кнопка \"Активировать\"",
+			command: "<%:[Activate] buttton %>",
 			datetime: formatted_date,
-			name: "Пользователь переключил на SIM-карту #" + simid,
+			name: "<%:User switches to SIM card # %>" + simid,
 			response: "OK",
-			source: "Пользователь"
+			source: "<%:User %>"
 	}
 	// Add user action to the Journal
 	window.update_journal(user_jour)

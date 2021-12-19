@@ -112,7 +112,7 @@ local rule_setting = {
 				and ( tonumber("lastreg_timer") > tonumber("uci_timeout_reg") )
 			) then return "begin" else return "" end ]],
 			["2_ui-update"] = {
-				param_list = { "event_switch_state" }
+				param_list = { "event_switch_state", "sim_id" }
 			}
 		}
 	},
@@ -136,8 +136,8 @@ local rule_setting = {
 		},
 		["2_formula"] = [[return({
 				datetime = "event_datetime",
-				name = "Нет регистрации в сети: переключение на другую Сим",
-				source = "Микроконтроллер",
+				name = "No network registration: switched to another SIM",
+				source = "Microcontroller",
 				command = "do_switch_result",
 				response = "OK"
 			})]],

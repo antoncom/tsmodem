@@ -72,8 +72,8 @@ local rule_setting = {
 			["1_logicfunc"] = [[ if ("event_is_new" == "true") then return true else return false end ]],
 			["2_formula"] = [[return({
 					datetime = "event_datetime",
-					name = "Изменился статус регистрации в сети",
-					source = "Модем",
+					name = "Network registration staus was changed",
+					source = "Modem",
 					command = "AT+CREG?",
 					response = "event_reg"
 				})]],

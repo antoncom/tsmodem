@@ -25,8 +25,6 @@
 
 
 function my_handleEdit(simid, sim_data, adapter_data) {
-	console.log("HEREREER")
-	console.log(adapter_data)
 	send_action("edit", simid, { "sim_data": sim_data, "adapter_data": adapter_data } )
 }
 
@@ -53,7 +51,8 @@ function edit_sim(btn) {
 
 				var proto = new ui.DropdownProto(sim_data["provider"], <%= util.serialize_json(adapter():list()) %>, {
 					disabled: false,
-					sort: true
+					sort: true,
+					optional: false
 				});
 
 
@@ -64,7 +63,7 @@ function edit_sim(btn) {
 
 
 				var balance_min = new ui.Textfield(sim_data["balance_min"], {
-					datatype: "rangelength(2,4)",
+					datatype: "rangelength(1,4)",
 					optional: false
 				});
 
@@ -98,28 +97,28 @@ function edit_sim(btn) {
 				var emptyProto = new ui.AdapterEmpty()
 
 
-				L.showModal('Редактировать настройки Сим-карты', [
+				L.showModal(_('<%:SIM card settings %>'), [
 					E('div', { class: 'cbi-map' }, [
 						E('div', { class: 'cbi-map-section' }, [
 							E('div', { class: 'cbi-map-section-node' }, [
 								E('div', { class: 'cbi-value' }, [
-									E('label', { 'class': 'cbi-value-title memo-edit' }, _('Памятка') + ":"),
+									E('label', { 'class': 'cbi-value-title memo-edit' }, _('<%:Memo %>') + ":"),
 									E('div', { class: 'cbi-value-field memo-edit' }, [
 										memo.render()
 									])
 								]),
 
 								E('div', { class: 'cbi-value' }, [
-									E('label', { 'class': 'cbi-value-title' }, _('Уровень сигнала MIN, %') + ":"),
+									E('label', { 'class': 'cbi-value-title' }, _('<%:Signal strength, MIN, % %>') + ":"),
 									E('div', { class: 'cbi-value-field' }, [rssi.render()])
 								]),
 								E('div', { class: 'cbi-value' }, [
-									E('label', { 'class': 'cbi-value-title' }, _('Баланс MIN, руб.') + ":"),
+									E('label', { 'class': 'cbi-value-title' }, _('<%:Balance MIN, rub. %>') + ":"),
 									E('div', { class: 'cbi-value-field' }, [balance_min.render()])
 								]),
 
 								E('div', { class: 'cbi-value' }, [
-									E('label', { 'class': 'cbi-value-title' }, _('Сеть') + ":"),
+									E('label', { 'class': 'cbi-value-title' }, _('<%:GSM-network %>') + ":"),
 									E('div', { class: 'cbi-value-field' }, [
 										E('div', { class: 'cbi-value-field-flex'}, [
 											E('div', { class: 'cbi-value-field-1col'}, [
@@ -136,15 +135,15 @@ function edit_sim(btn) {
 												%>
 												E('div', { class: 'table modal-section-param more-params'}, [
 													E('div', {class: 'tr cbi-rowstyle-0'}, [
-														E('div', {class: 'td', style: "width: 100%;"}, 'Таймаут "не в сети", сек.'),
+														E('div', {class: 'td', style: "width: 100%;"}, _('<%:Timeout - network unregistered, sec. %>')),
 														E('div', {class: 'td', style: "text-align: right;"}, [timeout_reg.render()])
 													]),
 													E('div', {class: 'tr cbi-rowstyle-1'}, [
-														E('div', {class: 'td', style: "width: 100%;"}, 'Таймаут "слабый сигнал", сек.'),
+														E('div', {class: 'td', style: "width: 100%;"}, _('<%:Timeout - weak signal, sec. %>')),
 														E('div', {class: 'td', style: "text-align: right;"}, [timeout_signal.render()])
 													]),
 													E('div', {class: 'tr cbi-rowstyle-0'}, [
-														E('div', {class: 'td', style: "width: 100%;"}, 'Таймаут, "баланс ниже номы", сек.'),
+														E('div', {class: 'td', style: "width: 100%;"}, _('<%:Timeout - balance below min, sec. %>')),
 														E('div', {class: 'td', style: "text-align: right;"}, [timeout_bal.render()])
 													]),
 												]),
@@ -153,7 +152,7 @@ function edit_sim(btn) {
 													'data-action': 'show',
 													'style': 'display: initial;',
 													'click': ui.createHandlerFn(this, 'toggle_more')
-												}, _('Дополнительные параметры') )
+												}, _('More settings') )
 											])
 										])
 									])
@@ -166,7 +165,7 @@ function edit_sim(btn) {
 						E('div', {
 							class: 'btn',
 							click: function() { L.hideModal() }
-						}, _('Закрыть')),
+						}, _('Close')),
 						' ',
 
 						E('div', { class: 'btn success', "name": "apply",
@@ -182,11 +181,9 @@ function edit_sim(btn) {
 
 
 								var widget_list = [proto, rssi, timeout_signal, timeout_bal, timeout_reg, balance_min, memo];
-								if(adapter_widgets[sim_data["provider"]] != undefined) {
-									//widget_list = widget_list.concat(tsmodem_adapter_provider.getFields())
+								if(adapters[sim_data["provider"]] != undefined) {
+									widget_list = widget_list.concat(tsmodem_adapter_provider.getFields())
 								}
-
-
 
 								var form_valid = true;
 								for(var w of widget_list) {
@@ -197,7 +194,9 @@ function edit_sim(btn) {
 									}
 								}
 
+
 								if (form_valid) {
+
 									sim_data["name"] = memo.getValue()
 									sim_data["proto"] = proto.getValue()
 
@@ -208,7 +207,13 @@ function edit_sim(btn) {
 									sim_data["timeout_signal"] = timeout_signal.getValue()
 									sim_data["timeout_bal"] = timeout_bal.getValue()
 
-									my_handleEdit(simid, sim_data, adapter_data);
+									var a_adapter_data = {}
+									a_adapter_data = Object.assign(a_adapter_data, {
+										[proto.getValue()]: adapter_data[sim_data["provider"]]
+									})
+									sim_data["provider"] = proto.getValue()
+
+									my_handleEdit(simid, sim_data, a_adapter_data);
 									return true;
 
 								}
@@ -217,7 +222,7 @@ function edit_sim(btn) {
 								}
 
 							})
-						}, _('Сохранить'))
+						}, _('Save'))
 
 					])
 				]);

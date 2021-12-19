@@ -61,7 +61,7 @@ L.require("dom").then(function(dom)	{
 				}));
 
 				// Custom override:
-				// Emits event on EventBus, once the Dropdown value is changed. 
+				// Emits event on EventBus, once the Dropdown value is changed.
 				// UIAdapterHTTP and similars are subscribed to the event.
 				window.EventBus.node.dispatchEvent(new CustomEvent("bus-proto-changed", {
 					bubbles: true,
@@ -124,7 +124,7 @@ L.require("dom").then(function(dom)	{
 						this.options.create_markup));
 
 				// Custom override:
-				// Emits event on EventBus, once the Dropdown is rendered. 
+				// Emits event on EventBus, once the Dropdown is rendered.
 				// UIAdapterHTTP and similars are subscribed to the event.
 				var self = this
 				self.timeout = setTimeout(function () {
@@ -135,8 +135,8 @@ L.require("dom").then(function(dom)	{
 					clearTimeout(self.timeout)
 				}, 100);
 				//
-				
-				
+
+
 
 				return this.bind(sb);
 			},
@@ -146,4 +146,3 @@ L.require("dom").then(function(dom)	{
 })
 //]]>
 </script>
-

@@ -84,8 +84,10 @@ L.require('ui').then(function(ui) {
 			/** @override */
 			setValue: function(value) {
 				// replace \\n to \n because of Server API luci.util.serialize_json() escapes \n with \\n
-				var val = value.replace(/\\n/g,'\n');
-				this.node.children[1].value = val;
+				if(value != undefined) {
+					var val = value.replace(/\\n/g,'\n');
+					this.node.children[1].value = val;
+				}
 				this.highlight();
 			},
 

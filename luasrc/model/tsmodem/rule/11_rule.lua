@@ -98,8 +98,8 @@ local rule_setting = {
 			["1_logicfunc"] = [[ if ("event_is_new" == "true") then return true else return false end ]],
 			["2_formula"] = [[return({
 					datetime = "event_datetime",
-					name = "Выполнение команды",
-					source = "Микроконтроллер",
+					name = "Executing the command",
+					source = "Microcontroller",
 					command = "event_stm_command",
 					response = "event_stm_value"
 				})]],

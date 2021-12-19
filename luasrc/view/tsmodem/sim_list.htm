@@ -80,18 +80,29 @@
 
 <% --[[=========== HTML ==========]] %>
 <div id="view">
-	<h2 name="content">Мобильное устройство дистанционного управления</h2>
-	<div class="cbi-map-descr">Связь с мобильным устройством поддерживается основным и резервным каналом.</div>
-	<h3>Каналы связи (настройка SIM-карт)</h3>
+	<!--<h2 name="content">Мобильное устройство дистанционного управления</h2>-->
+	<h2 name="content"><%:Mobile device of distant control %></h2>
+	<div class="cbi-map-descr">
+		<p><%:Communication with the mobile device is supported by the main and reserved channels. %>
+		<br/><%:Switching to the reserved channel is performed when the following events occur %>:</p>
+			<ul>
+				<li><%:Loss of registration in the network %></li>
+				<li><%:Weak signal %></li>
+				<li><%:Balance below minimum %></li>
+			</ul>
+		</p>
+
+	</div>
+	<h3><%:GSM network channels (SIM cards states) %></h3>
 
 	<div class="table">
 		<div class="tr table-titles">
 			<div class="th">N</div>
-			<div class="th">Наименование</div>
-			<div class="th" style="width: 33%;">Статус</div>
-			<div class="th">Сигнал</div>
-			<div class="th">Баланс</div>
-			<div class="th center nowrap cbi-section-actions">Действия</div>
+			<div class="th"><%:Name %></div>
+			<div class="th" style="width: 33%;"><%:Status %></div>
+			<div class="th"><%:Strength %></div>
+			<div class="th"><%:Balance %></div>
+			<div class="th center nowrap cbi-section-actions"><%:Actions %></div>
 		</div>
 		<% for k, v in util.kspairs(sims_config) do
 			local index = tostring(v[".index"])
@@ -107,16 +118,17 @@
 				<div class="td" data-title="N">
 					<%=v[".index"] + 1 %>
 				</div>
-				<div class="td" data-title="Наименование" style="white-space: nowrap;">
+				<div class="td" data-title="<%:Name %>" style="white-space: nowrap;">
 					<%=v.name %>
 				</div>
-				<div class="td network_registration" style="width: 170px;" data-title="Статус">
-					<%
-						if is_active then print('<i style="background-position: 0 -60px;">Неизвестно</i>')
-						else print('<i>Не активна</i>')	end
-					%>
+				<div class="td network_registration" style="width: 170px;" data-title="<%:Status %>">
+					<% if is_active then %>
+						<i style="background-position: 0 -60px;"><%:Unknown %></i>')
+					<% else %>
+						<i><%:Not active %></i>
+					<% end	%>
 				</div>
-				<div class="td signal" data-title="Сигнал">
+				<div class="td signal" data-title="<%:Strength %>">
 					<!--
 					<%=sims_state[index].rssi %> <%= v.rssi_unit %>
 					-->
@@ -128,7 +140,7 @@
 					<small>(на <%=balance_date %>)</small>
 				</div>
 				-->
-				<div class="td sim_balance" data-title="Баланс" style="white-space: nowrap;">
+				<div class="td sim_balance" data-title="<%:Balance %>" style="white-space: nowrap;">
 					-
 					<!--
 					<span class="balance"><%= animationWrapper(balance, is_active) %></span> <%= v.balance_unit %><br />
@@ -139,7 +151,7 @@
 					<input type="button" class="cbi-button cbi-button-apply sim-<%=simid %>"
 						onclick="switch_sim(this)"
 						data-simid="<%=simid %>"
-						value="Активировать"
+						value="<%:Activate %>"
 						disabled="disabled"
 						<%
 							-- if is_active then print('disabled="disabled"') end
@@ -149,7 +161,7 @@
 					<input type="button" class="cbi-button cbi-button-apply sim-<%=simid %>-settings"
 						onclick="edit_sim(this)"
 						data-simid="<%=simid %>"
-						value="Настроить"
+						value="<%:Settings %>"
 						style="display: initial;" />
 
 				</div>
@@ -159,14 +171,33 @@
 	</div>
 </div>
 
-<h3>Журнал событий</h3>
+<h3 style="color: grey;"><%:Notes %></h3>
+<p style="color: grey;"><%:When the SIM card is switched automatically, the provider's APN (gateway address) is automatically updated. For example, for MTS it is internet.mts.ru. %><br /><%:Go to main menu Network -> Interfaces -> TSMODEM, 'APN' field. %></p>
+
+<h3><%:Ststem log %></h3>
 <div class="table journal">
 	<div class="tr table-titles">
-		<div class="th" style="width: 150px;">Дата / время</div>
-		<div class="th" style="width: 33%;">Событие</div>
-		<div class="th">Источник</div>
-		<div class="th">Команда</div>
-		<div class="th" style="padding-left: 25px;">Ответ</div>
+		<div class="th" style="width: 150px;"><%:Date / time %></div>
+		<div class="th" style="width: 33%;"><%:Event %></div>
+		<div class="th"><%:Source %></div>
+		<div class="th"><%:Command %></div>
+		<div class="th" style="padding-left: 25px;"><%:Responce %></div>
+	</div>
+	<div class="tr journal-empty">
+		<div class="td"></div>
+		<div class="td" style="text-align: right; color: grey;">
+			<b><i><%:System log is empty. %></i></b>
+		</div>
+		<div class="td"></div>
+		<div class="td"></div>
+		<div class="td" style="background-image: none;"></div>
 	</div>
 </div>
+<div class="clear-journal" style="margin-top: 20px; text-align: center;">
+	<input type="button" class="cbi-button cbi-button-apply"
+		onclick="clearJournal()"
+		value="<%:Clear the log %>"
+	/>
+</div>
+
 <span id="btn_enable_spinner" class="btn_spinner"></span>

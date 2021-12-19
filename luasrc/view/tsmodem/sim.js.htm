@@ -34,11 +34,11 @@ function toggle_more(ev) {
 	if(btn.getAttribute("data-action") == "show") {
 		extra_params.style.display = "block";
 		btn.setAttribute("data-action", "hide")
-		btn.innerHTML = "Основные параметры"
+		btn.innerHTML = "<%:Basic settings %>"
 	} else if(btn.getAttribute("data-action") == "hide") {
 		extra_params.style.display = "none";
 		btn.setAttribute("data-action", "show")
-		btn.innerHTML = "Дополнительные параметры"
+		btn.innerHTML = "<%:More settings %>"
 	}
 }
 
@@ -52,6 +52,7 @@ function spinner(element, state) {
 		element.innerHTML = '';
 	}
 }
+
 
 //]]>
 </script>

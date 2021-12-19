@@ -7,9 +7,10 @@ L.require('ui').then(function(ui) {
 			uci.load("tsmodem_adapter_provider").then(function(out){
 				var UIAdapterProvider = ui.AbstractElement.extend(/** @lends LuCI.ui.Textarea.prototype */ {
 					__init__: function(adapters) {
-
 						this.fields = {};
 						this.adapter_id = "";
+						this.last_balance_message = "";
+						this.balance_mask = "";
 						this.gsm_id = ""
 						this.adapters = adapters;
 						this.needsToSave = false;
@@ -22,15 +23,30 @@ L.require('ui').then(function(ui) {
 						this.config = "tsmodem_adapter_provider"
 						//--------------------------------------------------------
 
-
 						var section = this.addSection();
 
+						this.getCurrentAdapter = function() {
+							var self = this
+							return function() {
+								return self.gsm_id
+							}
+						}
 
+						var self = this;
 						this.fields = {
 
 							"name": new ui.Textfield("", {
 								datatype: "rangelength(3,128)",
-								optional: false
+								optional: false,
+								validate: function(name) {
+									var getCurrentAdapter = self.getCurrentAdapter()
+									for (adp in adapters) {
+										if ((name == adapters[adp].name) && (getCurrentAdapter() != adp)) {
+											return "<%:The Network name already exists. %>"
+										}
+									}
+									return true;
+								}
 							}),
 
 							"gate_address": new ui.Textfield("", {
@@ -44,12 +60,21 @@ L.require('ui').then(function(ui) {
 							}),
 
 							"balance_mask": new ui.TextAreaHighlighted("", {
-								optional: true,
 								datatype: "rangelength(0,256)",
-								readonly: true,
-								highlights: ["%_RUB_%"],
+								readonly: false,
+								highlights: ["__RUB__"],
+								validate: function(inp) {
+									if (inp.indexOf("__RUB__") >= 0) {
+										return true;
+									} else {
+										return "<%:__RUB__ placeholder has to be in the text. %>"
+									}
+								}
 							}),
+
 						}
+
+
 						//--------------------------------------------------------
 					},
 
@@ -58,26 +83,26 @@ L.require('ui').then(function(ui) {
 						var classActive = (this.isActive) ? ' active' : ''
 						var container = E('div', { class: 'table modal-section-param adapter provider' + classActive}, [
 							E('div', {class: 'tr table-titles'}, [
-								E('div', {class: 'th', style: 'width: 100%'}, _("Параметры сети " + this.proto)),
-								E('div', {class: 'th', style: "text-align: right;"}, _("Значение")),
+								E('div', {class: 'th', style: 'width: 100%'}, _("Parameters of the network" + " " + this.proto)),
+								E('div', {class: 'th', style: "text-align: right;"}, _("Value")),
 							]),
 
 							E('div', {class: 'tr cbi-rowstyle-2'}, [
-								E('div', {class: 'td', style: 'width: 100%;'}, _("Название провайдера")),
+								E('div', {class: 'td', style: 'width: 100%;'}, _("GSM-provider's name")),
 								E('div', {class: 'td', style: "text-align: right;"}, [this.fields["name"].render()]),
 							]),
 
 							E('div', {class: 'tr cbi-rowstyle-1'}, [
-								E('div', {class: 'td', style: 'width: 100%;'}, _("Адрес интернет-шлюза")),
+								E('div', {class: 'td', style: 'width: 100%;'}, _("Address of internet gate")),
 								E('div', {class: 'td', style: "text-align: right;"}, [this.fields["gate_address"].render()]),
 							]),
 
 							E('div', {class: 'tr cbi-rowstyle-2'}, [
-								E('div', {class: 'td', style: 'width: 100%;'}, _("USSD-команда баланса")),
+								E('div', {class: 'td', style: 'width: 100%;'}, _("USSD-command to get balance")),
 								E('div', {class: 'td', style: "text-align: right;"}, [this.fields["balance_ussd"].render()]),
 							]),
 							E('div', {class: 'tr cbi-rowstyle-1'}, [
-								E('div', {class: 'td', style: 'width: 100%; vertical-align: top;'}, "Шаблон SMS-сообщения о балансе"),
+								E('div', {class: 'td', style: 'width: 100%; vertical-align: top;'}, _("Template of the balance message") + "<br/><br/><i><small><font color='green'>" + _('Use __RUB__ for rendering numbers') + "</font></small></i>"),
 								//E('div', {class: 'td', style: "text-align: right;"}, [this.fields["balance_mask"].render()]),
 								E('div', { class: 'td' }, [
 									E('div', { class: 'cbi-value-field message-template' }, [
@@ -89,14 +114,14 @@ L.require('ui').then(function(ui) {
 											click: ui.createHandlerFn(this, function() {
 												return this.loadTmplDefault();
 											})
-										}, _('Оригинал')),
+										}, _('Original')),
 										E('a', {
 											name: 'tmpl-custom',
 											style: '',
 											click: ui.createHandlerFn(this, function() {
 												return this.loadTmplCustom();
 											})
-										}, _('Шаблон')),
+										}, _('Template')),
 
 									]),
 								]),
@@ -114,19 +139,40 @@ L.require('ui').then(function(ui) {
 						var self = this
 						dom.bindClassInstance(container, this);
 
+						var area = this.fields["balance_mask"].getTextArea()
+
+						if (area.addEventListener) {
+						  area.addEventListener('input', function() {
+						    // event handling code for sane browsers
+							var mask = self.fields["balance_mask"].getValue()
+							self.adapters[self.gsm_id]["balance_mask"] = mask.substr(0)
+						  }, false);
+						} else if (area.attachEvent) {
+						  area.attachEvent('onpropertychange', function() {
+						    // IE-specific event handling code
+							alert("Internet Explorer is not supported;")
+						  });
+						}
+
 						// Cusom override:
 						// We subscribe EventBus event which is emitted by "DropdownProto" widget (see ui_override)
 						window.EventBus.register(this.node, 'bus-proto-changed', [],
 							function(ev) {
-								if(ev.detail["proto"] != undefined) {
+
+								if(ev.detail["proto"] != undefined && ev.detail["proto"] != '') {
+
 									var gsm_id = ev.detail["proto"]
 									self.gsm_id = gsm_id
 									var gsm_data = self.adapters[gsm_id]
 
 									self.fields["name"].setValue(gsm_data["name"])
+									self.fields["name"].triggerValidation()
 									self.fields["gate_address"].setValue(gsm_data["gate_address"])
 									self.fields["balance_ussd"].setValue(gsm_data["balance_ussd"])
 									self.fields["balance_mask"].setValue(gsm_data["balance_mask"])
+
+									self.balance_mask = gsm_data["balance_mask"]
+									self.last_balance_message = uci.get("tsmodem_adapter_provider", gsm_id, "balance_last_message")
 
 									container.classList.add("active")
 									self.isActive = true
@@ -145,7 +191,11 @@ L.require('ui').then(function(ui) {
 					getValue: function() {
 						var data = {}
 						for (var name in this.fields) {
-							data[name] = this.fields[name].getValue() || ''
+							if(name == "balance_mask") {
+								data[name] = this.adapters[this.gsm_id]["balance_mask"]
+							} else {
+								data[name] = this.fields[name].getValue() || ''
+							}
 						}
 						return data;
 					},
@@ -153,6 +203,7 @@ L.require('ui').then(function(ui) {
 					getFields: function() {
 						var data = []
 						for (var name in this.fields) {
+							//data[name] = this.fields[name]
 							data.push(this.fields[name])
 						}
 						return data;
@@ -165,6 +216,14 @@ L.require('ui').then(function(ui) {
 						if(sec == null) {
 							sec = uci.add(this.config, "provider", this.adapter_id)
 							sec = uci.get(this.config, this.adapter_id)
+						}
+						return(sec)
+					},
+
+					load_last_balance_message: function() {
+						var lbmsg = uci.get(this.config, this.adapter_id, "balance_last_message")
+						if(lbmsg != null) {
+							this.last_balance_message = lbmsg
 						}
 						return(sec)
 					},
@@ -196,9 +255,28 @@ L.require('ui').then(function(ui) {
 					},
 
 					// load default templae to textarea
-					loadTmplDefault: function(eventId=undefined, channelId=undefined) {
+					//loadTmplDefault: function(eventId=undefined, channelId=undefined) {
+					loadTmplDefault: function(tmpl_text='') {
+						this.validateFunc = this.fields["balance_mask"].options.validate
+						this.fields["balance_mask"].options.validate = function(a) { console.log(a); return true }
+
+						var mask = this.fields["balance_mask"].getValue()
+						this.adapters[this.gsm_id]["balance_mask"] = mask.substr(0)
+
+						this.fields["balance_mask"].setValue(this.adapters[this.gsm_id]["balance_last_message"])
+
+
+						//this.adapters[this.gsm_id]["balance_mask"] = mask.substr(0)
 						this.fields["balance_mask"].getTextArea().readOnly = true;
-						this.fields["balance_mask"].setValue("Баланс 100 р.")
+						//this.fields["balance_mask"].getTextArea().mouseover = null;
+
+
+						if(tmpl_text != '') {
+							this.fields["balance_mask"].setValue(tmpl_text)
+						} else {
+							self.last_balance_message = uci.get("tsmodem_adapter_provider", this.gsm_id, "balance_last_message")
+							this.fields["balance_mask"].setValue(this.last_balance_message)
+						}
 						document.querySelector(".hwt-backdrop").style.backgroundColor = "#bbb";
 						document.querySelector(".hwt-input").style.color = "#666";
 						document.querySelector("[name='tmpl-custom']").style.backgroundImage = "none";
@@ -206,7 +284,9 @@ L.require('ui').then(function(ui) {
 					},
 					// load custom template to textarea
 					loadTmplCustom: function(eventId=undefined, channelId=undefined) {
+
 						this.fields["balance_mask"].setValue(this.adapters[this.gsm_id]["balance_mask"])
+
 						document.querySelector(".hwt-backdrop").style.backgroundColor = "#fff";
 						document.querySelector(".hwt-input").style.color = "#000";
 						this.fields["balance_mask"].getTextArea().readOnly = false;

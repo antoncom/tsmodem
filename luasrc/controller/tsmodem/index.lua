@@ -12,7 +12,7 @@ local log = require "luci.model.tsmodem.util.log"
 
 function index()
 	if nixio.fs.access("/etc/config/tsmodem") then
-		entry({"admin", "system", "sim_list"}, cbi("tsmodem/main"), "SIM карты", 30)
+		entry({"admin", "system", "sim_list"}, cbi("tsmodem/main"), translate("SIM cards settings"), 30)
 		entry({"admin", "system", "sim_list", "action"}, call("do_sim_action"), nil).leaf = true
 	end
 end
@@ -24,6 +24,7 @@ function do_sim_action(action, sim_id)
 	payload["sim_data"] = luci.jsonc.parse(luci.http.formvalue("sim_data"))
 	payload["gsm_data"] = luci.jsonc.parse(luci.http.formvalue("adapter_data"))
 
+log("PAYLOAD", payload)
 	--log("PAYLOAD", payload)
 	local commands = {
 		switch = function(sim_id, ...)
@@ -46,7 +47,7 @@ function do_sim_action(action, sim_id)
 				"timeout_signal",
 				"timeout_reg",
 			}
-			local allowed_gsm_oprions = {
+			local allowed_gsm_options = {
 				"name",
 				"gate_address",
 				"balance_ussd",
@@ -62,13 +63,13 @@ function do_sim_action(action, sim_id)
 
 			local provider_id = payloads["sim_data"].provider
 			for key, value in pairs(payloads["gsm_data"][provider_id]) do
-				if util.contains(allowed_gsm_oprions, key) then
-					util.perror(key, value)
+				if util.contains(allowed_gsm_options, key) then
 					local ok = uci:set(config_gsm, provider_id, key, value)
 				end
-				local ok = uci:commit(config_gsm)
 			end
-
+			local ok = uci:commit(config_gsm)
+			--[[ try to get balance ]]
+			util.ubus("tsmodem.driver", "do_request_ussd_balance", { ["sim_id"] = sim_id })
 		end,
 
 		default = function(...)

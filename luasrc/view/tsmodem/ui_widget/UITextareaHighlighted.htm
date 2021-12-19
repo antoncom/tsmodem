@@ -43,7 +43,7 @@ L.require('ui').then(function(ui) {
 					frameEl.firstElementChild.style.fontFamily = 'monospace';
 
 				setTimeout(this.highlight, 100, this, []);
-				
+
 				return this.bind(container);
 			},
 
@@ -55,7 +55,7 @@ L.require('ui').then(function(ui) {
 						    highlight: words // string, regexp, array, function, or custom object
 						});
 					} else {
-						$('.cbi-input-textarea').highlightWithinTextarea('update');	
+						$('.cbi-input-textarea').highlightWithinTextarea('update');
 					}
 				} else {
 					console.log("div.cbi-input-textarea is not found. You should make TextAreaHighlighted.render() first.")
@@ -65,7 +65,7 @@ L.require('ui').then(function(ui) {
 			/** @private */
 			bind: function(container) {
 				var inputEl = container.children[1];
-		
+
 				this.node = container;
 
 				this.setUpdateEvents(inputEl, 'keyup', 'blur');
@@ -84,8 +84,10 @@ L.require('ui').then(function(ui) {
 			/** @override */
 			setValue: function(value) {
 				// replace \\n to \n because of Server API luci.util.serialize_json() escapes \n with \\n
-				var val = value.replace(/\\n/g,'\n'); 
-				this.node.children[1].value = val;
+				if(value != undefined) {
+					var val = value.replace(/\\n/g,'\n');
+					this.node.children[1].value = val;
+				}
 				this.highlight();
 			},
 

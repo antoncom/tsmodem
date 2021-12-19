@@ -157,7 +157,7 @@ local rule_setting = {
 				and ( tonumber("low_signal_timer") > tonumber("uci_timeout_signal") )
 			) then return "begin" else return "" end ]],
 			["2_ui-update"] = {
-				param_list = { "event_switch_state" }
+				param_list = { "event_switch_state", "sim_id" }
 			}
 		}
 	},

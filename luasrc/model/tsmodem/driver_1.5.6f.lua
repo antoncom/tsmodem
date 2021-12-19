@@ -101,18 +101,6 @@ function modem:get_state(var, param)
 	end
 end
 
---[[
-Get provider Id from uci config
-]]
-
-function modem:get_provider_id(sim_id)
-	local provider_id
-	if (sim_id and (sim_id == "0" or sim_id == "1")) then
-		provider_id = uci:get("tsmodem", "sim_" .. sim_id, "provider")
-	end
-	return provider_id or ""
-end
-
 function modem:init_mk()
 	local sys  = require "luci.sys"
 	sys.exec("stty -F /dev/ttyS1 1000000")
@@ -213,8 +201,7 @@ function modem:make_ubus()
 				command = "",
 				value = "",
 				time = "",
-				unread = "",
-				comment = ""
+				unread = ""
 			}
 		end
 		return resp
@@ -244,25 +231,6 @@ function modem:make_ubus()
 			balance = {
 				function(req, msg)
 					local resp = makeResponse("balance")
-					self.conn:reply(req, resp);
-
-				end, {id = ubus.INT32, msg = ubus.STRING }
-			},
-
-			do_request_ussd_balance = {
-				function(req, msg)
-					local sim_id_settings = msg["sim_id"]
-					local ok, err, sim_id = modem:get_state("sim", "value")
-					if(sim_id_settings == sim_id) then
-						local provider_id = uci:get(config, "sim_" .. sim_id, "provider")
-						local ussd_command = string.format("AT+CUSD=1,%s,15\r\n", uci:get(config_gsm, provider_id, "balance_ussd"))
-
-						modem:update_state("balance", "", ussd_command, uci:get(config_gsm, provider_id, "balance_last_message"))
-
-						local chunk, err, errcode = U.write(modem.fds, ussd_command)
-					end
-					local resp = {}
-
 					self.conn:reply(req, resp);
 
 				end, {id = ubus.INT32, msg = ubus.STRING }
@@ -328,7 +296,7 @@ function modem:make_ubus()
 end
 
 
-function modem:update_state(param, value, command, comment)
+function modem:update_state(param, value, command)
 	local newval = tostring(value)
 
 	local n = #modem.state[param]
@@ -338,8 +306,7 @@ function modem:update_state(param, value, command, comment)
 			["command"] = command,
 			["value"] = newval,
 			["time"] = tostring(os.time()),
-			["unread"] = "true",
-			["comment"] = comment
+			["unread"] = "true"
 		}
 		modem.state[param][1] = util.clone(item)
 	elseif (n >= 1) then
@@ -348,8 +315,7 @@ function modem:update_state(param, value, command, comment)
 				["command"] = command,
 				["value"] = newval,
 				["time"] = tostring(os.time()),
-				["unread"] = "true",
-				["comment"] = comment
+				["unread"] = "true"
 			}
 			modem.state[param][n+1] = util.clone(item)
 			if n > 5 then
@@ -359,8 +325,8 @@ function modem:update_state(param, value, command, comment)
 		elseif (param == "reg" and (newval == "1" or newval == "7")) then
 			modem.state["reg"][n].time = tostring(os.time())
 			--[[ Update time of last balance ussd request if balance's value is not changed ]]
-		elseif (param == "balance") then
-			modem.state["balance"][n].time = tostring(os.time())
+		--elseif (param == "balance") then
+		--	modem.state["balance"][n].time = tostring(os.time())
 		end
 	end
 end
@@ -374,8 +340,8 @@ function modem:switch(sim_id)
 	local res, val = modem:stm32comm("~0:SIM.SEL=" .. tostring(sim_id))
 	if res == "OK" then
 
-		modem:update_state("sim", sim_id, "~0:SIM.SEL=" .. tostring(sim_id), "")
-		modem:update_state("stm", "OK", "~0:SIM.SEL=" .. tostring(sim_id), "")
+		modem:update_state("sim", sim_id, "~0:SIM.SEL=" .. tostring(sim_id))
+		modem:update_state("stm", "OK", "~0:SIM.SEL=" .. tostring(sim_id))
 
 		--[[
 		Lets update network interface APN
@@ -393,20 +359,20 @@ function modem:switch(sim_id)
 
 	socket.sleep(0.4)
 
-	modem:update_state("reg", "7", "AT+CREG?", "")
-	modem:update_state("signal", "", "", "")
-	modem:update_state("balance", "", "", "")
+	modem:update_state("reg", "7", "AT+CREG?")
+	modem:update_state("signal", "", "")
+	modem:update_state("balance", "", "")
 
 	res, val = modem:stm32comm("~0:SIM.RST=0")
 	if res == "OK" then
 
-		modem:update_state("stm", "OK", "~0:SIM.RST=0", "")
-		modem:update_state("usb", "disconnected", dev .. " close", "")
+		modem:update_state("stm", "OK", "~0:SIM.RST=0")
+		modem:update_state("usb", "disconnected", dev .. " close")
 
 	else
 
-		modem:update_state("stm", "ERROR", "~0:SIM.RST=0", "")
-		modem:update_state("usb", "disconnected", dev .. " close", "")
+		modem:update_state("stm", "ERROR", "~0:SIM.RST=0")
+		modem:update_state("usb", "disconnected", dev .. " close")
 
 	end
 
@@ -415,13 +381,13 @@ function modem:switch(sim_id)
 	res, val = modem:stm32comm("~0:SIM.RST=1")
 	if res == "OK" then
 
-		modem:update_state("stm", "OK", "~0:SIM.RST=1", "")
-		modem:update_state("usb", "disconnected", dev .. " close", "")
+		modem:update_state("stm", "OK", "~0:SIM.RST=1")
+		modem:update_state("usb", "disconnected", dev .. " close")
 
 	else
 
-		modem:update_state("stm", "ERROR", "~0:SIM.RST=1", "")
-		modem:update_state("usb", "disconnected", dev .. " close", "")
+		modem:update_state("stm", "ERROR", "~0:SIM.RST=1")
+		modem:update_state("usb", "disconnected", dev .. " close")
 
 	end
 	socket.sleep(0.4)
@@ -458,41 +424,10 @@ function modem:stm32comm(comm)
 	end
 end
 
-function modem:balance_parsing_and_update(chunk)
-	local ok, err, sim_id = modem:get_state("sim", "value")
 
-	if ok then
-		local provider_id = modem:get_provider_id(sim_id)
-		local ussd_command = uci:get("tsmodem_adapter_provider", provider_id, "balance_ussd")
-
-		local balance_message = ucs2_ascii(CUSD_parser:match(chunk))
-		balance_message = string.gsub(balance_message, ",", ".")
-
-		local balance = BAL_parser(sim_id):match(balance_message) or ""
-		util.perror("BALANCE: " .. balance_message .. " " .. tostring(balance))
-
-		util.perror(tostring(sim_id) .. " " .. tostring(ussd_command) .. " '" .. tostring(balance) .. "' " .. balance_message)
-		if (balance and balance ~= "") then --[[ if balance value is OK ]]
-			util.perror("BAL " .. balance)
-			modem:update_state("balance", balance, ussd_command, balance_message)
-			uci:set("tsmodem_adapter_provider", provider_id, "balance_last_message", balance_message)
-			uci:commit("tsmodem_adapter_provider")
-		else
-			if(#balance_message > 0) then -- If balance message template is wrong
-				util.perror("WRONG MASK")
-				modem:update_state("balance", "-999", ussd_command, "A mistake in balance message template.")
-				uci:set("tsmodem_adapter_provider", provider_id, "balance_last_message", balance_message)
-				uci:commit("tsmodem_adapter_provider")
-			elseif(chunk:find("+CUSD: 2")) then -- GSM net cancels USSD sesion
-				util.perror("GSM USSD CANCELS")
-				modem:update_state("balance", "-998", ussd_command, "GSM provider cancels USSD session. We will get balance later.")
-			end
-		end
-
-	else
-		util.perror('driver.lua : ' .. err)
-	end
-end
+--function modem:notify(event_name, event_data)
+--	self.conn:notify(self.ubus_objects["tsmodem.driver"].__ubusobj, event_name, event_data )
+--end
 
 function modem:poll()
 	if (not self.fds_ev) and modem:is_connected(self.fds) then
@@ -500,36 +435,16 @@ function modem:poll()
 		self.fds_ev = uloop.fd_add(self.fds, function(ufd, events)
 
 			local chunk, err, errcode = U.read(self.fds, 1024)
+
 		    if chunk:find("+CREG:") then
+
 		    	--print("CREG: ", chunk)
 		    	local creg = CREG_parser:match(chunk)
 		    	if creg and creg ~= "" then
-					--[[ GET BALANCE AS SOON AS SIM REGISTERED AND CONNECTION ESTABLISHED ]]
-					local ok, err, lastreg = modem:get_state("reg", "value")
-					if(lastreg ~= "1" and creg =="1") then
-						local ok, err, sim_id = modem:get_state("sim", "value")
-						if ok then
-							if(sim_id == "0" or sim_id =="1") then
-								local get_balance_delay = 180 -- 3 mins
-								local ok, err, last_balance_time = modem:get_state("balance", "time")
-								util.perror("___REG_CHANGED_TO_1, but lastreg = " .. tostring(lastreg) .. " " .. tostring(last_balance_time))
-								if not tonumber(last_balance_time) then
-									last_balance_time = 0
-								end
 
-								local provider_id = uci:get(config, "sim_" .. sim_id, "provider")
-								local ussd_command = string.format("AT+CUSD=1,%s,15\r\n", uci:get(config_gsm, provider_id, "balance_ussd"))
-								local chunk, err, errcode = U.write(modem.fds, ussd_command)
-							end
-						else
-							util.perror("ERROR: sim or value not found in state.")
-						end
+	    			modem:update_state("reg", creg, "AT+CREG?")
+	    			modem:update_state("usb", "connected", dev .. " open")
 
-					end
-
-
-	    			modem:update_state("reg", creg, "AT+CREG?", "")
-	    			modem:update_state("usb", "connected", dev .. " open", "")
 				end
 			elseif chunk:find("+CSQ:") then
 				--print("CSQ: ", chunk)
@@ -537,11 +452,28 @@ function modem:poll()
 				if signal and signal ~= "" then
 
 					--print("signal: ", signal)
-					modem:update_state("signal", signal, "AT+CSQ", "")
+					modem:update_state("signal", signal, "AT+CSQ")
 
 				end
 			elseif chunk:find("+CUSD:") then
-				modem:balance_parsing_and_update(chunk)
+				local ok, err, sim_id = modem:get_state("sim", "value")
+				if ok then
+					local cusd = ucs2_ascii(CUSD_parser:match(chunk))
+					cusd = string.gsub(cusd, ",", ".")
+
+					local balance = BAL_parser(sim_id):match(cusd)
+					if balance and balance ~= "" then
+						local ok, err, command = modem:get_state("sim", "command")
+						if ok then
+							modem:update_state("balance", balance, command)
+						else
+							util.perror(err)
+						end
+					end
+
+				else
+					util.perror('driver.lua : ' .. err)
+				end
 			elseif(err) then
 				error(err)
 			end
@@ -605,39 +537,28 @@ local metatable = {
 
 		local timer_CUSD
 		function t_CUSD()
-			util.perror("t_CUSD")
 			if(modem:is_connected(modem.fds)) then
 				--[[ Get balance only if SIM is registered in the GSM network ]]
-
+				--[[
 				local ok, err, reg = modem:get_state("reg", "value")
 				if ok and reg == "1" then
 					local ok, err, sim_id = modem:get_state("sim", "value")
 					if ok then
 						if(sim_id == "0" or sim_id =="1") then
-							local get_balance_delay = 180 -- 3 mins
-							local ok, err, last_balance_time = modem:get_state("balance", "time")
-							if (tonumber(last_balance_time) and (last_balance_time ~= "0")) then
-								local timecount = os.time() - tonumber(last_balance_time)
-								if( timecount > get_balance_delay ) then
-									local provider_id = uci:get(config, "sim_" .. sim_id, "provider")
-									local ussd_command = string.format("AT+CUSD=1,%s,15\r\n", uci:get(config_gsm, provider_id, "balance_ussd"))
-									local chunk, err, errcode = U.write(modem.fds, ussd_command)
-								end
-							end
-							timer_CUSD:set(3000)
+							local provider_id = uci:get(config, "sim_" .. sim_id, "provider")
+							local ussd_command = string.format("AT+CUSD=1,%s,15\r\n", uci:get(config_gsm, provider_id, "balance_ussd"))
+							local chunk, err, errcode = U.write(modem.fds, ussd_command)
 						end
 					else
 						util.perror("ERROR: sim or value not found in state.")
 					end
-				else
-					timer_CUSD:set(3000)
 				end
-			else
-				timer_CUSD:set(3000)
+				]]
 			end
+			timer_CUSD:set(8000)
 		end
 		timer_CUSD = uloop.timer(t_CUSD)
-		timer_CUSD:set(6000)
+		timer_CUSD:set(8000)
 
 		uloop.run()
 		table.conn:close()

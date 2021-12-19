@@ -8,7 +8,7 @@ local iface_tsmodem = {
     proto='3g',
     username='root',
     ipv6='auto',
-    apn='internet.mts.ru',
+--    apn='internet.mts.ru',
     device='/dev/ttyUSB2',
     service='umts'
 }
@@ -23,6 +23,11 @@ end
 
 --[[ lan interface update ]]
 
+-- NOTE: when the client will upgrade the package, the network settings will be updated again
+-- It may breaks device connection if the client had different settings before
+-- That is why the next code was commentedsince tsmodem-1.5.6e
+
+--[[
 uci:delete("network", "lan")
 
 local iface_lan = {
@@ -32,7 +37,6 @@ local iface_lan = {
     ipaddr='192.168.1.1',
     netmask='255.255.255.0',
     ip6assign='60',
-    gateway='192.168.1.111',
     dns='8.8.8.8'
 }
 
@@ -44,7 +48,9 @@ if section == "lan" then
     util.dumptable(iface_lan)
 else
     print("ERROR: interface 'lan' was not updated in the /etc/config/network.")
+
 end
+]]
 
 --[[ /etc/config/firewall ]]
 

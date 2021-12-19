@@ -84,8 +84,8 @@ local rule_setting = {
 			["1_logicfunc"] = [[ if ("event_is_new" == "true") then return true else return false end ]],
 			["2_formula"] = [[return({
 					datetime = "event_datetime",
-					name = "Изменилось состояние порта /dev/ttyUSB2",
-					source = "Устройство",
+					name = "The state of /dev/ttyUSB2 was changed.",
+					source = "Device",
 					command = "event_usb_command",
 					response = "event_usb"
 				})]],

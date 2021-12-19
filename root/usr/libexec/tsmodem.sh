@@ -17,8 +17,9 @@ cd /usr/lib/lua/luci/model/tsmodem/
 echo "[tsmodem] Main Logic Rules starting.."
 lua rules.lua &
 
-echo "[tsmodem] Clear LuCI cache daemon starting.."
-/root/clean_tmp_luci.sh &
+echo "[tsmodem] Clear LuCI cache.."
+rm -r /tmp/luci-*
+# /root/clean_tmp_luci.sh &
 
 echo "[tsmodem] Application started completely."
 echo "----------------------------------------"
