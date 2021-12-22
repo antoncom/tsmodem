@@ -2,6 +2,7 @@ local fs = require "nixio.fs"
 local uci = require "luci.model.uci".cursor()
 local util = require "luci.util"
 local log = require "luci.model.tsmodem.util.log"
+local parse_i18n = require "luci.model.tsmodem.parser.parse_i18n"
 ---------------------------------------------------------
 --------- Change these when create new adapter ----------
 local adapter_config = "tsmodem_adapter_provider"
@@ -104,7 +105,9 @@ function provider:render(optname, ...)
 
 		widgetfile = function()
 			local path = util.libpath() .. '/view/tsmodem/ui_adapter/' .. adapter_jsname .. '.js.htm'
-			return fs.readfile(path)
+			local content = fs.readfile(path)
+			return(parse_i18n(content))
+			--return fs.readfile(path)
 		end,
 
 		jsinit = function()
