@@ -82,7 +82,6 @@ function rules:make_ubus()
 
 	    	-- You get notified when someone subscribes to a channel
 			__subscriber_cb = function( subs )
-				print("*************RULE - total subs: ", subs )
 			end
 		},
 	}
@@ -94,7 +93,7 @@ end
 function rules:init_websocket()
 	local fd_websocket, err, errnum = F.open("/tmp/wspipeout.fifo", bit.bor(F.O_RDONLY, F.O_NONBLOCK))
 	if not fd_websocket then
-		print('Could not open /tmp/wspipeout.fifo ', err, ':', errnum)
+		print('[tsmodem] Could not open /tmp/wspipeout.fifo ', err, ':', errnum)
 		return
 	end
 	self.fd_websocket = fd_websocket

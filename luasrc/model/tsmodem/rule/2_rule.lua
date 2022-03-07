@@ -15,7 +15,8 @@ rule.is_busy = false
 
 local rule_setting = {
 	title = {
-		input = "Правило переключения Сим-карты, если баланс ниже минимума",
+		--input = "Правило переключения Сим-карты, если баланс ниже минимума",
+		input = "Switching if the balance is lower than minimum",
 		output = "",
 		subtotal = nil,
 		modifier = {}

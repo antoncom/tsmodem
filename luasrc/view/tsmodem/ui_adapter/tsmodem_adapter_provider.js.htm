@@ -35,7 +35,7 @@ L.require('ui').then(function(ui) {
 						var self = this;
 						this.fields = {
 
-							"name": new ui.Textfield("", {
+							"name": new ui.TextFieldStyled("", {
 								datatype: "rangelength(3,128)",
 								optional: false,
 								validate: function(name) {
@@ -49,12 +49,12 @@ L.require('ui').then(function(ui) {
 								}
 							}),
 
-							"gate_address": new ui.Textfield("", {
+							"gate_address": new ui.TextFieldStyled("", {
 								datatype: "rangelength(3,128)",
 								optional: false
 							}),
 
-							"balance_ussd": new ui.Textfield("", {
+							"balance_ussd": new ui.TextFieldStyled("", {
 								datatype: "rangelength(3,8)",
 								optional: false
 							}),
@@ -160,6 +160,7 @@ L.require('ui').then(function(ui) {
 							function(ev) {
 
 								if(ev.detail["proto"] != undefined && ev.detail["proto"] != '') {
+									self.last_balance_message = uci.get("tsmodem_adapter_provider", gsm_id, "balance_last_message")
 
 									var gsm_id = ev.detail["proto"]
 									self.gsm_id = gsm_id
@@ -168,13 +169,26 @@ L.require('ui').then(function(ui) {
 									self.fields["name"].setValue(gsm_data["name"])
 									self.fields["name"].triggerValidation()
 									self.fields["gate_address"].setValue(gsm_data["gate_address"])
-									self.fields["balance_ussd"].setValue(gsm_data["balance_ussd"])
+									self.fields["balance_ussd"].setValue(gsm_data["balance_ussd"] || '')
 									self.fields["balance_mask"].setValue(gsm_data["balance_mask"])
 
 									self.balance_mask = gsm_data["balance_mask"]
 									self.last_balance_message = uci.get("tsmodem_adapter_provider", gsm_id, "balance_last_message")
 
 									container.classList.add("active")
+
+									if(gsm_data["editable"] == "0") {
+										self.fields["balance_mask"].getTextArea().readOnly = true;
+										self.fields["name"].getTextField().readOnly = true;
+										self.fields["gate_address"].getTextField().readOnly = true;
+										self.fields["balance_ussd"].getTextField().readOnly = true;
+									} else {
+										self.fields["balance_mask"].getTextArea().readOnly = false;
+										self.fields["name"].getTextField().readOnly = false;
+										self.fields["gate_address"].getTextField().readOnly = false;
+										self.fields["balance_ussd"].getTextField().readOnly = false;
+									}
+
 									self.isActive = true
 								} else {
 									container.classList.remove("active")
@@ -258,7 +272,7 @@ L.require('ui').then(function(ui) {
 					//loadTmplDefault: function(eventId=undefined, channelId=undefined) {
 					loadTmplDefault: function(tmpl_text='') {
 						this.validateFunc = this.fields["balance_mask"].options.validate
-						this.fields["balance_mask"].options.validate = function(a) { console.log(a); return true }
+						this.fields["balance_mask"].options.validate = function(a) { return true }
 
 						var mask = this.fields["balance_mask"].getValue()
 						this.adapters[this.gsm_id]["balance_mask"] = mask.substr(0)
@@ -289,7 +303,10 @@ L.require('ui').then(function(ui) {
 
 						document.querySelector(".hwt-backdrop").style.backgroundColor = "#fff";
 						document.querySelector(".hwt-input").style.color = "#000";
-						this.fields["balance_mask"].getTextArea().readOnly = false;
+
+						var gsm_data = this.adapters[this.gsm_id]
+						this.fields["balance_mask"].getTextArea().readOnly = (gsm_data["editable"] == "0");
+
 						this.fields["balance_mask"].getTextArea().focus()
 						document.querySelector("[name='tmpl-default']").style.backgroundImage = "none";
 						document.querySelector("[name='tmpl-custom']").style.backgroundImage = "url(/luci-static/resources/icons/check.png)";

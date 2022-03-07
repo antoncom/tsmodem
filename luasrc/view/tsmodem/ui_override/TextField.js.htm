@@ -19,7 +19,7 @@ L.require("dom").then(function(dom)	{
 				});
 
 				if (this.options.password) {
-					
+
 					frameEl.appendChild(E('div', { 'class': 'control-group' }, [
 						inputEl,
 
@@ -28,13 +28,12 @@ L.require("dom").then(function(dom)	{
 							'title': _('Reveal/hide password'),
 							'aria-label': _('Reveal/hide password'),
 							'click': function(ev) {
-								console.log("MMM")
 								var e = this.previousElementSibling;
 								e.type = (e.type === 'password') ? 'text' : 'password';
 								ev.preventDefault();
 							}
 						}, '∗')
-					
+
 					]));
 
 					window.requestAnimationFrame(function() { inputEl.type = 'password' });
@@ -51,6 +50,10 @@ L.require("dom").then(function(dom)	{
 			getValue: function() {
 				var inputEl = this.node.querySelector('input');
 				return inputEl.value;
+			},
+			getTextField: function() {
+				console.log(this.node.children[1]);
+				return this.node.children[1]
 			},
 			bind: function(frameEl) {
 				var inputEl = frameEl.querySelector('input');

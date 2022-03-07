@@ -87,6 +87,8 @@ L.require('ui').then(function(ui) {
 				if(value != undefined) {
 					var val = value.replace(/\\n/g,'\n');
 					this.node.children[1].value = val;
+				} else {
+					this.node.children[1].value = '';
 				}
 				this.highlight();
 			},

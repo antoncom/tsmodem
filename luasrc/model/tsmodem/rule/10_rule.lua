@@ -17,7 +17,8 @@ rule.events_queue = {}
 
 local rule_setting = {
 	title = {
-		input = "Правило журналирования статуса подключения порта /dev/ttyUSB2",
+		--input = "Правило журналирования статуса подключения порта /dev/ttyUSB2",
+		input = "Indication: update system log in the UI if /dev/ttyUSB2 state is changed.",
 		output = "",
 		subtotal = nil,
 		modifier = {}

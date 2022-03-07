@@ -2,17 +2,15 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Tsmodem\n"
 "POT-Creation-Date: 2021-12-19 01:01+0300\n"
-"PO-Revision-Date: 2021-12-19 12:59+0000\n"
+"PO-Revision-Date: 2022-03-07 09:23+0300\n"
 "Last-Translator: amigoalt <amigoalt@gmail.com>\n"
-"Language-Team: Russian <https://hosted.weblate.org/projects/openwrt/luci/ru/"
-">\n"
+"Language-Team: Russian <https://hosted.weblate.org/projects/openwrt/luci/ru/>\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
-"%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 4.5-dev\n"
+"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
+"X-Generator: Poedit 3.0.1\n"
 "Project-Info: Это технический перевод.\n"
 
 #: /usr/lib/lua/luci/controller/tsmodem/index.lua
@@ -92,7 +90,6 @@ msgstr "USSD-ответ не распознан."
 msgid "Please check USSD-command or template."
 msgstr "Проверьте USSD-команду или шаблон сообщения."
 
-
 msgid "Notes"
 msgstr "Примечание"
 
@@ -111,9 +108,8 @@ msgstr "Пользователь"
 msgid "User switches to SIM card #"
 msgstr "Пользователь переключил на SIM-карту #"
 
-
 msgid "When the SIM card is switched automatically, the provider's APN (gateway address) is automatically updated. For example, for MTS it is internet.mts.ru."
-msgstr "При автоматическом переключении Сим-карты, автоматически обновляется APN провайдера (адрес шлюза). Например для МТС это 'internet.mts.ru'"
+msgstr "При автоматическом переключении Сим-карты, автоматически обновляется APN провайдера (адрес шлюза). Например для МТС это 'internet.mts.ru'."
 
 msgid "Go to main menu Network -> Interfaces -> TSMODEM, 'APN' field."
 msgstr "См. настройки в меню Network -> Interfaces -> TSMODEM, графа APN."
@@ -143,7 +139,7 @@ msgid "Support"
 msgstr "Техподдержка"
 
 msgid "Tel."
-msgstr "Телефон"
+msgstr "Телефон."
 
 msgid "Email"
 msgstr "Email"
@@ -189,7 +185,7 @@ msgid "Timeout - weak signal, sec."
 msgstr "Таймаут - слабый сигнал, сек."
 
 msgid "Timeout - balance below min, sec"
-msgstr "Таймаут - баланс ниже нормы, сек."
+msgstr "Таймаут - баланс ниже нормы, сек"
 
 msgid "Basic settings"
 msgstr "Основные параметры"
@@ -201,7 +197,6 @@ msgid "Close"
 msgstr "Закрыть"
 
 #: ---- Adapter provider -----
-
 msgid "Parameters of the network"
 msgstr "Параметры сети"
 
@@ -227,7 +222,7 @@ msgid "Original"
 msgstr "Оригинал"
 
 msgid "Use __RUB__ for rendering numbers"
-msgstr "Используйте __RUB__ для обозначения числа.""
+msgstr "Используйте __RUB__ для обозначения числа"
 
 msgid "The Network name already exists."
 msgstr "Сеть с таким именем уже существет."
@@ -235,12 +230,9 @@ msgstr "Сеть с таким именем уже существет."
 msgid "__RUB__ placeholder has to be in the text."
 msgstr "Не найдер плейсхолдер __RUB__."
 
-
-#: ------ End of Modal ---------
-
-#: /usr/lib/lua/luci/model/tsmodem/rule/10_rule.lua
+#: ------ End of Modal --------- /usr/lib/lua/luci/model/tsmodem/rule/10_rule.lua
 msgid "The state of /dev/ttyUSB2 was changed."
-msgstr "Изменилось состояние порта /dev/ttyUSB2"
+msgstr "Изменилось состояние порта /dev/ttyUSB2."
 
 msgid "Device"
 msgstr "Устройство"

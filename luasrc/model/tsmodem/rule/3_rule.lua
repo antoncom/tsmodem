@@ -15,7 +15,8 @@ rule.is_busy = false
 
 local rule_setting = {
 	title = {
-		input = "Правило переключения Сим-карты, если уровень сигнала ниже нормы.",
+		--input = "Правило переключения Сим-карты, если уровень сигнала ниже нормы.",
+		input = "Switching if the signal level is lower then minimum.",
 		output = "",
 		subtotal = nil,
 		modifier = {}

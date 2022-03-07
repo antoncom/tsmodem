@@ -17,7 +17,8 @@ rule.events_queue = {}
 
 local rule_setting = {
 	title = {
-		input = "Правило журналирования статуса регистрации в сети",
+		--input = "Правило журналирования статуса регистрации в сети",
+		input = "Indication: update the UI when the celluar network state is changed.",
 		output = "",
 		subtotal = nil,
 		modifier = {}
@@ -53,9 +54,9 @@ local rule_setting = {
 
 	event_reg = {
 		source = {
-			model = "tsmodem.driver",
-			method = "reg",
-			param = "value"
+			model = "tsmodem.driver",	-- This is UBUS OBJECT name. Run in the shell "ubus list | grep tsmodem" to see all objects.
+			method = "reg",				-- This is UBUS METHOD name. Run in the shell "ubus -v list tsmodem driver" to see all nethods.
+			param = "value"				-- This is requested param name. Only "value", "time" and "command" are only possible here.
 		},
 		input = "",
 		output = "",

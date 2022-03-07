@@ -7,16 +7,58 @@ config adapter 'template'
 	option balance_example_message '0'
 
 config adapter
+	option editable '0'
 	option balance_example_message '368 р.'
 	option gate_address 'internet.beeline.ru'
 	option name 'Beeline'
 	option balance_ussd '*102#'
-	option balance_mask '%_RUB_% р.'
+	option balance_mask '__RUB__ р.'
+	option balance_last_message 'Баланс: 0.00
+1>Обещанный платеж+
+2>Прогнозы удачных дней 3д/0 руб'
 
 config adapter
+	option editable '0'
 	option name 'MTS'
 	option gate_address 'internet.mts.ru'
-	option balance_ussd '*102#'
-	option balance_mask '%_RUB_% р.'
-	option balance_example_message '777 р.'
+	option balance_example_message 'Баланс:100р'
+	option balance_mask 'Баланс:__RUB__р.'
+	option balance_ussd '*100#'
+	option balance_last_message 'Баланс:605р'
 
+config adapter
+	option editable '0'
+	option name 'Megafon'
+	option balance_example_message 'Баланс:100р'
+	option balance_ussd '*100#'
+	option gate_address 'internet'
+	option balance_mask '__RUB__ р.'
+	option balance_last_message '278.9 р.
+Заблокируйте SMS-рекламу и спам за 3 р/д: *248#'
+
+config adapter
+	option editable '0'
+	option name 'Tele2'
+	option gate_address 'internet.tele2.ru'
+	option balance_example_message 'Баланс:100р'
+	option balance_ussd '*105#'
+	option balance_last_message 'Баланс 0.00 pуб.'
+	option balance_mask 'Баланс __RUB__ руб.'
+
+config adapter
+	option editable '1'
+	option name 'CUSTOM 1'
+	option gate_address 'internet'
+	option balance_example_message ''
+	option balance_ussd ''
+	option balance_last_message ''
+	option balance_mask ''
+
+config adapter
+	option editable '1'
+	option name 'CUSTOM 2'
+	option gate_address 'internet'
+	option balance_example_message ''
+	option balance_ussd ''
+	option balance_last_message ''
+	option balance_mask ''

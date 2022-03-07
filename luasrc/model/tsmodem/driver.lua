@@ -71,9 +71,9 @@ local modem_state = {
 	},
 	balance = {
 --[[	{
-			command = "__TODO__",
-			value = "",
-			time = "",
+			command = "*100#",
+			value = "605",
+			time = "1646539246",
 			unread = "true"
 		}]]
 	},
@@ -469,22 +469,17 @@ function modem:balance_parsing_and_update(chunk)
 		balance_message = string.gsub(balance_message, ",", ".")
 
 		local balance = BAL_parser(sim_id):match(balance_message) or ""
-		util.perror("BALANCE: " .. balance_message .. " " .. tostring(balance))
 
-		util.perror(tostring(sim_id) .. " " .. tostring(ussd_command) .. " '" .. tostring(balance) .. "' " .. balance_message)
 		if (balance and balance ~= "") then --[[ if balance value is OK ]]
-			util.perror("BAL " .. balance)
 			modem:update_state("balance", balance, ussd_command, balance_message)
 			uci:set("tsmodem_adapter_provider", provider_id, "balance_last_message", balance_message)
 			uci:commit("tsmodem_adapter_provider")
 		else
 			if(#balance_message > 0) then -- If balance message template is wrong
-				util.perror("WRONG MASK")
 				modem:update_state("balance", "-999", ussd_command, "A mistake in balance message template.")
 				uci:set("tsmodem_adapter_provider", provider_id, "balance_last_message", balance_message)
 				uci:commit("tsmodem_adapter_provider")
 			elseif(chunk:find("+CUSD: 2")) then -- GSM net cancels USSD sesion
-				util.perror("GSM USSD CANCELS")
 				modem:update_state("balance", "-998", ussd_command, "GSM provider cancels USSD session. We will get balance later.")
 			end
 		end
@@ -512,7 +507,6 @@ function modem:poll()
 							if(sim_id == "0" or sim_id =="1") then
 								local get_balance_delay = 180 -- 3 mins
 								local ok, err, last_balance_time = modem:get_state("balance", "time")
-								util.perror("___REG_CHANGED_TO_1, but lastreg = " .. tostring(lastreg) .. " " .. tostring(last_balance_time))
 								if not tonumber(last_balance_time) then
 									last_balance_time = 0
 								end
@@ -605,7 +599,6 @@ local metatable = {
 
 		local timer_CUSD
 		function t_CUSD()
-			util.perror("t_CUSD")
 			if(modem:is_connected(modem.fds)) then
 				--[[ Get balance only if SIM is registered in the GSM network ]]
 

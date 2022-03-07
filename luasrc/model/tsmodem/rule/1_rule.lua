@@ -15,7 +15,8 @@ rule.is_busy = false
 
 local rule_setting = {
 	title = {
-		input = "Правило переключения Сим-карты, если не в сети",
+		--input = "Правило переключения Сим-карты, если не в сети",
+		input = "Switching Sim if not registered in the celluar network",
 		output = "",
 		subtotal = nil,
 		modifier = {}

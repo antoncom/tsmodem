@@ -17,7 +17,8 @@ rule.events_queue = {}
 
 local rule_setting = {
 	title = {
-		input = "Правило журналирования событий Микроконтроллера",
+		--input = "Правило журналирования событий Микроконтроллера",
+		input = "Indication: add to the system log all events of STM32 microcontroller.",
 		output = "",
 		subtotal = nil,
 		modifier = {}
