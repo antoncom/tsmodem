@@ -217,7 +217,7 @@ local uci_signal_min = {
 					} else if(key == "response") {
 						value = raw_data['response'];
 						if(value.match(/^[0-9]+$/) != null) {
-							if(raw_data['source'] == 'Modem') {
+							if(raw_data['source'] == '<%:Modem%>') {
 								if(raw_data['response'] == 1) {
 									raw_html = raw_html.replace(re, '<span class="response REGISTERED">' + network_state[value][1]) + '</span>'
 
