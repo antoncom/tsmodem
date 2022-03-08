@@ -3,6 +3,7 @@ local uci = require "luci.model.uci".cursor()
 local util = require "luci.util"
 local log = require "luci.model.tsmodem.util.log"
 local ubus = require "ubus"
+local I18N = require "luci.i18n"
 
 local loadvar = require "luci.model.tsmodem.loadvar"
 local modifier = require "modifier.main"
@@ -99,8 +100,8 @@ local rule_setting = {
 			["1_logicfunc"] = [[ if ("event_is_new" == "true") then return true else return false end ]],
 			["2_formula"] = [[return({
 					datetime = "event_datetime",
-					name = "Executing the command",
-					source = "Microcontroller",
+					name = "]] .. I18N.translate("Executing the command") .. [[",
+					source = "]] .. I18N.translate("Microcontroller") .. [[",
 					command = "event_stm_command",
 					response = "event_stm_value"
 				})]],

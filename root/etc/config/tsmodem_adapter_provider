@@ -13,9 +13,8 @@ config adapter
 	option name 'Beeline'
 	option balance_ussd '*102#'
 	option balance_mask '__RUB__ р.'
-	option balance_last_message 'Баланс: 0.00
-1>Обещанный платеж+
-2>Прогнозы удачных дней 3д/0 руб'
+	option balance_last_message '0.20 р.
+Доверит. платеж *141# Узнать сумму и стоимость*141*7# Инфо: 064012'
 
 config adapter
 	option editable '0'
@@ -33,8 +32,8 @@ config adapter
 	option balance_ussd '*100#'
 	option gate_address 'internet'
 	option balance_mask '__RUB__ р.'
-	option balance_last_message '278.9 р.
-Заблокируйте SMS-рекламу и спам за 3 р/д: *248#'
+	option balance_last_message '218.9 р.
+Защита от нежелательных звонков за 3.5 р/д: *247#'
 
 config adapter
 	option editable '0'
@@ -42,23 +41,16 @@ config adapter
 	option gate_address 'internet.tele2.ru'
 	option balance_example_message 'Баланс:100р'
 	option balance_ussd '*105#'
-	option balance_last_message 'Баланс 0.00 pуб.'
 	option balance_mask 'Баланс __RUB__ руб.'
+	option balance_last_message 'Баланс 0.00 pуб.'
 
 config adapter
 	option editable '1'
 	option name 'CUSTOM 1'
 	option gate_address 'internet'
-	option balance_example_message ''
-	option balance_ussd ''
-	option balance_last_message ''
-	option balance_mask ''
 
 config adapter
 	option editable '1'
 	option name 'CUSTOM 2'
 	option gate_address 'internet'
-	option balance_example_message ''
-	option balance_ussd ''
-	option balance_last_message ''
-	option balance_mask ''
+

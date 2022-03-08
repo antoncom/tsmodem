@@ -294,7 +294,7 @@ L.require('ui').then(function(ui) {
 						document.querySelector(".hwt-backdrop").style.backgroundColor = "#bbb";
 						document.querySelector(".hwt-input").style.color = "#666";
 						document.querySelector("[name='tmpl-custom']").style.backgroundImage = "none";
-						document.querySelector("[name='tmpl-default']").style.backgroundImage = "url(/luci-static/resources/icons/check-grey.png)";
+						document.querySelector("[name='tmpl-default']").style.backgroundImage = "url(/luci-static/resources/tsmodem/icons/check-grey.png)";
 					},
 					// load custom template to textarea
 					loadTmplCustom: function(eventId=undefined, channelId=undefined) {
@@ -309,7 +309,7 @@ L.require('ui').then(function(ui) {
 
 						this.fields["balance_mask"].getTextArea().focus()
 						document.querySelector("[name='tmpl-default']").style.backgroundImage = "none";
-						document.querySelector("[name='tmpl-custom']").style.backgroundImage = "url(/luci-static/resources/icons/check.png)";
+						document.querySelector("[name='tmpl-custom']").style.backgroundImage = "url(/luci-static/resources/tsmodem/icons/check.png)";
 					},
 					saveTmplCustom: function(tmpltext, eventId=undefined, channelId=undefined) {
 						var tmpls = session.getLocalData("custom-alert-templates")

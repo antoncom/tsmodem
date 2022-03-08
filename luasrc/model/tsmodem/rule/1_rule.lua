@@ -3,6 +3,7 @@ local uci = require "luci.model.uci".cursor()
 local util = require "luci.util"
 local log = require "luci.model.tsmodem.util.log"
 local ubus = require "ubus"
+local I18N = require "luci.i18n"
 
 local loadvar = require "luci.model.tsmodem.loadvar"
 local modifier = require "modifier.main"
@@ -137,8 +138,8 @@ local rule_setting = {
 		},
 		["2_formula"] = [[return({
 				datetime = "event_datetime",
-				name = "No network registration: switched to another SIM",
-				source = "Microcontroller",
+				name = "]] .. I18N.translate("No network registration: switched to another SIM") .. [[",
+				source = "]] .. I18N.translate("Microcontroller") .. [[",
 				command = "do_switch_result",
 				response = "OK"
 			})]],

@@ -3,6 +3,7 @@ local uci = require "luci.model.uci".cursor()
 local util = require "luci.util"
 local log = require "luci.model.tsmodem.util.log"
 local ubus = require "ubus"
+local I18N = require "luci.i18n"
 
 local loadvar = require "luci.model.tsmodem.loadvar"
 local modifier = require "modifier.main"
@@ -73,8 +74,8 @@ local rule_setting = {
 			["1_logicfunc"] = [[ if ("event_is_new" == "true") then return true else return false end ]],
 			["2_formula"] = [[return({
 					datetime = "event_datetime",
-					name = "Network registration staus was changed",
-					source = "Modem",
+					name = "]] .. I18N.translate("Network registration staus was changed") .. [[",
+					source = "]] .. I18N.translate("Modem") .. [[",
 					command = "AT+CREG?",
 					response = "event_reg"
 				})]],

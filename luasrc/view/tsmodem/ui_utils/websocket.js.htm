@@ -224,7 +224,7 @@ local uci_signal_min = {
 								} else {
 									raw_html = raw_html.replace(re, network_state[raw_data['response']][1])
 								}
-							} else if (raw_data['source'] == 'Microcontroller') {
+							} else if (raw_data['source'] == '<%:Microcontroller%>') {
 								raw_html = raw_html.replace(re, raw_data['response'])
 							}
 
@@ -258,7 +258,6 @@ local uci_signal_min = {
 
 
 			var host = window.location.host;
-		    //window.socket = new WebSocket('wss://' + host + ':7890');
 		    window.socket = new WebSocket('ws://' + host + ':7890');
 
 		    var modemDisconnected = false
@@ -282,18 +281,21 @@ local uci_signal_min = {
 
 					if( ui_data.lastreg_timer && parseInt(ui_data.lastreg_timer) > 0) {
 						window.lastreg_timer = parseInt(window.uci_timeout_reg[sid]) - parseInt(ui_data.lastreg_timer)
+						if(window.lastreg_timer < 0) window.lastreg_timer = 0;
 					} else if(parseInt(ui_data.lastreg_timer) == 0 && window.lastreg_timer > 0) {
 						window.lastreg_timer = 0
 					}
 
 					if(ui_data.lowbalance_timer && parseInt(ui_data.lowbalance_timer) > 0) {
 						window.lowbalance_timer = parseInt(window.uci_timeout_bal["sim_" + sid]) - parseInt(ui_data.lowbalance_timer)
+						if(window.lowbalance_timer < 0) window.lowbalance_timer = 0;
 					} else if(parseInt(ui_data.lowbalance_timer) == 0 && window.lowbalance_timer > 0) {
 						window.lowbalance_timer = 0
 					}
 
 					if(ui_data.low_signal_timer && parseInt(ui_data.low_signal_timer) > 0) {
 						window.low_signal_timer = parseInt(window.uci_timeout_signal["sim_" + sid]) - parseInt(ui_data.low_signal_timer)
+						if(window.low_signal_timer < 0) window.low_signal_timer = 0;
 					} else if(parseInt(ui_data.low_signal_timer) == 0 && window.low_signal_timer > 0) {
 						window.low_signal_timer = 0
 					}
@@ -309,16 +311,6 @@ local uci_signal_min = {
 							clearInactive("1")
 						}
 					}
-
-/*
-					if(ui_data.sim_balance_ussd_response && ui_data.sim_balance_ussd_response != "") {
-						if(window.tsmodem_adapter_provider) {
-							//window.tsmodem_adapter_provider.loadTmplDefault()
-							//window.tsmodem_adapter_provider.fields["balance_mask"].setValue("this.last_balance_message")
-						}
-
-					}
-*/
 
 
 					if(network_registration == "" || network_registration == "7") {

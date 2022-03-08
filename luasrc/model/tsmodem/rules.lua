@@ -9,6 +9,7 @@ local uloop = require "uloop"
 local flist = require "luci.model.tsmodem.util.filelist"
 local uci = require "luci.model.uci".cursor()
 local bit = require "bit"
+local I18N = require "luci.i18n"
 
 local F = require "posix.fcntl"
 local U = require "posix.unistd"
@@ -99,6 +100,13 @@ function rules:init_websocket()
 	self.fd_websocket = fd_websocket
 end
 
+function rules:set_language()
+	if(uci:get("luci", "main", "lang") == "en") then
+		I18N.setlanguage("en-EN")
+	else
+		I18N.setlanguage("ru-RU")
+	end
+end
 
 function rules:make()
 	local rules_path = util.libpath() .. "/model/tsmodem/rule"
@@ -122,7 +130,6 @@ function rules:run_all(varlink)
 		-- Then the rule can send notification on the ubus object of parent module
 
 		state = rule(self)
-
 	end
 end
 
@@ -132,6 +139,7 @@ local metatable = {
 		local tick = table.setting.tick_size_default
 
 		table:make_ubus()
+		table:set_language()
 		table:make()
 		table:init_websocket()
 

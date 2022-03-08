@@ -3,6 +3,7 @@ local uci = require "luci.model.uci".cursor()
 local util = require "luci.util"
 local log = require "luci.model.tsmodem.util.log"
 local ubus = require "ubus"
+local I18N = require "luci.i18n"
 
 local loadvar = require "luci.model.tsmodem.loadvar"
 local modifier = require "modifier.main"
@@ -83,10 +84,10 @@ local rule_setting = {
 		subtotal = nil,
 		modifier = {
 			["1_logicfunc"] = [[ if ("event_is_new" == "true") then return true else return false end ]],
-			["2_formula"] = [[return({
+			["2_formula"] = [[ return({
 					datetime = "event_datetime",
-					name = "The state of /dev/ttyUSB2 was changed.",
-					source = "Device",
+					name = "]] .. I18N.translate('The state of /dev/ttyUSB2 was changed.') .. [[",
+					source = "]] .. I18N.translate("Device") .. [[",
 					command = "event_usb_command",
 					response = "event_usb"
 				})]],
