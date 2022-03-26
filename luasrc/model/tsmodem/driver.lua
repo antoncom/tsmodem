@@ -16,11 +16,15 @@ local M = require 'posix.termio'
 local F = require 'posix.fcntl'
 local U = require 'posix.unistd'
 
+-- Constants
+local CNSMODES = require 'luci.model.tsmodem.constants.cnsmodes'
+
 local CREG_parser = require 'luci.model.tsmodem.parser.creg'
 local CSQ_parser = require 'luci.model.tsmodem.parser.csq'
 local CUSD_parser = require 'luci.model.tsmodem.parser.cusd'
 local SMS_parser = require 'luci.model.tsmodem.parser.sms'
 local BAL_parser = require 'luci.model.tsmodem.parser.balance'
+local CNSMOD_parser = require 'luci.model.tsmodem.parser.cnsmod'
 local ucs2_ascii = require 'luci.model.tsmodem.parser.ucs2_ascii'
 
 local socket = require "socket"
@@ -81,6 +85,14 @@ local modem_state = {
 --[[	{
 			command = "", 				-- /dev/ttyUSB open  |  /dev/ttyUSB close
 			value = "",					-- connected / disconnected
+			time = "",
+			unread = "true"
+		}]]
+	},
+	netmode = {
+--[[	{
+			command = "", 				-- AT+.... __TODO__
+			value = "",					-- _TODO__
 			time = "",
 			unread = "true"
 		}]]
@@ -282,7 +294,13 @@ function modem:make_ubus()
 
 				end, {id = ubus.INT32, msg = ubus.STRING }
 			},
+			netmode = {
+				function(req, msg)
+					local resp = makeResponse("netmode")
+					self.conn:reply(req, resp);
 
+				end, {id = ubus.INT32, msg = ubus.STRING }
+			},
 			do_switch = {
 				function(req, msg)
 					local resp, n = {}, 0
@@ -302,6 +320,7 @@ function modem:make_ubus()
 							socket.sleep(0.5)
 
 							n = #modem.state.sim
+
 							if(modem.state.sim[n].value == "0") then
 								modem:switch("1")
 							else
@@ -370,8 +389,8 @@ function modem:is_connected(fd)
 end
 
 function modem:switch(sim_id)
-
 	local res, val = modem:stm32comm("~0:SIM.SEL=" .. tostring(sim_id))
+
 	if res == "OK" then
 
 		modem:update_state("sim", sim_id, "~0:SIM.SEL=" .. tostring(sim_id), "")
@@ -396,6 +415,7 @@ function modem:switch(sim_id)
 	modem:update_state("reg", "7", "AT+CREG?", "")
 	modem:update_state("signal", "", "", "")
 	modem:update_state("balance", "", "", "")
+	modem:update_state("netmode", "", "", "")
 
 	res, val = modem:stm32comm("~0:SIM.RST=0")
 	if res == "OK" then
@@ -536,6 +556,20 @@ function modem:poll()
 				end
 			elseif chunk:find("+CUSD:") then
 				modem:balance_parsing_and_update(chunk)
+				--[[ Parse and update 3G/4G mode ]]
+			elseif chunk:find("+CNSMOD:") then
+				local netmode = CNSMOD_parser:match(chunk) or ""
+				if(tonumber(netmode) ~= nil) then
+					util.perror("\n----------CNSMOD FOUND--------")
+					util.perror("\nnetmod " .. netmode)
+					if(CNSMODES[netmode] ~= nil) then
+						modem:update_state("netmode", netmode, "AT+CNSMOD?", CNSMODES[netmode])
+						util.perror("\nnetmod " .. CNSMODES[netmode])
+					else
+						modem:update_state("netmode", netmode, "AT+CNSMOD?", "UNKNOWN")
+						util.perror("\nUNKNOWN netmod " .. netmode)
+					end
+				end
 			elseif(err) then
 				error(err)
 			end
@@ -631,6 +665,22 @@ local metatable = {
 		end
 		timer_CUSD = uloop.timer(t_CUSD)
 		timer_CUSD:set(6000)
+
+		--[[ Send AT to get 3G/4G mode of the cell network]]
+		local timer_CNSMOD
+		function t_CNSMOD()
+			if(modem:is_connected(modem.fds)) then
+				local chunk, err, errcode = U.write(modem.fds, "AT+CNSMOD?" .. "\r\n")
+				log("write CNSMOD")
+				local chunk, err, errcode = U.write(modem.fds, "AT+CNSMOD=1" .. "\r\n")
+				log("write CNSMOD=1")
+			end
+
+			--timer_CNSMOD:set(3000)
+		end
+		timer_CNSMOD = uloop.timer(t_CNSMOD)
+		timer_CNSMOD:set(5000)
+		-- [[ ]]
 
 		uloop.run()
 		table.conn:close()

@@ -135,6 +135,8 @@ local uci_signal_min = {
 							rendered.innerHTML = value + " rub." + balance_date;
 						}
 					}
+				} else if (varname == "netmode_comment" && value != "") {
+						rendered.innerHTML = animationWrapper(value.split(" | ")[1]);
 				}
 
 
@@ -277,6 +279,12 @@ local uci_signal_min = {
 					var sid = parseInt(sim_id)
 
 					var network_registration = ui_data["network_registration"] || ""
+
+					var netmode_comment = ui_data["netmode_comment"] || false
+					//var sim_id = ui_data["sim_id"]
+					if(sim_id != false && netmode_comment != false) {
+						update_with_animation(sim_id, "netmode_comment", ui_data)
+					}
 
 
 					if( ui_data.lastreg_timer && parseInt(ui_data.lastreg_timer) > 0) {
