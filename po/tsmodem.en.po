@@ -258,3 +258,10 @@ msgstr "Modem"
 #: /usr/lib/lua/luci/model/tsmodem/rule/1_rule.lua
 msgid "No network registration: switched to another SIM"
 msgstr "No network registration: switched to another SIM"
+
+#: /usr/lib/lua/luci/model/tsmodem/rule/13_rule.lua
+msgid "3G/4G mode was changed"
+msgstr "3G/4G mode was changed"
+
+msgid "Indication: update the UI when the celluar network mode (3G/4G) is changed."
+msgstr "Правило журналирования режима соединения сотовой сети"

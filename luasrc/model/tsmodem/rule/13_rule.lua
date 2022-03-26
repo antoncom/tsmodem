@@ -18,8 +18,7 @@ rule.events_queue = {}
 
 local rule_setting = {
 	title = {
-		--input = "Правило журналирования режима соединения сотовой сети",
-		input = "Indication: update the UI when the celluar network mode (3G/4G) is changed.",
+		input = I18N.translate("Indication: update the UI when the celluar network mode (3G/4G) is changed."),
 		output = "",
 		subtotal = nil,
 		modifier = {}
@@ -55,9 +54,9 @@ local rule_setting = {
 
 	sim_id = {
 		source = {
-			model = "tsmodem.driver",	-- This is UBUS OBJECT name. Run in the shell "ubus list | grep tsmodem" to see all objects.
-			method = "sim",				-- This is UBUS METHOD name. Run in the shell "ubus -v list tsmodem driver" to see all nethods.
-			param = "value"				-- This is requested param name. Only "value", "time" and "command" are only possible here.
+			model = "tsmodem.driver",
+			method = "sim",
+			param = "value"
 		},
 		input = "",
 		output = "",
@@ -83,9 +82,9 @@ local rule_setting = {
 
 	netmode_comment = {
 		source = {
-			model = "tsmodem.driver",	-- This is UBUS OBJECT name. Run in the shell "ubus list | grep tsmodem" to see all objects.
-			method = "netmode",				-- This is UBUS METHOD name. Run in the shell "ubus -v list tsmodem driver" to see all nethods.
-			param = "comment"				-- This is requested param name. Only "value", "time" and "command" are only possible here.
+			model = "tsmodem.driver",
+			method = "netmode",
+			param = "comment"
 		},
 		input = "",
 		output = "",
@@ -102,16 +101,7 @@ local rule_setting = {
 		output = "",
 		subtotal = nil,
 		modifier = {
-			--["1_logicfunc"] = [[ if ("event_is_new" == "true") then return true else return false end ]],
-			["1_logicfunc"] = [[ if (
-						("event_is_new" == "true")
-				and	( tonumber("netmode") ~= nil )
-				and	(
-					( tonumber("netmode") >= 0 and tonumber("netmode") <= 16 )
-					or	( tonumber("netmode") == 23 )
-					or	( tonumber("netmode") == 24 )
-				)
-			) then return true else return false end ]],
+			["1_logicfunc"] = [[ if ( ("event_is_new" == "true")	and	( tonumber("netmode") ~= nil ) ) then return true else return false end ]],
 			["2_formula"] = [[return({
 					datetime = "event_datetime",
 					name = "]] .. I18N.translate("3G/4G mode was changed") .. [[",
@@ -153,9 +143,7 @@ function rule:make()
 
 	self:load("journal"):modify():clear() -- clear cache
 
-
 end
-
 
 
 local metatable = {

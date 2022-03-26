@@ -55,7 +55,7 @@ msgid "Actions"
 msgstr "Действия"
 
 msgid "Not registered"
-msgstr "Сеть недоступна"
+msgstr "Не зарегистрирован"
 
 msgid "Active"
 msgstr "Активно"
@@ -254,3 +254,7 @@ msgstr "Модем"
 #: /usr/lib/lua/luci/model/tsmodem/rule/1_rule.lua
 msgid "No network registration: switched to another SIM"
 msgstr "Нет регистрации в сети: переключение на другую Сим"
+
+#: /usr/lib/lua/luci/model/tsmodem/rule/13_rule.lua
+msgid "3G/4G mode was changed"
+msgstr "Изменился режим соединения 3G/4G"

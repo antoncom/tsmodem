@@ -79,8 +79,9 @@ local uci_signal_min = {
 			}
 
 			function clearInactive(sim_id) {
-				document.querySelector('#simid-' + sim_id + ' .sim_balance').innerHTML = "-"
+				//document.querySelector('#simid-' + sim_id + ' .sim_balance').innerHTML = "-"
 				document.querySelector('#simid-' + sim_id + ' .signal').innerHTML = "-"
+				document.querySelector('#simid-' + sim_id + ' .netmode_comment').innerHTML = "-"
 			}
 
 			function animationWrapper(str) {
@@ -108,14 +109,14 @@ local uci_signal_min = {
 
 					var bgIcon_Y = -(value * 15) // see www/luci-static/resources/ts_skw92a/img/icon_reg_status.png
 					if(value != "1" && value != "7" &&  window.lastreg_timer != "0" && window.lastreg_timer != undefined) {
-						rendered.innerHTML = '<i style="background-position: 0 ' + bgIcon_Y + 'px;">' + animationWrapper(network_state[value][0]) + "</i> &nbsp;<small><font color='red'>( .." + window.lastreg_timer + " sec.) </font></small>";
+						rendered.innerHTML = '<i style="background-position: 0 ' + bgIcon_Y + 'px;">' + animationWrapper(network_state[value][0]) + "</i> &nbsp;<small><font color='red'>( .." + window.lastreg_timer + "s) </font></small>";
 					} else {
 						rendered.innerHTML = '<i style="background-position: 0 ' + bgIcon_Y + 'px;">' + animationWrapper(network_state[value][0]) + "</i>"
 					}
 
 				} else if (varname == "signal" && value != "101") {
 					if(window.low_signal_timer != undefined && window.low_signal_timer >= 1) {
-						rendered.innerHTML = animationWrapper(value + " %")  + "&nbsp;<small><font color='red'>( .." + window.low_signal_timer + " sec.) </font></small>";
+						rendered.innerHTML = animationWrapper(value + " %")  + "&nbsp;<small><font color='red'>( .." + window.low_signal_timer + "s) </font></small>";
 
 					} else {
 						rendered.innerHTML = animationWrapper(value + " %");
@@ -130,7 +131,7 @@ local uci_signal_min = {
 						var balance_date = '<br><small>' + ui_data["event_datetime"] + '</small>';
 
 						if(window.lowbalance_timer != undefined && window.lowbalance_timer > 0) {
-							rendered.innerHTML = value + " rub. " + "&nbsp;<small><font color='red'>( .." + window.lowbalance_timer + " sec.) </font></small>" + balance_date;
+							rendered.innerHTML = value + " rub. " + "&nbsp;<small><font color='red'>( .." + window.lowbalance_timer + "s) </font></small>" + balance_date;
 						} else {
 							rendered.innerHTML = value + " rub." + balance_date;
 						}

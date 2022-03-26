@@ -334,7 +334,6 @@ function modem:make_ubus()
 
 					end
 
-
 					self.conn:reply(req, resp);
 
 				end, {id = ubus.INT32, msg = ubus.STRING }
@@ -418,13 +417,12 @@ function modem:switch(sim_id)
 	modem:update_state("netmode", "", "", "")
 
 	res, val = modem:stm32comm("~0:SIM.RST=0")
-	if res == "OK" then
 
+	if res == "OK" then
 		modem:update_state("stm", "OK", "~0:SIM.RST=0", "")
 		modem:update_state("usb", "disconnected", dev .. " close", "")
 
 	else
-
 		modem:update_state("stm", "ERROR", "~0:SIM.RST=0", "")
 		modem:update_state("usb", "disconnected", dev .. " close", "")
 
@@ -434,26 +432,16 @@ function modem:switch(sim_id)
 
 	res, val = modem:stm32comm("~0:SIM.RST=1")
 	if res == "OK" then
-
 		modem:update_state("stm", "OK", "~0:SIM.RST=1", "")
 		modem:update_state("usb", "disconnected", dev .. " close", "")
 
 	else
-
 		modem:update_state("stm", "ERROR", "~0:SIM.RST=1", "")
 		modem:update_state("usb", "disconnected", dev .. " close", "")
 
 	end
 	socket.sleep(0.4)
 end
-
---[[
-	local uci_result, section = false, "sim_" .. sim_id
-	uci_result = uci:set("tsmodem", "sim_0", "status", "0")-- or error('uci set error: ' .. "tsmodem" .. ' sim_0 status => 0')
-	uci_result = uci:set("tsmodem", "sim_1", "status", "0")--  or error('uci set error: ' .. "tsmodem" .. ' sim_1 status => 0')
-	uci_result = uci:set("tsmodem", section , "status", sim_id)--  or error('uci set error: ' .. "tsmodem" .. ' ' .. section .. ' status: ' .. sim_id)
-	uci_result = uci:commit("tsmodem")-- or error('uci commit error, sim_id: ' .. sim_id)
-]]
 
 function modem:stm32comm(comm)
 	local buf, value, status = '','',''
@@ -469,7 +457,6 @@ function modem:stm32comm(comm)
 
 	status = b[#b]
 	value = b[1]
-
 
 	if(status == "OK") then
 		return status, value
@@ -525,7 +512,7 @@ function modem:poll()
 						local ok, err, sim_id = modem:get_state("sim", "value")
 						if ok then
 							if(sim_id == "0" or sim_id =="1") then
-								local get_balance_delay = 180 -- 3 mins
+								--local get_balance_delay = 180 -- 3 mins
 								local ok, err, last_balance_time = modem:get_state("balance", "time")
 								if not tonumber(last_balance_time) then
 									last_balance_time = 0
@@ -534,25 +521,23 @@ function modem:poll()
 								local provider_id = uci:get(config, "sim_" .. sim_id, "provider")
 								local ussd_command = string.format("AT+CUSD=1,%s,15\r\n", uci:get(config_gsm, provider_id, "balance_ussd"))
 								local chunk, err, errcode = U.write(modem.fds, ussd_command)
+
+								--[[ GET 3G/4G MODE AS SOON AS MODEM START POLLING ]]
+								modem.timer_CNSMOD:set(5000)
+
 							end
 						else
 							util.perror("ERROR: sim or value not found in state.")
 						end
-
 					end
-
 
 	    			modem:update_state("reg", creg, "AT+CREG?", "")
 	    			modem:update_state("usb", "connected", dev .. " open", "")
 				end
 			elseif chunk:find("+CSQ:") then
-				--print("CSQ: ", chunk)
 				local signal = CSQ_parser:match(chunk)
 				if signal and signal ~= "" then
-
-					--print("signal: ", signal)
 					modem:update_state("signal", signal, "AT+CSQ", "")
-
 				end
 			elseif chunk:find("+CUSD:") then
 				modem:balance_parsing_and_update(chunk)
@@ -560,14 +545,10 @@ function modem:poll()
 			elseif chunk:find("+CNSMOD:") then
 				local netmode = CNSMOD_parser:match(chunk) or ""
 				if(tonumber(netmode) ~= nil) then
-					util.perror("\n----------CNSMOD FOUND--------")
-					util.perror("\nnetmod " .. netmode)
 					if(CNSMODES[netmode] ~= nil) then
 						modem:update_state("netmode", netmode, "AT+CNSMOD?", CNSMODES[netmode])
-						util.perror("\nnetmod " .. CNSMODES[netmode])
 					else
-						modem:update_state("netmode", netmode, "AT+CNSMOD?", "UNKNOWN")
-						util.perror("\nUNKNOWN netmod " .. netmode)
+						modem:update_state("netmode", netmode, "AT+CNSMOD?", CNSMODES["0"])
 					end
 				end
 			elseif(err) then
@@ -582,6 +563,13 @@ function modem:unpoll()
 	if(self.fds_ev) then
 		self.fds_ev:delete()
 		self.fds_ev = nil
+	end
+end
+
+function modem:t_CNSMOD()
+	if(modem:is_connected(modem.fds)) then
+		local chunk, err, errcode = U.write(modem.fds, "AT+CNSMOD?" .. "\r\n")
+		local chunk, err, errcode = U.write(modem.fds, "AT+CNSMOD=1" .. "\r\n")
 	end
 end
 
@@ -667,19 +655,17 @@ local metatable = {
 		timer_CUSD:set(6000)
 
 		--[[ Send AT to get 3G/4G mode of the cell network]]
-		local timer_CNSMOD
+--[[		local timer_CNSMOD
 		function t_CNSMOD()
 			if(modem:is_connected(modem.fds)) then
 				local chunk, err, errcode = U.write(modem.fds, "AT+CNSMOD?" .. "\r\n")
-				log("write CNSMOD")
 				local chunk, err, errcode = U.write(modem.fds, "AT+CNSMOD=1" .. "\r\n")
-				log("write CNSMOD=1")
 			end
-
-			--timer_CNSMOD:set(3000)
 		end
-		timer_CNSMOD = uloop.timer(t_CNSMOD)
-		timer_CNSMOD:set(5000)
+]]
+		-- Timers
+		table.timer_CNSMOD = uloop.timer(table["t_CNSMOD"])
+		table.timer_CNSMOD:set(5000)
 		-- [[ ]]
 
 		uloop.run()
