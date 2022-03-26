@@ -10,8 +10,8 @@ LUCI_DESCRIPTION:=Double SIM management for Skw92A with Sim7600 modem integratio
 LUCI_PKGARCH:=all
 
 PKG_NAME:=tsmodem
-PKG_VERSION:=1.8.0
-PKG_RELEASE:=20220326
+PKG_VERSION:=1.8.1
+PKG_RELEASE:=20220327
 PKG_LICENSE:=GPL-3.0-or-later
 
 define Package/$(PKG_NAME)/postinst
