@@ -30,7 +30,7 @@ run() {
     uci set tsmodem.debug.type='all'
     uci commit
 
-    exec /usr/bin/lua /usr/lib/lua/luci/model/tsmodem/driver/modem.lua
+    exec /usr/bin/lua /usr/lib/lua/tsmodem/app.lua
     RETVAL=$?
 }
 
@@ -49,7 +49,7 @@ debug() {
     uci set tsmodem.debug.type=$PAR2
     uci commit
 
-    exec /usr/bin/lua /usr/lib/lua/luci/model/tsmodem/driver/modem.lua
+    exec /usr/bin/lua /usr/lib/lua/tsmodem/app.lua
     RETVAL=$?
 }
 
