@@ -151,7 +151,7 @@ timer.COPS = uloop.timer(t_COPS)
 
 -- [[ PING Google to check internet connection ]]
 function t_PING()
-    function p1(r) --[[ call back is empty as not needed now. ]] end
+    function p1(r) --[[ call back is empty as not needed now. ]]   end
     local ok, err, reg = timer.modem.state:get("reg", "value")
     if(reg =="1") then
         local SWITCHING = (timer.state:get("switching", "value") == "true")
@@ -159,8 +159,8 @@ function t_PING()
             local _,_,sim_id = timer.state:get("sim", "value")
             local host = "8.8.8.8"
             local host_spc_sim = string.format("%s %s", host, sim_id)
-            if (timer.modem.debug and timer.modem.debug_type == "ping") then print("PING runs: ","ping.sh") end
-            uloop.process("/usr/lib/lua/luci/model/tsmodem/util/ping.sh", {"--host", host_spc_sim }, {"PROCESS=1"}, p1)
+            if (timer.modem.debug and timer.modem.debug_type == "ping") then print("PING runs: ","ping.sh", host_spc_sim) end
+            uloop.process("/usr/lib/lua/tsmodem/util/ping.sh", {"--host", host_spc_sim }, {"PROCESS=1"}, p1)
             timer.PING:set(timer.interval.ping)
         end
     end

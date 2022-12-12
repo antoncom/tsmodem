@@ -115,9 +115,10 @@ print("BAL chunk, sim_id:", chunk, sim_id)
 				modem.state:update("balance", "", ussd_command, balance_message)
 				uci:set(modem.config_gsm, provider_id, "balance_last_message", balance_message)
 				uci:commit(modem.config_gsm)
-			-- elseif(chunk:find("+CUSD: 2")) then -- GSM net cancels USSD sesion
-			-- 	if (modem.debug and modem.debug_type == "balance") then print("AT says: ","+CUSD: 2", tostring(modem.timer.interval.balance).."ms", 2, "","","","GSM provider cancels USSD session.") end
-			-- 	modem.state:update("balance", "", ussd_command, "GSM provider cancels USSD session. We will get balance later.")
+				if (modem.debug and modem.debug_type == "balance" or modem.debug_type == "all") then print("AT says: ","+CUSD: 2", tostring(modem.timer.interval.balance).."ms", 2, "","","",balance_message) end
+			elseif(chunk:find("+CUSD: 2")) then -- GSM net cancels USSD sesion
+				if (modem.debug and modem.debug_type == "balance" or modem.debug_type == "all") then print("AT says: ","+CUSD: 2", tostring(modem.timer.interval.balance).."ms", 2, "","","","GSM provider cancels USSD session.") end
+				modem.state:update("balance", "", ussd_command, "GSM provider cancels USSD session. We will get balance later.")
 			end
 		end
 
@@ -134,7 +135,7 @@ function modem:poll()
 			if not err then
 				if chunk:find("+CREG:") then
 					local creg = CREG_parser:match(chunk)
-	                if (modem.debug and modem.debug_type == "reg") then print("AT says: ","+CREG", tostring(modem.timer.interval.reg).."ms", creg, "","","","Note: Sim registration state (0..5)") end
+	                if (modem.debug and modem.debug_type == "reg" or modem.debug_type == "all") then print("AT says: ","+CREG", tostring(modem.timer.interval.reg).."ms", creg, "","","","Note: Sim registration state (0..5)") end
 					if creg and creg ~= "" then
 
 						--[[ START PING AND GET BALANCE AS SOON AS SIM REGISTERED AND CONNECTION ESTABLISHED ]]
@@ -153,12 +154,12 @@ function modem:poll()
 		                					if ok_sim and (sim_id == "0" or sim_id =="1") then
 		                                        local provider_id = get_provider_id(sim_id)
 
-												-- local ussd_command = string.format("AT+CUSD=2,%s,15\r\n", uci:get(modem.config_gsm, provider_id, "balance_ussd"))
-												-- if (modem.debug and modem.debug_type == "balance") then print("----->>> Cancel USSD session before start new one: "..ussd_command) end
-												-- local chunk, err, errcode = U.write(modem.fds, ussd_command)
+												local ussd_command = string.format("AT+CUSD=2,%s,15\r\n", uci:get(modem.config_gsm, provider_id, "balance_ussd"))
+												if (modem.debug and modem.debug_type == "balance" or modem.debug_type == "all") then print("----->>> Cancel USSD session before start new one: "..ussd_command) end
+												local chunk, err, errcode = U.write(modem.fds, ussd_command)
 
 												local ussd_command = string.format("AT+CUSD=1,%s,15\r\n", uci:get(modem.config_gsm, provider_id, "balance_ussd"))
-												if (modem.debug and modem.debug_type == "balance") then print("----->>> Sending BALANCE REQUEST ASAP SIM REGISTERED: "..ussd_command) end
+												if (modem.debug and modem.debug_type == "balance" or modem.debug_type == "all") then print("----->>> Sending BALANCE REQUEST ASAP SIM REGISTERED: "..ussd_command) end
 												local chunk, err, errcode = U.write(modem.fds, ussd_command)
 
 												modem.last_balance_request_time = os.time() -- Do it each time USSD request runs
@@ -177,7 +178,7 @@ function modem:poll()
 					end
 				elseif chunk:find("+CSQ:") then
 					local signal = CSQ_parser:match(chunk)
-					if (modem.debug and modem.debug_type == "signal") then print("AT says: ","+CSQ", tostring(modem.timer.interval.signal).."ms", tostring(CSQ_parser:match(chunk)),"","","","Note: Signal strength, 0..31") end
+					if (modem.debug and modem.debug_type == "signal" or modem.debug_type == "all") then print("AT says: ","+CSQ", tostring(modem.timer.interval.signal).."ms", tostring(CSQ_parser:match(chunk)),"","","","Note: Signal strength, 0..31") end
 					local no_signal_aliase = {"0", "99", "31", "nil", nil, ""}
 					if not util.contains(no_signal_aliase, signal) then
 						signal = tonumber(signal) or false
@@ -188,7 +189,7 @@ function modem:poll()
 					modem.state:update("signal", tostring(signal), "AT+CSQ", "")
 				elseif chunk:find("+CUSD:") then
 					local bal = modem:balance_parsing_and_update(chunk)
-	                if (modem.debug and modem.debug_type == "balance") then print("AT says: ","+CUSD", tostring(modem.timer.interval.balance).."ms", bal, "","","",chunk) end
+	                if (modem.debug and modem.debug_type == "balance" or modem.debug_type == "all") then print("AT says: ","+CUSD", tostring(modem.timer.interval.balance).."ms", bal, "","","",chunk) end
 					--[[ Parse and update 3G/4G mode ]]
 				elseif chunk:find("+CNSMOD:") then
 					local netmode = CNSMOD_parser:match(chunk) or ""
@@ -199,7 +200,7 @@ function modem:poll()
 							modem.state:update("netmode", netmode, "AT+CNSMOD?", CNSMODES["0"])
 						end
 					end
-	                if (modem.debug and modem.debug_type == "netmode") then
+	                if (modem.debug and modem.debug_type == "netmode" or modem.debug_type == "all") then
 	                    local cnsmode = CNSMODES[netmode] or " | "
 	                    print("AT says: ","+NSMOD", tostring(modem.timer.interval.netmode).."ms", cnsmode:split("|")[2]:gsub("%s+", "") or "", "","","","Note: GSM mode")
 	                end
@@ -208,7 +209,7 @@ function modem:poll()
 					if pname and pname ~= "" then
 						modem.state:update("provider_name", pname, "+NITZ", "")
 					end
-	                if (modem.debug and modem.debug_type == "provider") then print("AT says: ","+NITZ", tostring(modem.timer.interval.provider).."ms", pname, "","","","Note: Cell provider name") end
+	                if (modem.debug and modem.debug_type == "provider" or modem.debug_type == "all") then print("AT says: ","+NITZ", tostring(modem.timer.interval.provider).."ms", pname, "","","","Note: Cell provider name") end
 	            elseif chunk:find("+COPS:") then
 					local pcode = chunk:split('\"')
 	                local pname = ""
@@ -220,7 +221,7 @@ function modem:poll()
 	                        end
 	                    end)
 					end
-	                if (modem.debug and modem.debug_type == "provider") then print("AT says: ","+COPS", tostring(modem.timer.interval.provider).."ms", pname, "","","","Note: Cell provider name") end
+	                if (modem.debug and modem.debug_type == "provider" or modem.debug_type == "all") then print("AT says: ","+COPS", tostring(modem.timer.interval.provider).."ms", pname, "","","","Note: Cell provider name") end
 				end
 			else
 				print(string.format("tsmodem: U.read(modem.fds, 1024) ERROR CODE: %s", tostring(errcode)))
@@ -267,6 +268,7 @@ local metatable = {
 		timer.CUSD:set(1000)
 		timer.COPS:set(timer.interval.provider)
 		timer.CNSMOD:set(timer.interval.netmode)
+		timer.PING:set(timer.interval.ping)
 
         uloop.run()
 		state.conn:close()

@@ -24,7 +24,7 @@ ping_host() {
 }
 
 ping_list() {
-    list=$(echo "$1" | awk -F';' '{ for (i = 0; ++i <= NF;) print $i }')
+    list=$(echo "$1" | awk -F';' '{ for (i = 0; ++i <= NR;) print $i }')
     i=0
     for host in $list; do
         ping_host $host
