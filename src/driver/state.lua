@@ -228,20 +228,23 @@ local ubus_methods = {
 
         ping_update = {
             function(req, msg)
+                print("===========")
+                util.perror("MODEM: %s, %s, %s", host, value, sim_id)
                 if msg["host"] and msg["value"] and msg["sim_id"] then
                     local host   = msg["host"]
                     local value  = msg["value"]
                     local sim_id = tostring(msg["sim_id"])
+
                     if value == "1" or value == "0" then
                         local _,_,active_sim_id = state:get("sim", "value")
                         if not (sim_id == "1" or sim_id == "0") then
                             resp = { msg = "Param [sim_id] has to be 0 or 1. Nothing was done. "}
                         elseif sim_id == active_sim_id then
-                            state:update("ping", value, "ping "..host, "updated via ubus call 'set_ping'")
-                            if (state.modem.debug and state.modem.debug_type == "ping") then print("PING says: ","UBUS", tostring(state.timer.interval.ping).."ms", value, "","","","Note: ping.sh do the job.") end
+                            state:update("ping", value, "ping "..host, "updated via ubus call 'ping_update'")
+                            if (state.modem.debug and state.modem.debug_type == "ping" or state.modem.debug_type == "all") then print("PING says: ","UBUS", tostring(state.timer.interval.ping).."ms", value, "","","","Note: ping.sh do the job.") end
                             resp = { msg = "ok" }
                         elseif sim_id ~= active_sim_id and (sim_id == "0" or sim_id == "1") then
-                            resp = { msg = "Active sim was switched by user or automation rules. So 'set_ping' doesn't affect this time." }
+                            resp = { msg = "Active sim was switched by user or automation rules. So 'ping_update' doesn't affect this time." }
                         end
                     else
                         resp = { msg = "Param [value] has to be 0 or 1. Nothing was done. "}
@@ -281,9 +284,9 @@ function state:make_ubus()
 				end
 			end
 			-- If no unread states then return the last one.
-            if name == "signal" then
-                print("+++++", state[name][n].time, #state[name])
-            end
+            -- if name == "signal" then
+            --     print("+++++", state[name][n].time, #state[name])
+            -- end
 			return state[name][n]
 		end
 		return {}

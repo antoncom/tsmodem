@@ -25,3 +25,11 @@ service_triggers()
 {
     procd_add_reload_trigger "tsmodem"
 }
+
+stop_service() {
+    kill -9 `ps | grep '/usr/lib/lua/tsmodem/app.lua' | grep -v grep | awk '{print $1}'`
+    rm /var/run/tsmodem.pid
+
+    kill -9 `ps | grep '/usr/lib/lua/applogic/app.lua' | grep -v grep | awk '{print $1}'`
+    rm /var/run/applogic.pid
+}
