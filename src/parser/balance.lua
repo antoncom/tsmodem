@@ -2,6 +2,11 @@ local lpeg = require "lpeg"
 local log = require "tsmodem.util.log"
 local uci = require "luci.model.uci".cursor()
 
+function comma_to_point(s)
+	local r = s:gsub(",", ".")
+	return r
+end
+
 function balance(sim_id)
 	local provider_id = uci:get("tsmodem", "sim_" .. sim_id, "provider")
 	local balance_mask = provider_id and uci:get("tsmodem_adapter_provider", provider_id, "balance_mask")
@@ -19,7 +24,7 @@ function balance(sim_id)
 										lpeg.S('.,') *
 									  	lpeg.R('09')^0
 								  	)^-1
-								) / tonumber
+								) / comma_to_point / tonumber
 	return balance_value
 end
 
@@ -29,9 +34,9 @@ return balance
 -- [[ For local testing ]]
 
 -- [[ MTS ]]
--- local text = [[+CUSD: 2,"Balance:633r"]]
--- print(text)
--- print(balance(0):match(text))
+--local text = [[+CUSD: 2,"Balance:633,100r"]]
+--print(text)
+--print(balance(1):match(text))
 
 -- [[ BEELINE ]]
 -- local text = [[+CUSD: 2," Vash balans 510.20 r.
