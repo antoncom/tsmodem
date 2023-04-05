@@ -57,6 +57,9 @@ function stm:init_mk()
 	else
 		-- TODO: log error
 	end
+
+    -- Включить индикацию на 3 светодиоде: питание/подогрев CPU
+    stm:command("~0:LED.3=s0")
 end
 
 function stm:command(comm)
