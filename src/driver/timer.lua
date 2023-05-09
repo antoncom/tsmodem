@@ -67,7 +67,7 @@ function t_CREG()
         local SWITCHING = (timer.state:get("switching", "value") == "true")
         if not SWITCHING then
             if(timer.modem:is_connected(timer.modem.fds)) then
-                if (timer.modem.debug and timer.modem.debug_type == "reg") then print("AT sends: ","AT+CREG") end
+                if (timer.modem.debug and (timer.modem.debug_type == "reg")) then print("AT sends: ","AT+CREG") end
                 local chunk, err, errcode = U.write(timer.modem.fds, "AT+CREG?" .. "\r\n")
             end
             timer.CREG:set(timer.interval.reg)
@@ -84,7 +84,7 @@ function t_CSQ()
         local SWITCHING = (timer.state:get("switching", "value") == "true")
         if not SWITCHING then
             if(timer.modem:is_connected(timer.modem.fds)) then
-                if (timer.modem.debug and timer.modem.debug_type == "signal") then print("AT sends: ","AT+CSQ") end
+                if (timer.modem.debug and (timer.modem.debug_type == "signal")) then print("AT sends: ","AT+CSQ") end
                 local chunk, err, errcode = U.write(timer.modem.fds, "AT+CSQ" .. "\r\n")
             end
             timer.CSQ:set(timer.interval.signal)
@@ -116,12 +116,12 @@ function t_CUSD()
                                     if (os.time() - timer.interval.last_balance_request_time) > timer.interval.balance_repeated_request_delay then
                                         local provider_id = get_provider_id(sim_id)
 
-                                        local ussd_command = string.format("AT+CUSD=2,%s,15\r\n", uci:get(timer.modem.config_gsm, provider_id, "balance_ussd"))
-                                        if (timer.modem.debug and timer.modem.debug_type == "balance") then print("----->>> Cancel USSD session before start new one: "..ussd_command) end
+                                        local ussd_command = string.format("AT+CUSD=2\r\n", uci:get(timer.modem.config_gsm, provider_id, "balance_ussd"))
+                                        if (timer.modem.debug and (timer.modem.debug_type == "balance")) then print("----->>> Cancel USSD session before start new one: "..ussd_command) end
                                         local chunk, err, errcode = U.write(timer.modem.fds, ussd_command)
 
                                         local ussd_command = string.format("AT+CUSD=1,%s,15\r\n", uci:get(timer.modem.config_gsm, provider_id, "balance_ussd"))
-                                        if (timer.modem.debug and timer.modem.debug_type == "balance") then print("----------------------->>> Sending BALANCE REQUEST one time per "..tostring(timer.interval.balance/1000).."sec") end
+                                        if (timer.modem.debug and (timer.modem.debug_type == "balance")) then print("----------------------->>> Sending BALANCE REQUEST one time per "..tostring(timer.interval.balance/1000).."sec") end
 
                                         local chunk, err, errcode = U.write(timer.modem.fds, ussd_command)
 
@@ -154,7 +154,7 @@ function t_COPS()
         local SWITCHING = (timer.state:get("switching", "value") == "true")
         if not SWITCHING then
             if(timer.modem:is_connected(timer.modem.fds)) then
-                if (timer.modem.debug and timer.modem.debug_type == "provider") then print("AT sends: ","AT+COPS?") end
+                if (timer.modem.debug and (timer.modem.debug_type == "provider" or timer.modem.debug_type == "all")) then print("AT sends: ","AT+COPS?") end
                 local chunk, err, errcode = U.write(timer.modem.fds, "AT+COPS?" .. "\r\n")
             end
             timer.COPS:set(timer.interval.provider)
@@ -177,7 +177,7 @@ function t_PING()
                 local _,_,sim_id = timer.state:get("sim", "value")
                 local host = "8.8.8.8"
                 local host_spc_sim = string.format("%s %s", host, sim_id)
-                if (timer.modem.debug and timer.modem.debug_type == "ping") then print("PING runs: ","ping.sh", host_spc_sim) end
+                if (timer.modem.debug and (timer.modem.debug_type == "ping" or timer.modem.debug_type == "all")) then print("PING runs: ","ping.sh", host_spc_sim) end
                 uloop.process("/usr/lib/lua/tsmodem/util/ping.sh", {"--host", host_spc_sim }, {"PROCESS=1"}, p1)
                 timer.PING:set(timer.interval.ping)
             end
@@ -197,7 +197,7 @@ function t_CNSMOD()
             if(timer.modem:is_connected(timer.modem.fds)) then
                 local _,_,reg = timer.state:get("reg", "value")
                 if reg == "1" then
-                    if (timer.modem.debug and timer.modem.debug_type == "netmode") then print("AT sends: ","AT+CNSMOD?") end
+                    if (timer.modem.debug and (timer.modem.debug_type == "netmode" or timer.modem.debug_type == "all")) then print("AT sends: ","AT+CNSMOD?") end
                     local chunk, err, errcode = U.write(timer.modem.fds, "AT+CNSMOD?" .. "\r\n")
                     --local chunk, err, errcode = U.write(timer.modem.fds, "AT+CNSMOD=1" .. "\r\n")
                 end

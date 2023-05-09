@@ -10,6 +10,7 @@ local F = require 'posix.fcntl'
 local U = require 'posix.unistd'
 
 require "tsmodem.driver.util"
+local CREG_STATE = require "tsmodem.constants.creg_state"
 
 
 local state = {}
@@ -28,6 +29,7 @@ state.init = function(modem, stm, timer)
 end
 
 --[[ STATE VARIABLES. UBUS IS USED TO GET ITS' VALUES ]]
+-- It helps to make Journal records in Web UI
 state.queue_for = {"stm32", "usb", "reg", "netmode", "provider_name"}
 
 state.stm32 = {}
@@ -146,22 +148,39 @@ local ubus_methods = {
 
         do_request_ussd_balance = {
             function(req, msg)
-                local sim_id_settings = msg["sim_id"]
+                local sim_id_settings = msg["sim_id"] or "empty"
                 local ok, err, sim_id = state:get("sim", "value")
+                local resp = {}
+
+                -- clear state for balance
+                --state:update("balance", "", "", "")
+
                 if(sim_id_settings == sim_id) then
                     local provider_id = get_provider_id(sim_id)
 
-                    local ussd_command = string.format("AT+CUSD=2,%s,15\r\n", uci:get(state.modem.config_gsm, provider_id, "balance_ussd"))
-                    if (state.modem.debug and state.modem.debug_type == "balance" or state.modem.debug_type == "all") then print("----->>> Cancel USSD session before start new one: "..ussd_command) end
+                    --local ussd_command = string.format("AT+CUSD=2,%s,15\r\n", uci:get(state.modem.config_gsm, provider_id, "balance_ussd"))
+                    local ussd_command = string.format("AT+CUSD=2\r\n")
+                    if (state.modem.debug and (state.modem.debug_type == "balance" or state.modem.debug_type == "all")) then print("----->>> Cancel USSD session before start new one: "..ussd_command) end
                     state:update("balance", "", ussd_command, uci:get(state.modem.config_gsm, provider_id, "balance_last_message"))
                     local chunk, err, errcode = U.write(state.modem.fds, ussd_command)
 
                     ussd_command = string.format("AT+CUSD=1,%s,15\r\n", uci:get(state.modem.config_gsm, provider_id, "balance_ussd"))
                     state.modem.last_balance_request_time = os.time() -- Do it each time USSD request runs
                     state:update("balance", "", ussd_command, uci:get(state.modem.config_gsm, provider_id, "balance_last_message"))
+                    if (state.modem.debug and (state.modem.debug_type == "balance" or state.modem.debug_type == "all")) then print("----->>> Do USSD request: "..ussd_command) end
                     local chunk, err, errcode = U.write(state.modem.fds, ussd_command)
+
+                    resp = {
+                        ["ussd_command"] = ussd_command,
+                        ["chunk"] = chunk,
+                        ["err"] = err,
+                        ["errcode"] = errcode
+                    }
+                else
+                    resp = {
+                        ["error"] = string.format("[sim_id]=%s parameter doesn't match current modem state [sim]=%s", sim_id_settings, sim_id)
+                    }
                 end
-                local resp = {}
 
                 state.conn:reply(req, resp);
 
@@ -219,6 +238,7 @@ local ubus_methods = {
 
                 local switch_already_started = state:get("switching", "value")
                 state:update("switching", "true", "", "")
+                state:update("reg", CREG_STATE["SWITCHING"], "AT+CREG?", "")
 
                 if (switch_already_started == "true") then
                     resp.value = "false"
@@ -233,8 +253,11 @@ local ubus_methods = {
 
         ping_update = {
             function(req, msg)
-                print("==== ping_update =======")
-                util.perror(string.format("MODEM: %s, %s, %s", tostring(host), tostring(value), tostring(sim_id)))
+                if (state.modem.debug and (state.modem.debug_type == "ping_update" or state.modem.debug_type == "all")) then
+                	print(string.format('PING_UPDATE: ubus call tsmodem.driver ping_update ' .. "'" .. '{"sim_id":"%s","host":"%s","value":"%s"}' .. "'" .. ' &> /dev/null', msg["sim_id"], msg["host"], msg["value"]))
+                end
+
+                local resp = {}
                 if msg["host"] and msg["value"] and msg["sim_id"] then
                     local host   = msg["host"]
                     local value  = msg["value"]
@@ -246,7 +269,7 @@ local ubus_methods = {
                             resp = { msg = "Param [sim_id] has to be 0 or 1. Nothing was done. "}
                         elseif sim_id == active_sim_id then
                             state:update("ping", value, "ping "..host, "updated via ubus call 'ping_update'")
-                            if (state.modem.debug and state.modem.debug_type == "ping" or state.modem.debug_type == "all") then print("PING says: ","UBUS", tostring(state.timer.interval.ping).."ms", value, "","","","Note: ping.sh do the job.") end
+                            if (state.modem.debug and (state.modem.debug_type == "ping" or state.modem.debug_type == "all")) then print("PING says: ","UBUS", tostring(state.timer.interval.ping).."ms", value, "","","","Note: ping.sh do the job.") end
                             resp = { msg = "ok" }
                         elseif sim_id ~= active_sim_id and (sim_id == "0" or sim_id == "1") then
                             resp = { msg = "Active sim was switched by user or automation rules. So 'ping_update' doesn't affect this time." }
@@ -421,7 +444,7 @@ function state:update_queue(param, value, command, comment)
 				table.remove(state[param], 1)
 			end
 		--[[ Update last time of succesful registration state ]]
-		elseif (param == "reg" and (newval == "1" or newval == "7")) then
+    elseif (param == "reg" and (newval == CREG_STATE["REGISTERED"] or newval == CREG_STATE["SWITCHING"])) then
 			state["reg"][n].time = tostring(os.time())
 		--[[ Update time of last balance ussd request if balance's value is not changed ]]
         elseif (param == "balance") then
@@ -462,7 +485,7 @@ function state:update(param, value, command, comment)
                 }
                 state[param][1] = util.clone(item)
             --[[ Update last time of succesful registration state ]]
-    		elseif (param == "reg" and (newval == "1" or newval == "7")) then
+        elseif (param == "reg" and (newval == CREG_STATE["REGISTERED"] or newval == CREG_STATE["SWITCHING"])) then
     			state["reg"][1].time = tostring(os.time())
             --[[ Update last time when signal was Ok ]]
             elseif (param == "signal") then
