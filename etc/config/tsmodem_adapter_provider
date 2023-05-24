@@ -14,7 +14,7 @@ config adapter
 	option code '25099'
 	option balance_ussd '#102#'
 	option balance_mask ' Vash balans __RUB__ r.'
-	option balance_last_message 'Vash balans 8.20 r. Doverit. platezh *141# Uznat'\'' summu i stoimost'\'' *141*7# Info: 064012'
+	option balance_last_message 'Vash balans 246.20 r. Chitajte "Pyat'\'' yazykov lyubvi", pervyj den'\'' besplatno. Podkl: *715#'
 
 config adapter
 	option editable '0'
@@ -24,7 +24,7 @@ config adapter
 	option balance_example_message 'Баланс:100р'
 	option balance_mask 'Balance:__RUB__r'
 	option balance_ussd '#100#'
-	option balance_last_message '5 8 7 2 5 A B = K 9"'
+	option balance_last_message 'Balance:187,50r'
 
 config adapter
 	option editable '0'

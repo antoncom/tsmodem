@@ -39,6 +39,7 @@ function stm:command(comm)
     if not buf then return 'ERROR', 'No [tsmodem.stm] object on the UBUS.' end
 
 	local b = util.split(buf["answer"])
+
 	if(b[#b] == '') then
 		table.remove(b, #b)
 	end

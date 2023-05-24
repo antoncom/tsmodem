@@ -37,7 +37,7 @@ timer.switch_delay = {
     ["3_STM_SIM_RST_0"] = 900,  -- Send RST=0 by STM32 since sim card selected by STM32
     ["4_STM_SIM_RST_1"] = 900,  -- Send RST=1 by STM32 since STM32 RST 0 send
     ["5_MDM_REPEAT_POLL"] = 100,-- Start modem polling since STM32 RST 1 send
-    --["6_MDM_END_SWITCHING"] = 2000,
+    ["6_MDM_END_SWITCHING"] = 2000,
 
 
 }
@@ -214,6 +214,8 @@ timer.CNSMOD = uloop.timer(t_CNSMOD)
 --[[ Switch Sim: Unpoll modem ]]
 function t_SWITCH_1()
     if timer.modem.automation == "run" then
+        timer.state:update("switching", "true", "", "")
+
         local resp, n = {}, 0
         local res, sim_id = timer.stm:command("~0:SIM.SEL=?")
         if res == "OK" then
@@ -247,6 +249,7 @@ function t_SWITCH_2()
     local res, val = timer.stm:command("~0:SIM.SEL=" .. sim_to_switch)
     if ("OK" == res) then
 
+        timer.state:update("switching", "true", "", "")
         timer.state:update("sim", sim_to_switch, "~0:SIM.SEL=" .. sim_to_switch, "")
         timer.state:update("stm32", "OK", "~0:SIM.SEL=" .. sim_to_switch, "")
         timer.state:update("reg", "", "", "")
@@ -279,6 +282,7 @@ timer.SWITCH_2 = uloop.timer(t_SWITCH_2)
 function t_SWITCH_3()
 
     local res, val = timer.stm:command("~0:SIM.RST=0")
+    timer.state:update("switching", "true", "", "")
 
     if "OK" == res then
         timer.state:update("stm32", "OK", "~0:SIM.RST=0", "")
@@ -298,6 +302,7 @@ timer.SWITCH_3 = uloop.timer(t_SWITCH_3)
 function t_SWITCH_4()
 
     local res, val = timer.stm:command("~0:SIM.RST=1")
+    timer.state:update("switching", "true", "", "")
 
     if "OK" == res then
         timer.state:update("stm32", "OK", "~0:SIM.RST=1", "")
@@ -314,11 +319,22 @@ timer.SWITCH_4 = uloop.timer(t_SWITCH_4)
 
 --[[ Switch Sim: delay before repeat modem polling ]]
 function t_SWITCH_5()
+    timer.state:update("switching", "true", "", "")
     timer.modem:init()
+
+    timer.SWITCH_6:set(timer.switch_delay["6_MDM_END_SWITCHING"])
 
     if (timer.modem.debug) then print("SWITCH_5_POLL_ENABLE.") end
 end
 timer.SWITCH_5 = uloop.timer(t_SWITCH_5)
+
+--[[ Switch Sim: End of switching ]]
+function t_SWITCH_6()
+    timer.state:update("switching", "false", "", "")
+
+    if (timer.modem.debug) then print("SWITCH_6_END.") end
+end
+timer.SWITCH_6 = uloop.timer(t_SWITCH_6)
 
 
 return timer
