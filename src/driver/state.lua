@@ -40,6 +40,14 @@ state.stm32[1] = {
 	unread = ""
 }
 
+state.cpin = {}
+state.cpin[1] = {
+	command = "",
+	value = "",					-- "true" or "false" mean sim is inserted or not
+	time = "",
+	unread = ""
+}
+
 state.reg = {}
 state.reg[1] = {
 	command = "",
@@ -116,6 +124,12 @@ state.switching[1] = {
 
 local ubus_methods = {
     ["tsmodem.driver"] = {
+        cpin = {
+            function(req, msg)
+                local resp = makeResponse("cpin")
+                state.conn:reply(req, resp);
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
         reg = {
             function(req, msg)
                 local resp = makeResponse("reg")
@@ -161,13 +175,14 @@ local ubus_methods = {
                     --local ussd_command = string.format("AT+CUSD=2,%s,15\r\n", uci:get(state.modem.config_gsm, provider_id, "balance_ussd"))
                     local ussd_command = string.format("AT+CUSD=2\r\n")
                     if (state.modem.debug and (state.modem.debug_type == "balance" or state.modem.debug_type == "all")) then print("----->>> Cancel USSD session before start new one: "..ussd_command) end
-                    state:update("balance", "", ussd_command, uci:get(state.modem.config_gsm, provider_id, "balance_last_message"))
+                    state:update("balance", "-9999", ussd_command, uci:get(state.modem.config_gsm, provider_id, "balance_last_message"))
                     local chunk, err, errcode = U.write(state.modem.fds, ussd_command)
 
                     ussd_command = string.format("AT+CUSD=1,%s,15\r\n", uci:get(state.modem.config_gsm, provider_id, "balance_ussd"))
                     state.modem.last_balance_request_time = os.time() -- Do it each time USSD request runs
-                    state:update("balance", "", ussd_command, uci:get(state.modem.config_gsm, provider_id, "balance_last_message"))
-                    if (state.modem.debug and (state.modem.debug_type == "balance" or state.modem.debug_type == "all")) then print("----->>> Do USSD request: "..ussd_command) end
+                    state:update("balance", "-9999", ussd_command, uci:get(state.modem.config_gsm, provider_id, "balance_last_message"))
+                    state.timer.BAL_TIMEOUT:set(state.timer.timeout["balance"])					-- clear balance state after timeout
+                    if (state.modem.debug and (state.modem.debug_type == "balance" or state.modem.debug_type == "all")) then print("----->>> Do USSD request: "..ussd_command .. " ... " .. state.timer.timeout["balance"]) end
                     local chunk, err, errcode = U.write(state.modem.fds, ussd_command)
 
                     resp = {
@@ -237,9 +252,6 @@ local ubus_methods = {
     			}
 
                 local switch_already_started = state:get("switching", "value")
-                state:update("switching", "true", "", "")
-                state:update("reg", CREG_STATE["SWITCHING"], "AT+CREG?", "")
-
                 if (switch_already_started == "true") then
                     resp.value = "false"
                 else
@@ -316,37 +328,38 @@ local ubus_methods = {
             end, {id = ubus.INT32, msg = ubus.STRING }
         },
 
-        send_stm_at = {
-            function(req, msg)
-                local resp = {}
-                local stm_comm = ""
-                local send_only_if_new_command = ""
-                local _, _, previous_comm = state:get("stm32", "command")
-
-                if msg["sub_sys"] and msg["param"] and msg["arg"] then
-                    stm_comm = "~0:" .. msg["sub_sys"] .. "." .. msg["param"] .. "=" .. msg["arg"]
-                    -- Send AT to STM only if new command is not equal new one
-                    -- It helps to avoid LED over-blinking each time the command sent.
-                    if state.stm.fds then
-                        send_only_if_new_command = (stm_comm ~= previous_comm)
-                        if send_only_if_new_command then
-                            local status, value = state.stm:command(stm_comm)
-                            if status == "OK" then
-                                state:update("stm32", "OK", stm_comm, "")
-                            end
-                            resp["at_answer"] = string.format("[%s] done. Status: %s, value: %s.", stm_comm, status, value)
-                        else
-                            resp["at_answer"] = string.format("[%s] SKIPPED, as it was done recently.", stm_comm)
-                        end
-                    else
-                        resp["at_answer"] = "STM port seems not connected."
-                    end
-                else
-                    resp["at_answer"] = "Enter STM AT command like this " .. "'{" .. '"sub_sys": "LED", "param": "1", "arg": "f200,200,200,800"' .. "}'"
-                end
-                state.conn:reply(req, resp);
-            end, {id = ubus.INT32, msg = ubus.STRING }
-        },
+        --[[ Реализовано в модуле tsmstm ]]
+        -- send_stm_at = {
+        --     function(req, msg)
+        --         local resp = {}
+        --         local stm_comm = ""
+        --         local send_only_if_new_command = ""
+        --         local _, _, previous_comm = state:get("stm32", "command")
+        --
+        --         if msg["sub_sys"] and msg["param"] and msg["arg"] then
+        --             stm_comm = "~0:" .. msg["sub_sys"] .. "." .. msg["param"] .. "=" .. msg["arg"]
+        --             -- Send AT to STM only if new command is not equal new one
+        --             -- It helps to avoid LED over-blinking each time the command sent.
+        --             if state.stm.fds then
+        --                 send_only_if_new_command = (stm_comm ~= previous_comm)
+        --                 if send_only_if_new_command then
+        --                     local status, value = state.stm:command(stm_comm)
+        --                     if status == "OK" then
+        --                         state:update("stm32", "OK", stm_comm, "")
+        --                     end
+        --                     resp["at_answer"] = string.format("[%s] done. Status: %s, value: %s.", stm_comm, status, value)
+        --                 else
+        --                     resp["at_answer"] = string.format("[%s] SKIPPED, as it was done recently.", stm_comm)
+        --                 end
+        --             else
+        --                 resp["at_answer"] = "STM port seems not connected."
+        --             end
+        --         else
+        --             resp["at_answer"] = "Enter STM AT command like this " .. "'{" .. '"sub_sys": "LED", "param": "1", "arg": "f200,200,200,800"' .. "}'"
+        --         end
+        --         state.conn:reply(req, resp);
+        --     end, {id = ubus.INT32, msg = ubus.STRING }
+        -- },
 
         automation = {
             function(req, msg)
@@ -485,7 +498,7 @@ function state:update(param, value, command, comment)
                 }
                 state[param][1] = util.clone(item)
             --[[ Update last time of succesful registration state ]]
-        elseif (param == "reg" and (newval == CREG_STATE["REGISTERED"] or newval == CREG_STATE["SWITCHING"])) then
+            elseif (param == "reg" and (newval == CREG_STATE["REGISTERED"] or newval == CREG_STATE["SWITCHING"])) then
     			state["reg"][1].time = tostring(os.time())
             --[[ Update last time when signal was Ok ]]
             elseif (param == "signal") then
@@ -496,11 +509,15 @@ function state:update(param, value, command, comment)
     		--[[ Update time of last successful ping ]]
     		elseif (param == "ping") and value == "1" then
     			state["ping"][1].time = tostring(os.time())
+            --[[ Update time of last successful cpin ]]
+            elseif (param == "cpin") and value == "true" then
+    			state["cpin"][1].time = tostring(os.time())
     		end
         end
     end
 end
 
+-- returns triplet: noerror, errmsg, value
 function state:get(var, param)
 	local value = ""
 	local v, p = tostring(var), tostring(param)

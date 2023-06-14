@@ -1,4 +1,5 @@
 local CREG_STATE = {
+  ["SIM_NOT_INSERTED"] = "-1",
   ["NOT_REGISTERED"] = "0",
   ["REGISTERED"] = "1",
   ["SEARCHING"] = "2",

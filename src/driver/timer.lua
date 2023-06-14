@@ -10,16 +10,20 @@ local U = require 'posix.unistd'
 
 require "tsmodem.driver.util"
 
+local CREG_STATE = require "tsmodem.constants.creg_state"
+
+
 local timer = {}
 timer.modem = nil
 timer.state = nil
 timer.stm = nil
 
 timer.interval = {
-    general = 3000,
+    general = 1400,     -- use 3000 interval in debug mode
     reg = 3000,         -- Sim registration state (checking interval)
+    cpin = 3000,        -- Sim inserted or not?
     signal = 4000,      -- Signal strength (checking interval)
-    balance = 18000,   -- Balance value (checking interval) - 60 sec. minimum to avoid Provider blocking USSD
+    balance = 18000,    -- Balance value (checking interval) - 60 sec. minimum to avoid Provider blocking USSD
     netmode = 5000,     -- 4G/3G mode state (checking interval)
     provider = 6000,    -- GSM provider name (autodetection checking interval)
     ping = 4000,        -- Ping GSM network (checking interval)
@@ -30,6 +34,11 @@ timer.interval = {
                                             -- then we should wait 1..2 mins before repeating
 }
 
+timer.timeout = {
+    balance = 8000      -- Once a balance USSD requested, "in progress" state is set on "tsmodem.driver balance" method.
+}                       -- Then, if by some reason provider will not respond to the balance USSD request,
+                        -- then we clear balance state after timeout.
+
 --[[ Step-by-step delays of switching Sim-card process ]]
 timer.switch_delay = {
     ["1_MDM_UNPOLL"] = 100,     -- Stop modem polling since ubus call tsmodem.driver do_switch runs
@@ -38,8 +47,6 @@ timer.switch_delay = {
     ["4_STM_SIM_RST_1"] = 900,  -- Send RST=1 by STM32 since STM32 RST 0 send
     ["5_MDM_REPEAT_POLL"] = 100,-- Start modem polling since STM32 RST 1 send
     ["6_MDM_END_SWITCHING"] = 2000,
-
-
 }
 
 
@@ -77,6 +84,23 @@ function t_CREG()
     end
 end
 timer.CREG = uloop.timer(t_CREG)
+
+-- [[ AT+CPIN? requests interval ]]
+function t_CPIN()
+    if timer.modem.automation == "run" then
+        local SWITCHING = (timer.state:get("switching", "value") == "true")
+        if not SWITCHING then
+            if(timer.modem:is_connected(timer.modem.fds)) then
+                if (timer.modem.debug and (timer.modem.debug_type == "cpin")) then print("AT sends: ","AT+CPIN?") end
+                local chunk, err, errcode = U.write(timer.modem.fds, "AT+CPIN?" .. "\r\n")
+            end
+            timer.CPIN:set(timer.interval.cpin)
+        end
+    else
+        timer.CPIN:set(timer.interval.cpin)
+    end
+end
+timer.CPIN = uloop.timer(t_CPIN)
 
 -- [[ AT+CSQ requests interval ]]
 function t_CSQ()
@@ -252,12 +276,13 @@ function t_SWITCH_2()
         timer.state:update("switching", "true", "", "")
         timer.state:update("sim", sim_to_switch, "~0:SIM.SEL=" .. sim_to_switch, "")
         timer.state:update("stm32", "OK", "~0:SIM.SEL=" .. sim_to_switch, "")
-        timer.state:update("reg", "", "", "")
+        timer.state:update("reg", CREG_STATE["SWITCHING"], "AT+CREG?", "")
     	timer.state:update("signal", "", "", "")
     	timer.state:update("balance", "", "", "")
     	timer.state:update("netmode", "", "", "")
     	timer.state:update("provider_name", "", "", "")
     	timer.state:update("ping", "", "", "")
+        timer.state:update("cpin", "", "", "")
         timer.state.ping.time = "0"
 
         local provider_id = get_provider_id(sim_to_switch)
@@ -335,6 +360,21 @@ function t_SWITCH_6()
     if (timer.modem.debug) then print("SWITCH_6_END.") end
 end
 timer.SWITCH_6 = uloop.timer(t_SWITCH_6)
+
+--[[ Balance request timeout ]]
+function t_BAL_TIMEOUT()
+    if(timer.state:get("balance", "value") == -9999 or timer.state:get("balance", "value") == -999 or timer.state:get("balance", "value") == -998) then
+        timer.state:update("balance", "", "", "")
+        if (timer.modem.debug and (timer.modem.debug_type == "balance" or timer.modem.debug_type == "all")) then
+            print(string.format("[timer.lua]: Clear balance on BAL_TIMEOUT: %s %s %s", tostring(noerror), errmsg, val))
+        end
+    end
+    local noerror, errmsg, val = timer.state:get("balance", "value")
+    if (timer.modem.debug and (timer.modem.debug_type == "balance" or timer.modem.debug_type == "all")) then
+        print(string.format("[timer.lua]: Value after BAL_TIMEOUT: %s %s %s", tostring(noerror), errmsg, val))
+    end
+end
+timer.BAL_TIMEOUT = uloop.timer(t_BAL_TIMEOUT)
 
 
 return timer

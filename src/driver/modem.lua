@@ -19,7 +19,8 @@ require "tsmodem.driver.util"
 local checkubus = require "tsmodem.util.checkubus"
 
 
--- Paesers
+-- Parsers
+local CPIN_parser = require 'tsmodem.parser.cpin' -- not needed anymore
 local CREG_parser = require 'tsmodem.parser.creg'
 local CSQ_parser = require 'tsmodem.parser.csq'
 local CUSD_parser = require 'tsmodem.parser.cusd'
@@ -76,12 +77,6 @@ function modem:init()
 			})
 			modem.fds = fds
 
-			modem.state:update("usb", "connected", modem.device .. " open", "")
-			modem.state:update("reg", "7", "AT+CREG?", "")
-			modem.state:update("signal", "", "AT+CSQ", "")
-			modem.state:update("switching","false", "","")
-
-
 			local ok, err, sim_id = modem.state:get("sim", "value")
 			if ok and (sim_id == "1" or sim_id == "0") then
                 local provider_id = get_provider_id(sim_id)
@@ -94,7 +89,10 @@ function modem:init()
 				end
 			end
 
-			--modem:ws_init()
+			modem.state:update("usb", "connected", modem.device .. " open", "")
+			modem.state:update("reg", "7", "AT+CREG?", "")
+			modem.state:update("signal", "", "AT+CSQ", "")
+			modem.state:update("switching","false", "","")
 		end
 	end
 end
@@ -162,15 +160,17 @@ function modem:balance_parsing_and_update(chunk)
 			uci:commit(modem.config_gsm)
 		else
 			if(#balance_message > 0) then -- If balance message template is wrong
-				--modem.state:update("balance", "-998", ussd_command, balance_message)
-				modem.state:update("balance", balance_message, ussd_command, balance_message)
+				modem.state:update("balance", "-998", ussd_command, balance_message)
+				-- modem.state:update("balance", balance_message, ussd_command, balance_message)
 				uci:set(modem.config_gsm, provider_id, "balance_last_message", balance_message)
 				uci:commit(modem.config_gsm)
 				if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("AT says: ","+CUSD: 2", tostring(modem.timer.interval.balance).."ms", 2, "","","",balance_message) end
-			elseif(chunk:find("+CUSD: 2") and #chunk <= 12) then -- GSM net cancels USSD sesion
-				print("_____CANCEL USSD FOUND____")
-				if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("AT says: ","+CUSD: 2", tostring(modem.timer.interval.balance).."ms", 2, "","","","GSM provider cancels USSD session.") end
-				modem.state:update("balance", "-999", ussd_command, "GSM provider cancels USSD session. We will get balance later.")
+			elseif(chunk:find("+CUSD: 2") and #chunk <= 12) then -- we need send USSD once again
+				return -999
+			--[[ Убираю совсем отслеживание того, когда провайдер отменил USSD-сессию, т.к. это не рапространённая и не понятная для пользователя ситуация]]
+			-- 	print("_____CANCEL USSD FOUND____")
+			-- 	if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("AT says: ","+CUSD: 2", tostring(modem.timer.interval.balance).."ms", 2, "","","","GSM provider cancels USSD session.") end
+			-- 	modem.state:update("balance", "-999", ussd_command, "GSM provider cancels USSD session. We will get balance later.")
 			end
 		end
 
@@ -181,7 +181,15 @@ function modem:balance_parsing_and_update(chunk)
 end
 
 function modem:parse_AT_response(chunk)
-	if chunk:find("+CREG:") then
+	if (chunk:find("+CME ERROR") or chunk:find("+CPIN: READY") or chunk:find("+SIMCARD: NOT AVAILABLE")) then
+		print(chunk)
+		local cpin = CPIN_parser:match(chunk)
+		if cpin then
+			modem.state:update("cpin", cpin, "AT+CPIN?", "")
+			if (modem.debug and (modem.debug_type == "cpin" or modem.debug_type == "all")) then print("AT says: ","+CME:", tostring(modem.timer.interval.cpin).."ms", cpin, "","","","Note: Check if Sim is in slot") end
+			if (cpin == "false" or cpin == "failure") then return end
+		end
+	elseif chunk:find("+CREG:") then
 		local creg = CREG_parser:match(chunk)
 		if (modem.debug and (modem.debug_type == "reg" or modem.debug_type == "all")) then print("AT says: ","+CREG", tostring(modem.timer.interval.reg).."ms", creg, "","","","Note: Sim registration state (0..5)") end
 		if creg and creg ~= "" then
@@ -210,8 +218,6 @@ function modem:parse_AT_response(chunk)
 
 									local ussd_command = string.format("AT+CUSD=1,%s,15\r\n", uci:get(modem.config_gsm, provider_id, "balance_ussd"))
 									if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("----->>> Sending BALANCE REQUEST ASAP SIM REGISTERED: "..ussd_command) end
-
-									--[[ Stop USSD here while testing other features to avoid USSD blocking ]]
 									local chunk, err, errcode = U.write(modem.fds, ussd_command)
 
 									modem.last_balance_request_time = os.time() -- Do it each time USSD request runs
@@ -223,6 +229,12 @@ function modem:parse_AT_response(chunk)
 					end
 				end
 				timer_CUSD_SINCE_SIM_REGISTERED = uloop.timer(t_CUSD_SINCE_SIM_REGISTERED, 3000)
+
+				modem.state:update("balance", "-9999", ussd_command, balance_message)	    -- set "in progres" balance state
+				modem.timer.BAL_TIMEOUT:set(modem.timer.timeout["balance"])					-- clear balance state after timeout
+
+				if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print(string.format("[modem.lua]: updated balance state: 'in progress', %s, %s", tostring(ussd_command), tostring(balance_message))) end
+
 			end
 
 			modem.state:update("reg", creg, "AT+CREG?", "")
@@ -241,6 +253,32 @@ function modem:parse_AT_response(chunk)
 		modem.state:update("signal", tostring(signal), "AT+CSQ", "")
 	elseif chunk:find("+CUSD:") then
 		local bal = modem:balance_parsing_and_update(chunk)
+		--[[ To avoid situation of "Provider cancels USSD session, send balance request second time"]]
+		if bal == -999 then
+			local timer_CUSD_IF_FIRST_ATTEMPT_BALANCE_FAIL
+			function t_CUSD_IF_FIRST_ATTEMPT_BALANCE_FAIL()
+				local ok, err, reg = modem.state:get("reg", "value")
+				if(reg == "1") then
+					if(modem:is_connected(modem.fds)) then
+						local ok_reg, err, reg = modem.state:get("reg", "value")
+						if ok_reg and reg == "1" then
+							local ok_sim, err, sim_id = modem.state:get("sim", "value")
+							if ok_sim and (sim_id == "0" or sim_id =="1") then
+								local provider_id = get_provider_id(sim_id)
+
+								local ussd_command = string.format("AT+CUSD=1,%s,15\r\n", uci:get(modem.config_gsm, provider_id, "balance_ussd"))
+								if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("----->>> Sending BALANCE REQUEST SECOND TIME: "..ussd_command) end
+								local chunk, err, errcode = U.write(modem.fds, ussd_command)
+								modem.last_balance_request_time = os.time() -- Do it each time USSD request runs
+							end
+						end
+					end
+				end
+			end
+			timer_CUSD_IF_FIRST_ATTEMPT_BALANCE_FAIL = uloop.timer(t_CUSD_IF_FIRST_ATTEMPT_BALANCE_FAIL, 1000)
+		else
+			-- TODO
+		end
 		if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("AT says: ","+CUSD", tostring(modem.timer.interval.balance).."ms", bal, "","","",chunk) end
 		--[[ Parse and update 3G/4G mode ]]
 	elseif chunk:find("+CNSMOD:") then
@@ -281,6 +319,9 @@ function modem:send_AT_responce_to_webconsole(chunk)
 	-- Send notification only when web-cosole is opened. E.g. when modem automation mode is "stop".
 	if modem.automation == "stop" then
 		modem.state.conn:notify( modem.state.ubus_methods["tsmodem.driver"].__ubusobj, "AT-answer", {answer = chunk} )
+		if (modem.debug and (util.contains(AT_RELATED_UBUS_METHODS, modem.debug_type) or modem.debug_type == "all")) then
+			print("AT RESPONSE SENT TO WEB CONSOLE: ", chunk)
+		end
 	end
 end
 
@@ -294,9 +335,6 @@ function modem:poll()
 			if not err then
 				modem:parse_AT_response(chunk)
 				modem:send_AT_responce_to_webconsole(chunk)
-				-- if (modem.debug and (util.contains(AT_RELATED_UBUS_METHODS, modem.debug_type) or modem.debug_type == "all")) then
-				-- 	print("AT RESPONSE SENT TO WEB CONSOLE: ", chunk)
-				-- end
 			else
 				if (modem.debug and (util.contains(AT_RELATED_UBUS_METHODS, modem.debug_type) or modem.debug_type == "all")) then
 					print(string.format("tsmodem: U.read(modem.fds, 1024) ERROR CODE: %s", tostring(errcode)))
@@ -349,6 +387,7 @@ local metatable = {
 		modem:poll()
 
 		timer.general:set(timer.interval.general)
+		timer.CPIN:set(timer.interval.cpin)
 		timer.CREG:set(timer.interval.reg)
 		timer.CSQ:set(timer.interval.signal)
 		timer.CUSD:set(1000)
