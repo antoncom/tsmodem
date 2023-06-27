@@ -17,6 +17,7 @@ local AT_RELATED_UBUS_METHODS = require 'tsmodem.constants.AT_related_ubus_metho
 require "tsmodem.util.split_string"
 require "tsmodem.driver.util"
 local checkubus = require "tsmodem.util.checkubus"
+local balance_event_keys = require "tsmodem.constants.balance_event_keys"
 
 
 -- Parsers
@@ -139,6 +140,9 @@ function modem:is_connected(fd)
 end
 
 function modem:balance_parsing_and_update(chunk)
+	if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then
+		print("balance_parsing_and_update <- chunk: ",chunk)
+	end
 	local ok, err, sim_id = modem.state:get("sim", "value")
     local balance = 0
 	if ok then
@@ -160,17 +164,11 @@ function modem:balance_parsing_and_update(chunk)
 			uci:commit(modem.config_gsm)
 		else
 			if(#balance_message > 0) then -- If balance message template is wrong
-				modem.state:update("balance", "-998", ussd_command, balance_message)
-				-- modem.state:update("balance", balance_message, ussd_command, balance_message)
-				uci:set(modem.config_gsm, provider_id, "balance_last_message", balance_message)
-				uci:commit(modem.config_gsm)
-				if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("AT says: ","+CUSD: 2", tostring(modem.timer.interval.balance).."ms", 2, "","","",balance_message) end
+				modem.state:update("balance", "", ussd_command, balance_message)
 			elseif(chunk:find("+CUSD: 2") and #chunk <= 12) then -- we need send USSD once again
-				return -999
-			--[[ Убираю совсем отслеживание того, когда провайдер отменил USSD-сессию, т.к. это не рапространённая и не понятная для пользователя ситуация]]
-			-- 	print("_____CANCEL USSD FOUND____")
-			-- 	if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("AT says: ","+CUSD: 2", tostring(modem.timer.interval.balance).."ms", 2, "","","","GSM provider cancels USSD session.") end
-			-- 	modem.state:update("balance", "-999", ussd_command, "GSM provider cancels USSD session. We will get balance later.")
+				modem.state:update("balance", "", ussd_command, balance_message)
+				if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("AT says: ","+CUSD: 2", tostring(modem.timer.interval.balance).."ms", 2, "","","",balance_message) end
+				return ""
 			end
 		end
 
@@ -199,41 +197,41 @@ function modem:parse_AT_response(chunk)
 			local ok, err, lastreg = modem.state:get("reg", "value")
 			if(lastreg ~= "1" and creg =="1") then
 
-				local timer_CUSD_SINCE_SIM_REGISTERED
-				function t_CUSD_SINCE_SIM_REGISTERED()
-					local ok, err, reg = modem.state:get("reg", "value")
-					if(reg == "1") then
-						if(modem:is_connected(modem.fds)) then
-							local ok_reg, err, reg = modem.state:get("reg", "value")
-							if ok_reg and reg == "1" then
-								local ok_sim, err, sim_id = modem.state:get("sim", "value")
-								if ok_sim and (sim_id == "0" or sim_id =="1") then
-									local provider_id = get_provider_id(sim_id)
+				-- local timer_CUSD_SINCE_SIM_REGISTERED
+				-- function t_CUSD_SINCE_SIM_REGISTERED()
+				-- 	local ok, err, reg = modem.state:get("reg", "value")
+				-- 	if(reg == "1") then
+				-- 		if(modem:is_connected(modem.fds)) then
+				-- 			local ok_reg, err, reg = modem.state:get("reg", "value")
+				-- 			if ok_reg and reg == "1" then
+				-- 				local ok_sim, err, sim_id = modem.state:get("sim", "value")
+				-- 				if ok_sim and (sim_id == "0" or sim_id =="1") then
+				-- 					local provider_id = get_provider_id(sim_id)
+				--
+				-- 					local ussd_command = string.format("AT+CUSD=2,%s,15\r\n", tostring(uci:get(modem.config_gsm, provider_id, "balance_ussd")))
+				-- 					if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("----->>> Cancel USSD session before start new one: "..ussd_command) end
+				--
+				-- 					--[[ Stop USSD here while testing other features to avoid USSD blocking ]]
+				-- 					local chunk, err, errcode = U.write(modem.fds, ussd_command)
+				--
+				-- 					local ussd_command = string.format("AT+CUSD=1,%s,15\r\n", tostring(uci:get(modem.config_gsm, provider_id, "balance_ussd")))
+				-- 					if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("----->>> Sending BALANCE REQUEST ASAP SIM REGISTERED: "..ussd_command) end
+				-- 					local chunk, err, errcode = U.write(modem.fds, ussd_command)
+				--
+				-- 					modem.last_balance_request_time = os.time() -- Do it each time USSD request runs
+				--
+				-- 					modem.timer.PING:set(modem.timer.interval.ping)
+				-- 				end
+				-- 			end
+				-- 		end
+				-- 	end
+				-- end
+				-- timer_CUSD_SINCE_SIM_REGISTERED = uloop.timer(t_CUSD_SINCE_SIM_REGISTERED, 3000)
 
-									local ussd_command = string.format("AT+CUSD=2,%s,15\r\n", uci:get(modem.config_gsm, provider_id, "balance_ussd"))
-									if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("----->>> Cancel USSD session before start new one: "..ussd_command) end
-
-									--[[ Stop USSD here while testing other features to avoid USSD blocking ]]
-									local chunk, err, errcode = U.write(modem.fds, ussd_command)
-
-									local ussd_command = string.format("AT+CUSD=1,%s,15\r\n", uci:get(modem.config_gsm, provider_id, "balance_ussd"))
-									if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("----->>> Sending BALANCE REQUEST ASAP SIM REGISTERED: "..ussd_command) end
-									local chunk, err, errcode = U.write(modem.fds, ussd_command)
-
-									modem.last_balance_request_time = os.time() -- Do it each time USSD request runs
-
-									modem.timer.PING:set(modem.timer.interval.ping)
-								end
-							end
-						end
-					end
-				end
-				timer_CUSD_SINCE_SIM_REGISTERED = uloop.timer(t_CUSD_SINCE_SIM_REGISTERED, 3000)
-
-				modem.state:update("balance", "-9999", ussd_command, balance_message)	    -- set "in progres" balance state
-				modem.timer.BAL_TIMEOUT:set(modem.timer.timeout["balance"])					-- clear balance state after timeout
-
-				if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print(string.format("[modem.lua]: updated balance state: 'in progress', %s, %s", tostring(ussd_command), tostring(balance_message))) end
+				-- modem.state:update("balance", balance_event_keys["get-balance-in-progress"], ussd_command, balance_message)	    -- set "in progres" balance state
+				-- modem.timer.BAL_TIMEOUT:set(modem.timer.timeout["balance"])					-- clear balance state after timeout
+				--
+				-- if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print(string.format("[modem.lua]: updated balance state: 'in progress', %s, %s", tostring(ussd_command), tostring(balance_message))) end
 
 			end
 
@@ -254,28 +252,29 @@ function modem:parse_AT_response(chunk)
 	elseif chunk:find("+CUSD:") then
 		local bal = modem:balance_parsing_and_update(chunk)
 		--[[ To avoid situation of "Provider cancels USSD session, send balance request second time"]]
-		if bal == -999 then
-			local timer_CUSD_IF_FIRST_ATTEMPT_BALANCE_FAIL
-			function t_CUSD_IF_FIRST_ATTEMPT_BALANCE_FAIL()
-				local ok, err, reg = modem.state:get("reg", "value")
-				if(reg == "1") then
-					if(modem:is_connected(modem.fds)) then
-						local ok_reg, err, reg = modem.state:get("reg", "value")
-						if ok_reg and reg == "1" then
-							local ok_sim, err, sim_id = modem.state:get("sim", "value")
-							if ok_sim and (sim_id == "0" or sim_id =="1") then
-								local provider_id = get_provider_id(sim_id)
-
-								local ussd_command = string.format("AT+CUSD=1,%s,15\r\n", uci:get(modem.config_gsm, provider_id, "balance_ussd"))
-								if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("----->>> Sending BALANCE REQUEST SECOND TIME: "..ussd_command) end
-								local chunk, err, errcode = U.write(modem.fds, ussd_command)
-								modem.last_balance_request_time = os.time() -- Do it each time USSD request runs
-							end
-						end
-					end
-				end
-			end
-			timer_CUSD_IF_FIRST_ATTEMPT_BALANCE_FAIL = uloop.timer(t_CUSD_IF_FIRST_ATTEMPT_BALANCE_FAIL, 1000)
+		if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("BALANCE just after parsing: ", bal) end
+		if bal == balance_event_keys["provider-cansel-ussd-session"] then
+			-- local timer_CUSD_IF_FIRST_ATTEMPT_BALANCE_FAIL
+			-- function t_CUSD_IF_FIRST_ATTEMPT_BALANCE_FAIL()
+			-- 	local ok, err, reg = modem.state:get("reg", "value")
+			-- 	if(reg == "1") then
+			-- 		if(modem:is_connected(modem.fds)) then
+			-- 			local ok_reg, err, reg = modem.state:get("reg", "value")
+			-- 			if ok_reg and reg == "1" then
+			-- 				local ok_sim, err, sim_id = modem.state:get("sim", "value")
+			-- 				if ok_sim and (sim_id == "0" or sim_id =="1") then
+			-- 					local provider_id = get_provider_id(sim_id)
+			--
+			-- 					local ussd_command = string.format("AT+CUSD=1,%s,15\r\n", tostring(uci:get(modem.config_gsm, provider_id, "balance_ussd")))
+			-- 					if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("----->>> Sending BALANCE REQUEST SECOND TIME: "..ussd_command) end
+			-- 					local chunk, err, errcode = U.write(modem.fds, ussd_command)
+			-- 					modem.last_balance_request_time = os.time() -- Do it each time USSD request runs
+			-- 				end
+			-- 			end
+			-- 		end
+			-- 	end
+			-- end
+			-- timer_CUSD_IF_FIRST_ATTEMPT_BALANCE_FAIL = uloop.timer(t_CUSD_IF_FIRST_ATTEMPT_BALANCE_FAIL, 1000)
 		else
 			-- TODO
 		end
@@ -307,7 +306,7 @@ function modem:parse_AT_response(chunk)
 			uci:foreach(modem.config_gsm, "adapter", function(sec)
 				if sec.code == pcode[2] then
 					pname = sec.name
-					modem.state:update("provider_name", pname, "AT+COPS?", "")
+					modem.state:update("provider_name", pname, "AT+COPS?", pcode[2])
 				end
 			end)
 		end
@@ -390,7 +389,7 @@ local metatable = {
 		timer.CPIN:set(timer.interval.cpin)
 		timer.CREG:set(timer.interval.reg)
 		timer.CSQ:set(timer.interval.signal)
-		timer.CUSD:set(1000)
+		-- timer.CUSD:set(1000)
 		timer.COPS:set(timer.interval.provider)
 		timer.CNSMOD:set(timer.interval.netmode)
 		timer.PING:set(timer.interval.ping)

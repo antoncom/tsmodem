@@ -11,6 +11,7 @@ local U = require 'posix.unistd'
 
 require "tsmodem.driver.util"
 local CREG_STATE = require "tsmodem.constants.creg_state"
+local balance_event_keys = require "tsmodem.constants.balance_event_keys"
 
 
 local state = {}
@@ -166,24 +167,20 @@ local ubus_methods = {
                 local ok, err, sim_id = state:get("sim", "value")
                 local resp = {}
 
-                -- clear state for balance
-                --state:update("balance", "", "", "")
-
                 if(sim_id_settings == sim_id) then
-                    local provider_id = get_provider_id(sim_id)
-
-                    --local ussd_command = string.format("AT+CUSD=2,%s,15\r\n", uci:get(state.modem.config_gsm, provider_id, "balance_ussd"))
-                    local ussd_command = string.format("AT+CUSD=2\r\n")
-                    if (state.modem.debug and (state.modem.debug_type == "balance" or state.modem.debug_type == "all")) then print("----->>> Cancel USSD session before start new one: "..ussd_command) end
-                    state:update("balance", "-9999", ussd_command, uci:get(state.modem.config_gsm, provider_id, "balance_last_message"))
-                    local chunk, err, errcode = U.write(state.modem.fds, ussd_command)
-
-                    ussd_command = string.format("AT+CUSD=1,%s,15\r\n", uci:get(state.modem.config_gsm, provider_id, "balance_ussd"))
-                    state.modem.last_balance_request_time = os.time() -- Do it each time USSD request runs
-                    state:update("balance", "-9999", ussd_command, uci:get(state.modem.config_gsm, provider_id, "balance_last_message"))
-                    state.timer.BAL_TIMEOUT:set(state.timer.timeout["balance"])					-- clear balance state after timeout
-                    if (state.modem.debug and (state.modem.debug_type == "balance" or state.modem.debug_type == "all")) then print("----->>> Do USSD request: "..ussd_command .. " ... " .. state.timer.timeout["balance"]) end
-                    local chunk, err, errcode = U.write(state.modem.fds, ussd_command)
+                    -- local provider_id = get_provider_id(sim_id)
+                    -- state:update("balance", balance_event_keys["get-balance-in-progress"], ussd_command, uci:get(state.modem.config_gsm, provider_id, "balance_last_message"))
+                    --
+                    -- --local ussd_command = string.format("AT+CUSD=2,%s,15\r\n", uci:get(state.modem.config_gsm, provider_id, "balance_ussd"))
+                    -- local ussd_command = string.format("AT+CUSD=2\r\n")
+                    -- if (state.modem.debug and (state.modem.debug_type == "balance" or state.modem.debug_type == "all")) then print("----->>> Cancel USSD session before start new one: "..ussd_command) end
+                    -- local chunk, err, errcode = U.write(state.modem.fds, ussd_command)
+                    --
+                    -- ussd_command = string.format("AT+CUSD=1,%s,15\r\n", tostring(uci:get(state.modem.config_gsm, provider_id, "balance_ussd")))
+                    -- state.modem.last_balance_request_time = os.time() -- Do it each time USSD request runs
+                    -- state.timer.BAL_TIMEOUT:set(state.timer.timeout["balance"])					-- clear balance state after timeout
+                    -- if (state.modem.debug and (state.modem.debug_type == "balance" or state.modem.debug_type == "all")) then print("----->>> Do USSD request: "..ussd_command .. " ... " .. state.timer.timeout["balance"]) end
+                    -- local chunk, err, errcode = U.write(state.modem.fds, ussd_command)
 
                     resp = {
                         ["ussd_command"] = ussd_command,
@@ -193,7 +190,7 @@ local ubus_methods = {
                     }
                 else
                     resp = {
-                        ["error"] = string.format("[sim_id]=%s parameter doesn't match current modem state [sim]=%s", sim_id_settings, sim_id)
+                        ["error"] = string.format("[sim_id]=%s parameter doesn't match current modem state [sim]=%s", tostring(sim_id_settings), tostring(sim_id))
                     }
                 end
 
@@ -251,6 +248,12 @@ local ubus_methods = {
     				comment = ""
     			}
 
+                if (state.modem.debug) then
+                    print("-----------------------------------------------")
+                    print(string.format('|  DO_SWITCH form [%s]', tostring(msg["rule"])))
+                    print("-----------------------------------------------")
+                end
+
                 local switch_already_started = state:get("switching", "value")
                 if (switch_already_started == "true") then
                     resp.value = "false"
@@ -266,7 +269,7 @@ local ubus_methods = {
         ping_update = {
             function(req, msg)
                 if (state.modem.debug and (state.modem.debug_type == "ping_update" or state.modem.debug_type == "all")) then
-                	print(string.format('PING_UPDATE: ubus call tsmodem.driver ping_update ' .. "'" .. '{"sim_id":"%s","host":"%s","value":"%s"}' .. "'" .. ' &> /dev/null', msg["sim_id"], msg["host"], msg["value"]))
+                	print(string.format('PING_UPDATE: ubus call tsmodem.driver ping_update ' .. "'" .. '{"sim_id":"%s","host":"%s","value":"%s"}' .. "'" .. ' &> /dev/null', tostring(msg["sim_id"]), tostring(msg["host"]), tostring(msg["value"])))
                 end
 
                 local resp = {}
@@ -309,6 +312,13 @@ local ubus_methods = {
             function(req, msg)
                 local resp = {}
                 if msg["command"] then
+                    if (msg["what-to-update"] == "balance") then
+                        state:update("balance", "*", msg["command"], "")
+                        state.timer.BAL_TIMEOUT:set(state.timer.timeout["balance"])	-- clear balance state after timeout
+                        if (state.modem.debug and (state.modem.debug_type == "balance" or state.modem.debug_type == "all")) then
+                            print("[state.lua]: Balance is in progress *.............")
+                        end
+                    end
                     if(state.modem:is_connected(state.modem.fds)) then
                         local chunk, err, errcode = U.write(state.modem.fds, msg["command"] .. "\r\n")
                         if err then
@@ -325,6 +335,24 @@ local ubus_methods = {
                     resp["at_answer"] = "Enter AT command like this " .. "'{" .. '"command": "AT+CSQ"' .. "}'"
                 end
                 state.conn:reply(req, resp);
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+
+        -- [[ Clear all states ]]
+        -- [[ e.g. when we save Sim-settings on the web UI]]
+        clear_state = {
+            function(req, msg)
+                local resp = { res = "OK" }
+    			state:update("reg", "7", "", "")
+    			state:update("signal", "", "", "")
+                state:update("balance", "", "", "")
+                state:update("provider_name", "", "", "")
+                state:update("netmode", "", "", "")
+                state:update("cpin", "", "", "")
+                state:update("ping", "", "", "")
+
+                state.conn:reply(req, resp);
+
             end, {id = ubus.INT32, msg = ubus.STRING }
         },
 
@@ -525,7 +553,7 @@ function state:get(var, param)
 		value = state[v][#state[v]][p]
 		return true, "", value
 	else
-		return false, string.format("State Var '%s' or Param '%s' are not found in list of state vars.", v, p), value
+		return false, string.format("State Var '%s' or Param '%s' are not found in list of state vars.", tostring(v), tostring(p)), value
 	end
 end
 

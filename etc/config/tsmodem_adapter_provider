@@ -6,7 +6,16 @@ config adapter 'template'
 	option balance_mask '0'
 	option balance_example_message '0'
 
-config adapter
+config adapter '00000'
+	option editable '0'
+	option name 'AUTO'
+	option code 'auto'
+	option gate_address 'auto'
+	option balance_ussd 'auto'
+	option balance_mask '__RUB__'
+	option balance_last_message 'Unexpected Data Value'
+
+config adapter '25099'
 	option editable '0'
 	option balance_example_message '368 р.'
 	option gate_address 'internet.beeline.ru'
@@ -14,9 +23,9 @@ config adapter
 	option code '25099'
 	option balance_ussd '#102#'
 	option balance_mask ' Vash balans __RUB__ r.'
-	option balance_last_message 'Vash balans 691.20 r.'
+	option balance_last_message 'Vash balans 621.20 r.'
 
-config adapter
+config adapter '25001'
 	option editable '0'
 	option name 'MTS'
 	option code '25001'
@@ -24,9 +33,9 @@ config adapter
 	option balance_example_message 'Баланс:100р'
 	option balance_mask 'Balance:__RUB__r'
 	option balance_ussd '#100#'
-	option balance_last_message 'Balance:987,50r'
+	option balance_last_message 'Balance:227,50r'
 
-config adapter
+config adapter '25002'
 	option editable '0'
 	option name 'Megafon'
 	option code '25002'
@@ -34,9 +43,9 @@ config adapter
 	option balance_ussd '*100#'
 	option gate_address 'internet.megafon.ru'
 	option balance_mask '__RUB__ р.'
-	option balance_last_message '"'
+	option balance_last_message '0 ; 0 = A"'
 
-config adapter
+config adapter '25020'
 	option editable '0'
 	option name 'Tele2'
 	option code '25020'
@@ -44,9 +53,9 @@ config adapter
 	option balance_ussd '*105#'
 	option balance_mask 'Баланс __RUB__ руб.'
 	option gate_address 'internet.tele2.ru'
-	option balance_last_message 'Баланс 6.00 pуб.'
+	option balance_last_message '"'
 
-config adapter
+config adapter '25011'
 	option editable '1'
 	option name 'Yota'
 	option code '25011'

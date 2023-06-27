@@ -11,6 +11,7 @@ local U = require 'posix.unistd'
 require "tsmodem.driver.util"
 
 local CREG_STATE = require "tsmodem.constants.creg_state"
+local balance_event_keys = require "tsmodem.constants.balance_event_keys"
 
 
 local timer = {}
@@ -35,9 +36,9 @@ timer.interval = {
 }
 
 timer.timeout = {
-    balance = 8000      -- Once a balance USSD requested, "in progress" state is set on "tsmodem.driver balance" method.
+    balance = 30000      -- Once a balance USSD requested, "in progress" state is set on "tsmodem.driver balance" method.
 }                       -- Then, if by some reason provider will not respond to the balance USSD request,
-                        -- then we clear balance state after timeout.
+                        -- then we clear balance state after the timeout.
 
 --[[ Step-by-step delays of switching Sim-card process ]]
 timer.switch_delay = {
@@ -120,56 +121,66 @@ end
 timer.CSQ = uloop.timer(t_CSQ)
 
 -- [[ AT+CUSD requests interval ]]
-function t_CUSD()
-    if timer.modem.automation == "run" then
-        local SWITCHING = (timer.state:get("switching", "value") == "true")
-        if not SWITCHING then
-            if(timer.modem:is_connected(timer.modem.fds)) then
-                --[[ Get balance only if SIM is registered in the GSM network ]]
-
-                local ok, err, reg = timer.state:get("reg", "value")
-                if ok and reg == "1" then
-                    local ok, err, sim_id = timer.state:get("sim", "value")
-                    if ok then
-                        if(sim_id == "0" or sim_id =="1") then
-                            local ok, err, last_balance_time = timer.state:get("balance", "time")
-                            if (tonumber(last_balance_time) and (last_balance_time ~= "0")) then
-                                local timecount = os.time() - tonumber(last_balance_time)
-                                if( timecount >= timer.interval.balance/1000 ) then
-                                    --[[ Avoid noise in USSD requests ]]
-                                    if (os.time() - timer.interval.last_balance_request_time) > timer.interval.balance_repeated_request_delay then
-                                        local provider_id = get_provider_id(sim_id)
-
-                                        local ussd_command = string.format("AT+CUSD=2\r\n", uci:get(timer.modem.config_gsm, provider_id, "balance_ussd"))
-                                        if (timer.modem.debug and (timer.modem.debug_type == "balance")) then print("----->>> Cancel USSD session before start new one: "..ussd_command) end
-                                        local chunk, err, errcode = U.write(timer.modem.fds, ussd_command)
-
-                                        local ussd_command = string.format("AT+CUSD=1,%s,15\r\n", uci:get(timer.modem.config_gsm, provider_id, "balance_ussd"))
-                                        if (timer.modem.debug and (timer.modem.debug_type == "balance")) then print("----------------------->>> Sending BALANCE REQUEST one time per "..tostring(timer.interval.balance/1000).."sec") end
-
-                                        local chunk, err, errcode = U.write(timer.modem.fds, ussd_command)
-
-                                        timer.interval.last_balance_request_time = os.time()
-                                    end
-                                end
-                            end
-                            timer.CUSD:set(1000)
-                        end
-                    else
-                        util.perror("ERROR: sim or value not found in state.")
-                    end
-                else
-                    timer.CUSD:set(1000)
-                end
-            else
-                timer.CUSD:set(1000)
-            end
-        end
-    else
-        timer.CUSD:set(1000)
-    end
-end
-timer.CUSD = uloop.timer(t_CUSD)
+-- function t_CUSD()
+--     if timer.modem.automation == "run" then
+--         local SWITCHING = (timer.state:get("switching", "value") == "true")
+--
+--         --local provider_from_sim_setting = uci:get("tsmodem")
+--
+--         if not SWITCHING then
+--             if(timer.modem:is_connected(timer.modem.fds)) then
+--                 --[[ Get balance only if SIM is registered in the GSM network ]]
+--
+--                 local ok, err, reg = timer.state:get("reg", "value")
+--                 if ok and reg == "1" then
+--                     local ok, err, sim_id = timer.state:get("sim", "value")
+--                     if ok then
+--                         if(sim_id == "0" or sim_id =="1") then
+--                             local ok, err, last_balance_time = timer.state:get("balance", "time")
+--                             if (tonumber(last_balance_time) and (last_balance_time ~= "0")) then
+--                                 local timecount = os.time() - tonumber(last_balance_time)
+--                                 if( timecount >= timer.interval.balance/1000 ) then
+--                                     --[[ Avoid noise in USSD requests ]]
+--                                     if (os.time() - timer.interval.last_balance_request_time) > timer.interval.balance_repeated_request_delay then
+--                                         local provider_id = get_provider_id(sim_id)
+--
+--                                         -- [[ Do not send USSD-request if current sim setting isn't match autodetection of provider ]]
+--                                         local _,_,autodetected_provider_code = timer.state:get("provider_name", "comment")
+--                                         if( autodetected_provider_code and (string.len(autodetected_provider_code) > 0) and (autodetected_provider_code == provider_id)) then
+--                                             local ussd_command = string.format("AT+CUSD=2\r\n", tostring(uci:get(timer.modem.config_gsm, provider_id, "balance_ussd")))
+--                                             if (timer.modem.debug and (timer.modem.debug_type == "balance")) then print("----->>> Cancel USSD session before start new one: "..ussd_command) end
+--                                             local chunk, err, errcode = U.write(timer.modem.fds, ussd_command)
+--
+--                                             local ussd_command = string.format("AT+CUSD=1,%s,15\r\n", tostring(uci:get(timer.modem.config_gsm, provider_id, "balance_ussd")))
+--                                             if (timer.modem.debug and (timer.modem.debug_type == "balance")) then print("----------------------->>> Sending BALANCE REQUEST one time per "..tostring(timer.interval.balance/1000).."sec") end
+--
+--                                             local chunk, err, errcode = U.write(timer.modem.fds, ussd_command)
+--                                         else
+--                                             if (timer.modem.debug and (timer.modem.debug_type == "balance")) then print(string.format("Autodetected provider [%s] doesn't match SIM-setting's provider [%s]", tostring(autodetected_provider_code), tostring(provider_id))) end
+--                                             timer.state:update("balance", balance_event_keys["sim-settings-dont-match-provider-autodetected"], "", "")
+--                                         end
+--
+--                                         timer.interval.last_balance_request_time = os.time()
+--                                     end
+--                                 end
+--                             end
+--                             timer.CUSD:set(1000)
+--                         end
+--                     else
+--                         util.perror("ERROR: sim or value not found in state.")
+--                     end
+--                 else
+--                     timer.CUSD:set(1000)
+--                 end
+--             else
+--                 timer.CUSD:set(1000)
+--             end
+--         end
+--     else
+--         timer.CUSD:set(1000)
+--     end
+-- end
+-- timer.CUSD = uloop.timer(t_CUSD)
 
 
 -- [[ AT+COPS: get GSM provider name from the GSM network ]]
@@ -200,7 +211,7 @@ function t_PING()
             if not SWITCHING then
                 local _,_,sim_id = timer.state:get("sim", "value")
                 local host = "8.8.8.8"
-                local host_spc_sim = string.format("%s %s", host, sim_id)
+                local host_spc_sim = string.format("%s %s", tostring(host), tostring(sim_id))
                 if (timer.modem.debug and (timer.modem.debug_type == "ping" or timer.modem.debug_type == "all")) then print("PING runs: ","ping.sh", host_spc_sim) end
                 uloop.process("/usr/lib/lua/tsmodem/util/ping.sh", {"--host", host_spc_sim }, {"PROCESS=1"}, p1)
                 timer.PING:set(timer.interval.ping)
@@ -291,12 +302,12 @@ function t_SWITCH_2()
         uci:save("network")
         uci:commit("network")
 
-        if (timer.modem.debug) then print(string.format("SWITCH_2_STM_SIM_SEL: ~0:SIM.SEL=%s done.", sim_to_switch)) end
+        if (timer.modem.debug) then print(string.format("SWITCH_2_STM_SIM_SEL: ~0:SIM.SEL=%s done.", tostring(sim_to_switch))) end
 
 
         timer.SWITCH_3:set(timer.switch_delay["3_STM_SIM_RST_0"])
     else
-        print(string.format("SWITCH_2_STM_SIM_SEL: ~0:SIM.SEL=%s ERROR. (see timer.lua)", sim_to_switch))
+        print(string.format("SWITCH_2_STM_SIM_SEL: ~0:SIM.SEL=%s ERROR. (see timer.lua)", tostring(sim_to_switch)))
     end
 
 end
@@ -363,18 +374,14 @@ timer.SWITCH_6 = uloop.timer(t_SWITCH_6)
 
 --[[ Balance request timeout ]]
 function t_BAL_TIMEOUT()
-    if(timer.state:get("balance", "value") == -9999 or timer.state:get("balance", "value") == -999 or timer.state:get("balance", "value") == -998) then
+    local noerror, errmsg, val = timer.state:get("balance", "value")
+    if val == "*" then
         timer.state:update("balance", "", "", "")
         if (timer.modem.debug and (timer.modem.debug_type == "balance" or timer.modem.debug_type == "all")) then
-            print(string.format("[timer.lua]: Clear balance on BAL_TIMEOUT: %s %s %s", tostring(noerror), errmsg, val))
+            print(string.format("[timer.lua]: Clear balance on BAL_TIMEOUT: %s %s %s", tostring(noerror), tostring(errmsg), tostring(val)))
         end
-    end
-    local noerror, errmsg, val = timer.state:get("balance", "value")
-    if (timer.modem.debug and (timer.modem.debug_type == "balance" or timer.modem.debug_type == "all")) then
-        print(string.format("[timer.lua]: Value after BAL_TIMEOUT: %s %s %s", tostring(noerror), errmsg, val))
     end
 end
 timer.BAL_TIMEOUT = uloop.timer(t_BAL_TIMEOUT)
-
 
 return timer
