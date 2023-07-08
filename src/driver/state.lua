@@ -248,6 +248,8 @@ local ubus_methods = {
     				comment = ""
     			}
 
+                state:update("balance", CREG_STATE["SWITCHING"], "", "")
+
                 if (state.modem.debug) then
                     print("-----------------------------------------------")
                     print(string.format('|  DO_SWITCH form [%s]', tostring(msg["rule"])))
@@ -268,9 +270,7 @@ local ubus_methods = {
 
         ping_update = {
             function(req, msg)
-                if (state.modem.debug and (state.modem.debug_type == "ping_update" or state.modem.debug_type == "all")) then
-                	print(string.format('PING_UPDATE: ubus call tsmodem.driver ping_update ' .. "'" .. '{"sim_id":"%s","host":"%s","value":"%s"}' .. "'" .. ' &> /dev/null', tostring(msg["sim_id"]), tostring(msg["host"]), tostring(msg["value"])))
-                end
+                if_debug("ping", "UBUS", "ASK", msg, "Note: ping.sh do the job. and call ubus ping_update method.")
 
                 local resp = {}
                 if msg["host"] and msg["value"] and msg["sim_id"] then
@@ -284,7 +284,6 @@ local ubus_methods = {
                             resp = { msg = "Param [sim_id] has to be 0 or 1. Nothing was done. "}
                         elseif sim_id == active_sim_id then
                             state:update("ping", value, "ping "..host, "updated via ubus call 'ping_update'")
-                            if (state.modem.debug and (state.modem.debug_type == "ping" or state.modem.debug_type == "all")) then print("PING says: ","UBUS", tostring(state.timer.interval.ping).."ms", value, "","","","Note: ping.sh do the job.") end
                             resp = { msg = "ok" }
                         elseif sim_id ~= active_sim_id and (sim_id == "0" or sim_id == "1") then
                             resp = { msg = "Active sim was switched by user or automation rules. So 'ping_update' doesn't affect this time." }
@@ -295,6 +294,8 @@ local ubus_methods = {
                 else
                     resp = { msg = "[host], [value] and [sim_id] are required params. Nothing was done." }
                 end
+
+                if_debug("ping", "UBUS", "ANSWER", resp, "Response from ubus ping_update method")
 
                 state.conn:reply(req, resp);
             end, {id = ubus.INT32, msg = ubus.STRING }
@@ -308,18 +309,19 @@ local ubus_methods = {
             end, {id = ubus.INT32, msg = ubus.STRING }
         },
 
+
         send_at = {
             function(req, msg)
                 local resp = {}
+                if_debug("send_at", "UBUS", "ASK", msg, "Note: sends AT command to the modem")
                 if msg["command"] then
-                    if (msg["what-to-update"] == "balance") then
-                        state:update("balance", "*", msg["command"], "")
-                        state.timer.BAL_TIMEOUT:set(state.timer.timeout["balance"])	-- clear balance state after timeout
-                        if (state.modem.debug and (state.modem.debug_type == "balance" or state.modem.debug_type == "all")) then
-                            print("[state.lua]: Balance is in progress *.............")
-                        end
-                    end
                     if(state.modem:is_connected(state.modem.fds)) then
+                        if (msg["what-to-update"] == "balance") then
+                            state:update("balance", "*", msg["command"], "")
+                            state.timer.BAL_TIMEOUT:set(state.timer.timeout["balance"])	-- clear balance state after timeout
+                            if_debug("balance", "AT", "ASK", msg, "Note: sends AT command to get balance and clear balance state if no AT-answer during " .. tostring(state.timer.timeout["balance"]/60000) .. " min.")
+                        end
+
                         local chunk, err, errcode = U.write(state.modem.fds, msg["command"] .. "\r\n")
                         if err then
                             resp["at_answer"] = "tsmodem [state.lua]: Error of sending AT to modem."
@@ -334,6 +336,8 @@ local ubus_methods = {
                 else
                     resp["at_answer"] = "Enter AT command like this " .. "'{" .. '"command": "AT+CSQ"' .. "}'"
                 end
+                if_debug("send_at", "UBUS", "ANSWER", msg, "Note: sends AT command to the modem")
+                resp["value"] = "true"
                 state.conn:reply(req, resp);
             end, {id = ubus.INT32, msg = ubus.STRING }
         },
@@ -342,6 +346,8 @@ local ubus_methods = {
         -- [[ e.g. when we save Sim-settings on the web UI]]
         clear_state = {
             function(req, msg)
+                if_debug("clear_state", "UBUS", "ASK", msg, "Note: Clear states, e.g. when we save Sim-settings on the web UI")
+
                 local resp = { res = "OK" }
     			state:update("reg", "7", "", "")
     			state:update("signal", "", "", "")
@@ -351,46 +357,16 @@ local ubus_methods = {
                 state:update("cpin", "", "", "")
                 state:update("ping", "", "", "")
 
+                if_debug("clear_state", "UBUS", "ANSWER", resp, "")
+
                 state.conn:reply(req, resp);
 
             end, {id = ubus.INT32, msg = ubus.STRING }
         },
 
-        --[[ Реализовано в модуле tsmstm ]]
-        -- send_stm_at = {
-        --     function(req, msg)
-        --         local resp = {}
-        --         local stm_comm = ""
-        --         local send_only_if_new_command = ""
-        --         local _, _, previous_comm = state:get("stm32", "command")
-        --
-        --         if msg["sub_sys"] and msg["param"] and msg["arg"] then
-        --             stm_comm = "~0:" .. msg["sub_sys"] .. "." .. msg["param"] .. "=" .. msg["arg"]
-        --             -- Send AT to STM only if new command is not equal new one
-        --             -- It helps to avoid LED over-blinking each time the command sent.
-        --             if state.stm.fds then
-        --                 send_only_if_new_command = (stm_comm ~= previous_comm)
-        --                 if send_only_if_new_command then
-        --                     local status, value = state.stm:command(stm_comm)
-        --                     if status == "OK" then
-        --                         state:update("stm32", "OK", stm_comm, "")
-        --                     end
-        --                     resp["at_answer"] = string.format("[%s] done. Status: %s, value: %s.", stm_comm, status, value)
-        --                 else
-        --                     resp["at_answer"] = string.format("[%s] SKIPPED, as it was done recently.", stm_comm)
-        --                 end
-        --             else
-        --                 resp["at_answer"] = "STM port seems not connected."
-        --             end
-        --         else
-        --             resp["at_answer"] = "Enter STM AT command like this " .. "'{" .. '"sub_sys": "LED", "param": "1", "arg": "f200,200,200,800"' .. "}'"
-        --         end
-        --         state.conn:reply(req, resp);
-        --     end, {id = ubus.INT32, msg = ubus.STRING }
-        -- },
-
         automation = {
             function(req, msg)
+                if_debug("automation", "UBUS", "ASK", msg, "Note: Run or Stop Driver automation")
                 if msg and msg["mode"] and msg["mode"] == "run" then
                     state.modem:run_automation()
                     resp = { mode = state.modem.automation }
@@ -400,7 +376,7 @@ local ubus_methods = {
                 else
                     resp = { mode = state.modem.automation }
                 end
-
+                if_debug("automation", "UBUS", "ANSWER", resp, "")
                 state.conn:reply(req, resp);
             end, {id = ubus.INT32, msg = ubus.STRING }
         },

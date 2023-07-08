@@ -8,5 +8,7 @@ local CREG_STATE = {
   ["ROAMING"] = "5",
   ["NOT_ACTIVE"] = "6",
   ["SWITCHING"] = "7",
+  ["CONNECTING_TO_WEB"] = "8",
+  ["CONNECTING_TO_GSM"] = "9",
 }
 return CREG_STATE

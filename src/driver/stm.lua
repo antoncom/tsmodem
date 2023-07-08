@@ -45,7 +45,7 @@ function stm:command(comm)
 	end
 
 	status = b[#b]
-	value = b[1]
+	value = b[#b-1]
 
 	if(status == "OK") then
 		return status, value

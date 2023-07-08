@@ -30,6 +30,7 @@ run() {
     uci set tsmodem.debug.type='all'
     uci commit
 
+    (sleep 3; tsmconsole start) &
     exec /usr/bin/lua /usr/lib/lua/tsmodem/app.lua
     RETVAL=$?
 }
@@ -49,7 +50,9 @@ debug() {
     uci set tsmodem.debug.type=$PAR2
     uci commit
 
+    (sleep 3; echo "=============="; echo " "; echo "TSMCONSOLE RUN TOO"; echo " "; echo "=============="; tsmconsole start) &
     exec /usr/bin/lua /usr/lib/lua/tsmodem/app.lua
+
     RETVAL=$?
 }
 
@@ -67,7 +70,7 @@ CMD="$1"
 shift
 # See how we were called.
 case "$CMD" in
-    start|stop|restart|reload)
+    start|restart|reload)
         callinit $CMD
         ;;
     debug)
@@ -75,6 +78,10 @@ case "$CMD" in
         ;;
     list)
         list
+        ;;
+    stop)
+        (sleep 1; tsmconsole stop) &
+        callinit $CMD
         ;;
     *help|*?)
         usage $0
