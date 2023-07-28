@@ -288,7 +288,6 @@ function modem:parse_AT_response(chunk)
 			end)
 		end
 		if_debug("provider", "AT", "ANSWER", pname, "[modem.lua]: parse_AT_response() +COPS parsed every " .. tostring(modem.timer.interval.provider).."ms.")
-
 	end
 end
 

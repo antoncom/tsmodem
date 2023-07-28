@@ -24,6 +24,8 @@ function if_debug(ubus_method, protocol, request_or_response, value, comment)
 	if (is_debug and (debug_type == ubus_method or debug_type == "all" or ubus_method == "")) then
 		if (value and type(value) == "table") then
 			val = util.serialize_json(value)
+		elseif (value and type(value) == "string") then
+			val = value:gsub("%c", " ")
 		else
 			val = value
 		end

@@ -501,6 +501,8 @@ function state:update(param, value, command, comment)
                     ["comment"] = comment
                 }
                 state[param][1] = util.clone(item)
+                
+            --[[ IF NOTHING CHANGED THEN UPDATE ONLY TIME ]]
             --[[ Update last time of succesful registration state ]]
             elseif (param == "reg" and (newval == CREG_STATE["REGISTERED"] or newval == CREG_STATE["SWITCHING"])) then
     			state["reg"][1].time = tostring(os.time())
