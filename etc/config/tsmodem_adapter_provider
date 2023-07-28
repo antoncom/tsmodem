@@ -23,7 +23,7 @@ config adapter '25099'
 	option code '25099'
 	option balance_ussd '#102#'
 	option balance_mask ' Vash balans __RUB__ r.'
-	option balance_last_message 'Vash balans 566.20 r. Zivert "Life" vmesto gudka besplatno s Privet+: *417#'
+	option balance_last_message 'Vash balans 121.20 r. Lyusya Chebotina "Tseluj menya" vmesto gudka besplatno s Privet+: *291#'
 
 config adapter '25001'
 	option editable '0'
@@ -61,13 +61,16 @@ config adapter '25011'
 	option code '25011'
 	option gate_address 'internet'
 
-config adapter
+config adapter 'CUSTOM_1'
 	option editable '1'
 	option name 'CUSTOM 1'
 	option gate_address 'internet'
 
-config adapter
+config adapter 'CUSTOM_2'
 	option editable '1'
+	option gate_address 'internet.beeline.ru'
+	option balance_ussd '#102#'
+	option balance_mask ' Vash balans __RUB__ r.'
 	option name 'CUSTOM 2'
-	option gate_address 'internet'
+	option balance_last_message 'Vash balans 116.20 r. Lyusya Chebotina "Tseluj menya" vmesto gudka besplatno s Privet+: *291#'
 
