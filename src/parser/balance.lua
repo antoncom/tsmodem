@@ -15,8 +15,8 @@ function balance(sim_id)
 
 	local spc = lpeg.S(" \t\n\r")^0
 
-	local balance_value = spc * lpeg.P("+CUSD: ") * lpeg.P(lpeg.R('09')^-2) * ',"' *
-								lpeg.P(first_chunk) * spc *
+	--local balance_value = spc * lpeg.P("+CUSD: ") * lpeg.P(lpeg.R('09')^-2) * ',"' *
+	local balance_value = spc * lpeg.P(first_chunk) * spc *
 								lpeg.C(
 									lpeg.P('-')^-1 *
 								 	lpeg.R('09')^0 *
@@ -41,5 +41,10 @@ return balance
 -- [[ BEELINE ]]
 -- local text = [[+CUSD: 2," Vash balans 510.20 r.
 -- Slushajte 200 radiostantsij s bilajnom 1 den\' besplatno! Podkl: *279#]]
+-- print(text)
+-- print(balance(1):match(text))
+
+-- [[ BEELINE from UCS2 ]]
+-- local text = '886.20 р. Xolidayboy "Мания" вместо гудка в подарок с Привет+: *341#'
 -- print(text)
 -- print(balance(1):match(text))

@@ -13,4 +13,4 @@ return cusd
 
 --local text = '+CUSD: 0,"04110430043b0430043d0441003a003200390036002c003000320440", 17r'
 
--- print(cusd:match(text))
+--print(cusd:match(text))

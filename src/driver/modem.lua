@@ -150,11 +150,13 @@ function modem:balance_parsing_and_update(chunk)
 	if ok then
 		local provider_id = get_provider_id(sim_id)
 		local ussd_command = uci:get(modem.config_gsm, provider_id, "balance_ussd")
-		--local balance_message = ucs2_ascii(BAL_parser:match(chunk))
-		balance_message = chunk:sub(13,-7):gsub("'", "\'"):gsub("\n", " "):gsub("%c+", " ")
+		local balance_message = ucs2_ascii(CUSD_parser:match(chunk))
+		balance_message = balance_message:gsub("'", "\'"):gsub("\n", " "):gsub("%c+", " ")
 		balance_message = util.trim(balance_message)
+		if_debug("balance", "AT", "ANSWER", balance_message, "[modem.lua]:UCS2_ASCII()")
 
-		local balance = BAL_parser(sim_id):match(chunk)
+		--local balance = BAL_parser(sim_id):match(chunk)
+		local balance = BAL_parser(sim_id):match(balance_message)
 
 ------------------------------------------------------------------------------
 -- TODO Решить проблему с USSD session (cancel) и ошибочным форматом сообщений
