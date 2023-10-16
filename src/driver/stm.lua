@@ -7,7 +7,7 @@ require "tsmodem.driver.util"
 
 
 local stm = {}
-stm.device = "/dev/ttyS1"
+--stm.device = "/dev/ttyS1"
 stm.fds = nil
 
 stm.modem = nil
@@ -23,14 +23,17 @@ stm.init = function(modem, state, timer)
     return stm
 end
 
+-- Simulation mode as we don't have double sim modem yet
 function stm:init_mk()
-    local status, sim_id = stm:command("~0:SIM.SEL=?")
+    --local status, sim_id = stm:command("~0:SIM.SEL=?")
+    local status = "OK"
+    local sim_id = 0
     if (status == "OK") then
         stm.state:update("sim", tostring(sim_id), "~0:SIM.SEL=?")
     end
 
     -- Включить индикацию на 3 светодиоде: питание/подогрев CPU
-    stm:command("~0:LED.3=s0")
+    -- stm:command("~0:LED.3=s0")
 end
 
 function stm:command(comm)

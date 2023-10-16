@@ -75,10 +75,10 @@ function t_CREG()
     if timer.modem.automation == "run" then
         local SWITCHING = (timer.state:get("switching", "value") == "true")
         if not SWITCHING then
-            if(timer.modem:is_connected(timer.modem.fds)) then
+            --if(timer.modem:is_connected(timer.modem.fds)) then
                 if_debug("reg", "AT", "ASK", "AT+CREG?", "[timer.lua]: t_CREG() every " .. tostring(timer.interval.reg).."ms. when SWITCHING == " .. tostring(SWITCHING) .. " and modem:is_connected().")
-                local chunk, err, errcode = U.write(timer.modem.fds, "AT+CREG?" .. "\r\n")
-            end
+                local chunk, err, errcode = U.write(timer.modem.fds_in, "AT+CREG?" .. "\r\n")
+            --end
         end
     end
     timer.CREG:set(timer.interval.reg)
@@ -90,10 +90,10 @@ function t_CPIN()
     if timer.modem.automation == "run" then
         local SWITCHING = (timer.state:get("switching", "value") == "true")
         if not SWITCHING then
-            if(timer.modem:is_connected(timer.modem.fds)) then
+            --if(timer.modem:is_connected(timer.modem.fds)) then
                 if_debug("cpin", "AT", "ASK", "AT+CPIN?", "[timer.lua]: t_CPIN() every " .. tostring(timer.interval.cpin).."ms")
-                local chunk, err, errcode = U.write(timer.modem.fds, "AT+CPIN?" .. "\r\n")
-            end
+                local chunk, err, errcode = U.write(timer.modem.fds_in, "AT+CPIN?" .. "\r\n")
+            --end
         end
     end
     timer.CPIN:set(timer.interval.cpin)
@@ -105,10 +105,10 @@ function t_CSQ()
     if timer.modem.automation == "run" then
         local SWITCHING = (timer.state:get("switching", "value") == "true")
         if not SWITCHING then
-            if(timer.modem:is_connected(timer.modem.fds)) then
+            --if(timer.modem:is_connected(timer.modem.fds)) then
                 if_debug("signal", "AT", "ASK", "AT+CSQ", "[timer.lua]: t_CSQ() every " .. tostring(timer.interval.signal).."ms")
-                local chunk, err, errcode = U.write(timer.modem.fds, "AT+CSQ" .. "\r\n")
-            end
+                local chunk, err, errcode = U.write(timer.modem.fds_in, "AT+CSQ" .. "\r\n")
+            --end
         end
     end
     timer.CSQ:set(timer.interval.signal)
@@ -120,10 +120,10 @@ function t_COPS()
     if timer.modem.automation == "run" then
         local SWITCHING = (timer.state:get("switching", "value") == "true")
         if not SWITCHING then
-            if(timer.modem:is_connected(timer.modem.fds)) then
+            --if(timer.modem:is_connected(timer.modem.fds)) then
                 if_debug("provider", "AT", "ASK", "AT+COPS?", "[timer.lua]: t_COPS() every " .. tostring(timer.interval.provider).."ms")
-                local chunk, err, errcode = U.write(timer.modem.fds, "AT+COPS?" .. "\r\n")
-            end
+                local chunk, err, errcode = U.write(timer.modem.fds_in, "AT+COPS?" .. "\r\n")
+            --end
         end
     end
     timer.COPS:set(timer.interval.provider)
@@ -169,15 +169,15 @@ function t_CNSMOD()
     if timer.modem.automation == "run" then
         local SWITCHING = (timer.state:get("switching", "value") == "true")
         if not SWITCHING then
-            if(timer.modem:is_connected(timer.modem.fds)) then
+            --if(timer.modem:is_connected(timer.modem.fds)) then
                 local _,_,reg = timer.state:get("reg", "value")
                 if reg == "1" then
                     if (timer.modem.debug and (timer.modem.debug_type == "netmode" or timer.modem.debug_type == "all")) then print("AT sends: ","AT+CNSMOD?") end
                     if_debug("netmode", "AT", "ASK", "AT+CNSMOD?", "[timer.lua]: t_CNSMOD() every " .. tostring(timer.interval.netmode).."ms")
 
-                    local chunk, err, errcode = U.write(timer.modem.fds, "AT+CNSMOD?" .. "\r\n")
+                    local chunk, err, errcode = U.write(timer.modem.fds_in, "AT+CNSMOD?" .. "\r\n")
                 end
-            end
+            --end
         end
     end
     timer.CNSMOD:set(timer.interval.netmode)
@@ -194,7 +194,17 @@ function t_SWITCH_1()
         timer.state:update("switching", "true", "", "")
 
         local resp, n = {}, 0
-        local res, sim_id = timer.stm:command("~0:SIM.SEL=?")
+        
+        --[[ Start simulation
+             For single sim card device we don't change sim_id at all.
+             The process of switching is going as simulation ony.
+             Later, when we will have double sim modem, we will fix this behavior.
+          ]]
+        --local res, sim_id = timer.stm:command("~0:SIM.SEL=?")
+        local res = "OK"
+        local sim_id = 0
+        --[[ End of simulation ]]
+
         if res == "OK" then
             timer.state:update("sim", tostring(sim_id), "~0:SIM.SEL=?")
             if_debug("", "STM", "ANSWER", "OK", "[timer.lua]: t_SWITCH_1() slot ID: " .. tostring(sim_id))
@@ -202,9 +212,9 @@ function t_SWITCH_1()
             if_debug("", "STM", "ANSWER", "ERROR", "[timer.lua]: t_SWITCH_1() ~0:SIM.SEL=?")
         end
 
-        if timer.modem.fds then
+        if timer.modem.fds_in then
             timer.modem.unpoll()
-            U.close(timer.modem.fds)
+            U.close(timer.modem.fds_in)
         end
 
         timer.SWITCH_2:set(timer.switch_delay["2_STM_SIM_SEL"])

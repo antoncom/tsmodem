@@ -36,13 +36,17 @@ local modem = {}
 modem.debug = (uci:get("tsmodem", "debug", "enable") == "1") and true
 modem.debug_type = uci:get("tsmodem", "debug", "type")
 
-modem.device = arg[1] or '/dev/ttyUSB1'         -- First port
-modem.fds = nil                                 -- File descriptor for /dev/ttyUSB2
+-- modem.device = arg[1] or '/dev/ttyUSB1'         -- First port
+modem.device_in = '/tmp/fifo1'
+modem.device_out = '/tmp/fifo2'
+modem.fds_in = nil                                 -- File descriptor for /tmp/fifo1
+modem.fds_out = nil                                 -- File descriptor for /tmp/fifo2
 modem.fds_ev = nil      						-- Event loop descriptor
 modem.ws_fds = nil								-- Websocket file descriptor
 modem.ws_fds_ev = nil
 modem.ws_pipeout_file = "/tmp/wspipeout.fifo"	-- Gwsocket creates it
 modem.ws_pipein_file = "/tmp/wspipein.fifo" -- Gwsocket creates it
+
 
 
 modem.automation = "run"						-- "run" or "stop" are only possible
@@ -55,29 +59,19 @@ modem.config_gsm = "tsmodem_adapter_provider"
 modem.section = "sim"
 
 
-function modem:init()
-	if not self:is_connected(modem.fds) then
+function modem:init_device_out()
+	if not self:is_connected(modem.fds_out) then
 		modem:unpoll()
-		if modem.fds then
-			U.close(modem.fds)
-			modem.state:update("usb", "disconnected", modem.device .. " close")
+		if modem.fds_out then
+			U.close(modem.fds_out)
 			modem.state:update("reg", "7", "AT+CREG?")
 			modem.state:update("signal", "", "AT+CSQ")
 			modem.state:update("cpin","", "","")
 		end
 
-		local fds, err, errnum = F.open(modem.device, bit.bor(F.O_RDWR, F.O_NONBLOCK))
-		if fds then
-			M.tcsetattr(fds, 0, {
-			   cflag = M.B115200 + M.CS8 + M.CLOCAL + M.CREAD,
-			   iflag = M.IGNPAR,
-			   oflag = M.OPOST,
-			   cc = {
-			      [M.VTIME] = 0,
-			      [M.VMIN] = 1,
-			   }
-			})
-			modem.fds = fds
+		local fds_out, err, errnum = F.open(modem.device_out, bit.bor(F.O_RDWR, F.O_NONBLOCK))
+		if fds_out then
+			modem.fds_out = fds_out
 
 			local ok, err, sim_id = modem.state:get("sim", "value")
 			if ok and (sim_id == "1" or sim_id == "0") then
@@ -91,16 +85,36 @@ function modem:init()
 				end
 			end
 
-			modem.state:update("usb", "connected", modem.device .. " open", "")
 			modem.state:update("reg", "7", "AT+CREG?", "")
 			modem.state:update("signal", "", "AT+CSQ", "")
 			modem.state:update("switching","false", "","")
 			modem.state:update("cpin","", "","")
 
+		else
+			if_debug("all", "SYS", "ERROR", "File " .. modem.device_out .. " not opened", "[modem.lua]: " .. tostring(err))
 		end
 	end
 end
 
+function modem:init_device_in()
+	if not self:is_connected(modem.fds_in) then
+		if modem.fds_in then
+			U.close(modem.fds_in)
+		end
+
+		local fds_in, err, errnum = F.open(modem.device_in, bit.bor(F.O_RDWR, F.O_NONBLOCK))
+		if fds_in then
+			modem.fds_in = fds_in
+		else
+			if_debug("all", "SYS", "ERROR", "File " .. modem.device_in .. " not opened", "[modem.lua]: " ..tostring(err))
+		end
+	end
+end
+
+function modem:init()
+	modem:init_device_in()
+	modem:init_device_out()
+end
 
 --[[
 	Modem driver checks if http session is active.
@@ -139,7 +153,8 @@ end
 
 
 function modem:is_connected(fd)
-	return fd and U.isatty(fd)
+	--return fd and U.isatty(fd)
+	return fd
 end
 
 function modem:balance_parsing_and_update(chunk)
@@ -200,46 +215,45 @@ function modem:parse_AT_response(chunk)
 			local ok, err, lastreg = modem.state:get("reg", "value")
 			if(lastreg ~= "1" and creg =="1") then
 
-				-- local timer_CUSD_SINCE_SIM_REGISTERED
-				-- function t_CUSD_SINCE_SIM_REGISTERED()
-				-- 	local ok, err, reg = modem.state:get("reg", "value")
-				-- 	if(reg == "1") then
-				-- 		if(modem:is_connected(modem.fds)) then
-				-- 			local ok_reg, err, reg = modem.state:get("reg", "value")
-				-- 			if ok_reg and reg == "1" then
-				-- 				local ok_sim, err, sim_id = modem.state:get("sim", "value")
-				-- 				if ok_sim and (sim_id == "0" or sim_id =="1") then
-				-- 					local provider_id = get_provider_id(sim_id)
-				--
-				-- 					local ussd_command = string.format("AT+CUSD=2,%s,15\r\n", tostring(uci:get(modem.config_gsm, provider_id, "balance_ussd")))
-				-- 					if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("----->>> Cancel USSD session before start new one: "..ussd_command) end
-				--
-				-- 					--[[ Stop USSD here while testing other features to avoid USSD blocking ]]
-				-- 					local chunk, err, errcode = U.write(modem.fds, ussd_command)
-				--
-				-- 					local ussd_command = string.format("AT+CUSD=1,%s,15\r\n", tostring(uci:get(modem.config_gsm, provider_id, "balance_ussd")))
-				-- 					if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("----->>> Sending BALANCE REQUEST ASAP SIM REGISTERED: "..ussd_command) end
-				-- 					local chunk, err, errcode = U.write(modem.fds, ussd_command)
-				--
-				-- 					modem.last_balance_request_time = os.time() -- Do it each time USSD request runs
-				--
-				-- 					modem.timer.PING:set(modem.timer.interval.ping)
-				-- 				end
-				-- 			end
-				-- 		end
-				-- 	end
-				-- end
-				-- timer_CUSD_SINCE_SIM_REGISTERED = uloop.timer(t_CUSD_SINCE_SIM_REGISTERED, 3000)
+				local timer_CUSD_SINCE_SIM_REGISTERED
+				function t_CUSD_SINCE_SIM_REGISTERED()
+					local ok, err, reg = modem.state:get("reg", "value")
+					if(reg == "1") then
+						if(modem:is_connected(modem.fds_in)) then
+							local ok_reg, err, reg = modem.state:get("reg", "value")
+							if ok_reg and reg == "1" then
+								local ok_sim, err, sim_id = modem.state:get("sim", "value")
+								if ok_sim and (sim_id == "0" or sim_id =="1") then
+									local provider_id = get_provider_id(sim_id)
+				
+									local ussd_command = string.format("AT+CUSD=2,%s,15\r\n", tostring(uci:get(modem.config_gsm, provider_id, "balance_ussd")))
+									if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("----->>> Cancel USSD session before start new one: "..ussd_command) end
+				
+									--[[ Stop USSD here while testing other features to avoid USSD blocking ]]
+									local chunk, err, errcode = U.write(modem.fds_in, ussd_command)
+				
+									local ussd_command = string.format("AT+CUSD=1,%s,15\r\n", tostring(uci:get(modem.config_gsm, provider_id, "balance_ussd")))
+									if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("----->>> Sending BALANCE REQUEST ASAP SIM REGISTERED: "..ussd_command) end
+									local chunk, err, errcode = U.write(modem.fds_in, ussd_command)
+				
+									modem.last_balance_request_time = os.time() -- Do it each time USSD request runs
+				
+									modem.timer.PING:set(modem.timer.interval.ping)
+								end
+							end
+						end
+					end
+				end
+				timer_CUSD_SINCE_SIM_REGISTERED = uloop.timer(t_CUSD_SINCE_SIM_REGISTERED, 3000)
 
-				-- modem.state:update("balance", balance_event_keys["get-balance-in-progress"], ussd_command, balance_message)	    -- set "in progres" balance state
-				-- modem.timer.BAL_TIMEOUT:set(modem.timer.timeout["balance"])					-- clear balance state after timeout
-				--
-				-- if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print(string.format("[modem.lua]: updated balance state: 'in progress', %s, %s", tostring(ussd_command), tostring(balance_message))) end
+				modem.state:update("balance", balance_event_keys["get-balance-in-progress"], ussd_command, balance_message)	    -- set "in progres" balance state
+				modem.timer.BAL_TIMEOUT:set(modem.timer.timeout["balance"])					-- clear balance state after timeout
+				
+				if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print(string.format("[modem.lua]: updated balance state: 'in progress', %s, %s", tostring(ussd_command), tostring(balance_message))) end
 
 			end
 
 			modem.state:update("reg", creg, "AT+CREG?", "")
-			modem.state:update("usb", "connected", modem.device .. " open", "")
 		end
 	elseif chunk:find("+CSQ:") then
 		local signal = CSQ_parser:match(chunk)
@@ -302,18 +316,18 @@ function modem:send_AT_responce_to_webconsole(chunk)
 end
 
 function modem:poll()
-	if (modem.fds_ev == nil) and modem:is_connected(modem.fds) then
+	if (modem.fds_ev == nil) and modem:is_connected(modem.fds_out) then
 
-		modem.fds_ev = uloop.fd_add(modem.fds, function(ufd, events)
+		modem.fds_ev = uloop.fd_add(modem.fds_out, function(ufd, events)
 
 			local message_from_browser, message_to_browser = "", ""
-			local chunk, err, errcode = U.read(modem.fds, 1024)
+			local chunk, err, errcode = U.read(modem.fds_out, 1024)
 			if not err then
 				modem:parse_AT_response(chunk)
 				modem:send_AT_responce_to_webconsole(chunk)
 			else
 				if (modem.debug and (util.contains(AT_RELATED_UBUS_METHODS, modem.debug_type) or modem.debug_type == "all")) then
-					if_debug(modem.debug_type, "FILE", "POLL", "ERROR", "[modem.lua]: " .. string.format("tsmodem: U.read(modem.fds, 1024) ERROR CODE: %s", tostring(errcode)))
+					if_debug(modem.debug_type, "FILE", "POLL", "ERROR", "[modem.lua]: " .. string.format("tsmodem: U.read(modem.fds_out, 1024) ERROR CODE: %s", tostring(errcode)))
 				end
 			end
 
