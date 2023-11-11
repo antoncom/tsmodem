@@ -69,7 +69,8 @@ function modem:init_device_out()
 			modem.state:update("cpin","", "","")
 		end
 
-		local fds_out, err, errnum = F.open(modem.device_out, bit.bor(F.O_RDWR, F.O_NONBLOCK))
+		--local fds_out, err, errnum = F.open(modem.device_out, bit.bor(F.O_RDWR, F.O_NONBLOCK))
+		local fds_out, err, errnum = F.open(modem.device_out, bit.bor(F.O_RDONLY))
 		if fds_out then
 			modem.fds_out = fds_out
 
@@ -102,7 +103,8 @@ function modem:init_device_in()
 			U.close(modem.fds_in)
 		end
 
-		local fds_in, err, errnum = F.open(modem.device_in, bit.bor(F.O_RDWR, F.O_NONBLOCK))
+		--local fds_in, err, errnum = F.open(modem.device_in, bit.bor(F.O_RDWR, F.O_NONBLOCK))
+		local fds_in, err, errnum = F.open(modem.device_in, bit.bor(F.O_RDWR))
 		if fds_in then
 			modem.fds_in = fds_in
 		else
@@ -111,9 +113,10 @@ function modem:init_device_in()
 	end
 end
 
+
 function modem:init()
-	modem:init_device_in()
 	modem:init_device_out()
+	modem:init_device_in()
 end
 
 --[[
@@ -198,12 +201,14 @@ function modem:balance_parsing_and_update(chunk)
 end
 
 function modem:parse_AT_response(chunk)
-	if (chunk:find("+CME ERROR") or chunk:find("+CPIN: READY") or chunk:find("+SIMCARD: NOT AVAILABLE")) then
+	if (chunk:find("+CME ERROR") or chunk:find("+CPIN: READY")) then
 		local cpin = CPIN_parser:match(chunk)
 		if cpin then
-			modem.state:update("cpin", cpin, "AT+CPIN?", "")
-			if_debug("cpin", "AT", "ANSWER", cpin, "[modem.lua]: +CME ERROR, +CPIN: READY or +SIMCARD: NOT AVAILABLE parsed.")
-			if (cpin == "false" or cpin == "failure") then return end
+			local sim_ok = "false"
+			if cpin == "SIM READY" then sim_ok = "true" end
+			modem.state:update("cpin", sim_ok, "AT+CPIN?", cpin)
+			if_debug("cpin", "AT", "ANSWER", cpin, "[modem.lua]: " .. chunk)
+			--if (cpin == "false" or cpin == "failure") then return end
 		end
 	elseif chunk:find("+CREG:") then
 		local creg = CREG_parser:match(chunk)
@@ -317,8 +322,11 @@ end
 
 function modem:poll()
 	if (modem.fds_ev == nil) and modem:is_connected(modem.fds_out) then
+		print("POLL TSMCONSOLE")
 
 		modem.fds_ev = uloop.fd_add(modem.fds_out, function(ufd, events)
+
+			print("NEW DATA APPEAR AT " .. modem.device_out)
 
 			local message_from_browser, message_to_browser = "", ""
 			local chunk, err, errcode = U.read(modem.fds_out, 1024)
@@ -377,13 +385,13 @@ local metatable = {
 		modem:poll()
 
 		timer.general:set(timer.interval.general)
-		timer.CPIN:set(timer.interval.cpin)
-		timer.CREG:set(timer.interval.reg)
-		timer.CSQ:set(timer.interval.signal)
-		-- timer.CUSD:set(1000)
-		timer.COPS:set(timer.interval.provider)
-		timer.CNSMOD:set(timer.interval.netmode)
-		timer.PING:set(timer.interval.ping)
+		-- timer.CPIN:set(timer.interval.cpin)
+		--timer.CREG:set(timer.interval.reg)
+		-- timer.CSQ:set(timer.interval.signal)
+		-- -- timer.CUSD:set(1000)
+		-- timer.COPS:set(timer.interval.provider)
+		-- timer.CNSMOD:set(timer.interval.netmode)
+		-- timer.PING:set(timer.interval.ping)
 
 		uloop.run()
 

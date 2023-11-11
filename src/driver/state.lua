@@ -315,14 +315,14 @@ local ubus_methods = {
                 local resp = {}
                 if_debug("send_at", "UBUS", "ASK", msg, "Note: sends AT command to the modem")
                 if msg["command"] then
-                    if(state.modem:is_connected(state.modem.fds)) then
+                    if(state.modem:is_connected(state.modem.fds_in)) then
                         if (msg["what-to-update"] == "balance") then
                             state:update("balance", "*", msg["command"], "")
                             state.timer.BAL_TIMEOUT:set(state.timer.timeout["balance"])	-- clear balance state after timeout
                             if_debug("balance", "AT", "ASK", msg, "Note: sends AT command to get balance and clear balance state if no AT-answer during " .. tostring(state.timer.timeout["balance"]/60000) .. " min.")
                         end
 
-                        local chunk, err, errcode = U.write(state.modem.fds, msg["command"] .. "\r\n")
+                        local chunk, err, errcode = U.write(state.modem.fds_in, msg["command"] .. "\r\n")
                         if err then
                             resp["at_answer"] = "tsmodem [state.lua]: Error of sending AT to modem."
                         else

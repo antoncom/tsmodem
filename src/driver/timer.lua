@@ -92,6 +92,7 @@ function t_CPIN()
         if not SWITCHING then
             --if(timer.modem:is_connected(timer.modem.fds)) then
                 if_debug("cpin", "AT", "ASK", "AT+CPIN?", "[timer.lua]: t_CPIN() every " .. tostring(timer.interval.cpin).."ms")
+                local chunk, err, errcode = U.write(timer.modem.fds_in, "AT+CMEE=2" .. "\r\n")
                 local chunk, err, errcode = U.write(timer.modem.fds_in, "AT+CPIN?" .. "\r\n")
             --end
         end
