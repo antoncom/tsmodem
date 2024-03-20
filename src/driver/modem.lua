@@ -31,6 +31,8 @@ local CNSMOD_parser = require 'tsmodem.parser.cnsmod'
 local ucs2_ascii = require 'tsmodem.parser.ucs2_ascii'
 local provider_name = require 'tsmodem.parser.provider_name'
 local check_host = require 'tsmodem.parser.hostip'
+-- Парссер смс для удаленного управления.
+local remote_control_pars = require'tsmodem.parser.parser_sms'
 
 local modem = {}
 modem.debug = (uci:get("tsmodem", "debug", "enable") == "1") and true
@@ -53,6 +55,8 @@ modem.automation = "run"						-- "run" or "stop" are only possible
 modem.config = "tsmodem"
 modem.config_gsm = "tsmodem_adapter_provider"
 modem.section = "sim"
+modem.resive_sms_counter = nil
+modem.read_sms_timer = nil
 
 
 function modem:init()
@@ -182,6 +186,15 @@ function modem:balance_parsing_and_update(chunk)
     return balance
 end
 
+-- Обработчик для 
+function AtCommandReadSMS()
+	-- Запрос в модем на считывание принятой смс
+	local at_get_sms_counter = "\r\nAT+CMGR=" .. tostring(modem.resive_sms_counter) .. "\r\n"
+	U.write(modem.fds, at_get_sms_counter)
+	if_debug("remote_control", "AT", "ANSWER", at_get_sms_counter, "[modem.lua]: Send AT to read SMS")
+	modem.read_sms_timer:cancel() -- отмена таймера
+end
+
 function modem:parse_AT_response(chunk)
 	if (chunk:find("+CME ERROR") or chunk:find("+CPIN: READY") or chunk:find("+SIMCARD: NOT AVAILABLE")) then
 		local cpin = CPIN_parser:match(chunk)
@@ -288,6 +301,21 @@ function modem:parse_AT_response(chunk)
 			end)
 		end
 		if_debug("provider", "AT", "ANSWER", pname, "[modem.lua]: parse_AT_response() +COPS parsed every " .. tostring(modem.timer.interval.provider).."ms.")
+	
+	-- Реакция на получение нового SMS.
+	elseif chunk:find("+CMTI:") then
+		modem.resive_sms_counter = remote_control_pars:get_sms_count(chunk)
+		if_debug("remote_control", "AT", "NOTIFY", modem.resive_sms_counter, "[modem.lua]: +CMTI new sms receive, sms count=" .. tostring(resive_sms_counter))
+		-- Задержка для модема, дающая время на обработку запроса
+		modem.read_sms_timer = uloop.timer(AtCommandReadSMS)
+		modem.read_sms_timer:set(3000) -- Задержка 3 сек
+
+	-- Обработать ответ и выделить тело смс.
+	elseif chunk:find("+CMGR:") then
+		local sms_phone_number = remote_control_pars:get_phone_number(chunk)
+		if_debug("remote_control", "AT", "ANSWER", sms_phone_number, "[modem.lua]: +CMGR Sender Phone Number")
+		local sms_command = remote_control_pars:get_sms_text(chunk)
+		if_debug("remote_control", "AT", "ANSWER", sms_command, "[modem.lua]: +CMGR Resive Command")
 	end
 end
 
