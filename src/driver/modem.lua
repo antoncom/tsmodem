@@ -186,7 +186,7 @@ function modem:balance_parsing_and_update(chunk)
     return balance
 end
 
--- Обработчик для 
+-- Обработчик для чтения СМС
 function AtCommandReadSMS()
 	-- Запрос в модем на считывание принятой смс
 	local at_get_sms_counter = "\r\nAT+CMGR=" .. tostring(modem.resive_sms_counter) .. "\r\n"
@@ -315,9 +315,15 @@ function modem:parse_AT_response(chunk)
 		local sms_phone_number = remote_control_pars:get_phone_number(chunk)
 		local sms_command = remote_control_pars:get_sms_text(chunk)
 		-- Запись принятых данных в state: [param, value, command, comment]
-		modem.state:update("remote_control", sms_phone_number, sms_command, "+CMGR:")
+		modem.state:update("remote_control", sms_phone_number, sms_command, "+CMGR:".. tostring(modem.resive_sms_counter))
 		if_debug("remote_control", "AT", "ANSWER", sms_phone_number, "[modem.lua]: +CMGR Sender Phone Number")
 		if_debug("remote_control", "AT", "ANSWER", sms_command, "[modem.lua]: +CMGR Resive Command")
+		-- Удалить все СМС если их колличество больше 10
+		if (modem.resive_sms_counter > 6) then
+			-- Отправить команду в модем на удаление смс 
+			U.write(modem.fds, "AT+CMGD=,1" .. "\r\n")
+			if_debug("remote_control", "AT", "ANSWER", modem.resive_sms_counter, "[modem.lua]: SMS storage limited. Delete all read messages.")
+		end
 	end
 end
 
