@@ -122,6 +122,13 @@ state.switching[1] = {
 	unread = ""
 }
 
+state.remote_control = {}
+state.remote_control[1] = {
+    command = "",
+    value = "",
+    time = "",
+    unread = ""
+}
 
 local ubus_methods = {
     ["tsmodem.driver"] = {
@@ -378,6 +385,14 @@ local ubus_methods = {
                 end
                 if_debug("automation", "UBUS", "ANSWER", resp, "")
                 state.conn:reply(req, resp);
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+        -- Дистанционное управление по СМС.
+        remote_control = {
+            function(req, msg)
+                local resp = makeResponse("remote_control")
+                state.conn:reply(req, resp);
+
             end, {id = ubus.INT32, msg = ubus.STRING }
         },
     }

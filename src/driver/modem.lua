@@ -305,7 +305,7 @@ function modem:parse_AT_response(chunk)
 	-- Реакция на получение нового SMS.
 	elseif chunk:find("+CMTI:") then
 		modem.resive_sms_counter = remote_control_pars:get_sms_count(chunk)
-		if_debug("remote_control", "AT", "NOTIFY", modem.resive_sms_counter, "[modem.lua]: +CMTI new sms receive, sms count=" .. tostring(resive_sms_counter))
+		if_debug("remote_control", "AT", "NOTIFY", modem.resive_sms_counter, "[modem.lua]: +CMTI new sms receive, sms count=" .. tostring(modem.resive_sms_counter))
 		-- Задержка для модема, дающая время на обработку запроса
 		modem.read_sms_timer = uloop.timer(AtCommandReadSMS)
 		modem.read_sms_timer:set(3000) -- Задержка 3 сек
@@ -313,8 +313,10 @@ function modem:parse_AT_response(chunk)
 	-- Обработать ответ и выделить тело смс.
 	elseif chunk:find("+CMGR:") then
 		local sms_phone_number = remote_control_pars:get_phone_number(chunk)
-		if_debug("remote_control", "AT", "ANSWER", sms_phone_number, "[modem.lua]: +CMGR Sender Phone Number")
 		local sms_command = remote_control_pars:get_sms_text(chunk)
+		-- Запись принятых данных в state: [param, value, command, comment]
+		modem.state:update("remote_control", sms_phone_number, sms_command, "+CMGR:")
+		if_debug("remote_control", "AT", "ANSWER", sms_phone_number, "[modem.lua]: +CMGR Sender Phone Number")
 		if_debug("remote_control", "AT", "ANSWER", sms_command, "[modem.lua]: +CMGR Resive Command")
 	end
 end
