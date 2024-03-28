@@ -67,6 +67,7 @@ function rule:make()
 	self:load("title"):modify():debug()
 	self:load("sms_phone_number_recive"):modify():debug()
 	self:load("sms_command_recive"):modify():debug()
+	self:load("trusted_phone_numbers"):modify():debug()
 end
 
 ---[[ Initializing. Don't edit the code below ]]---
