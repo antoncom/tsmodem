@@ -15,8 +15,18 @@ end
 
 -- Парсер тела команды из смс.
 function parser_sms:get_sms_text(text)
-    local start_index = string.find(text, "bash:") + 6
-    return text:sub(start_index, start_index+30)
+	-- Находим начало подстроки
+	local start_pos, end_pos = text:find("bash: ")
+	-- Находим конец подстроки 		
+	local _, end_text_pos = text:find("\r\n", end_pos)
+	if start_pos and end_text_pos then
+		-- Извлекаем текст между "bash: " и "\r\n"
+    	local extracted_text = text:sub(end_pos + 1, end_text_pos - 1) 
+    	-- Выводим извлеченный текст
+    	return extracted_text 
+	else
+    	return nil
+	end
 end
 
 -- Парсер АТ-команды, сообщающей о поступлении смс.
