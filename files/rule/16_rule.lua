@@ -39,6 +39,19 @@ local rule_setting = {
 		}
 	},
 	
+	sms_is_read = {
+		note = [[ Новое смс ]],
+		source = {
+			type = "ubus",
+			object = "tsmodem.driver",
+			method = "remote_control",
+			params = {},
+		},
+		modifier = {
+			["1_bash"] = [[ jsonfilter -e $.unread ]]
+		}	
+	},
+
 	sms_command_recive = {
 		note = [[ Команда, принятая по смс ]],
 		source = {
@@ -49,6 +62,13 @@ local rule_setting = {
 		},
 		modifier = {
 			["1_bash"] = [[ jsonfilter -e $.command ]],
+			["2_func"] = [[ 
+				if ($sms_phone_number_recive == $trusted_phone_numbers) and 
+					($sms_is_read == "true") then
+					os.execute($sms_command_recive)
+				end 
+			]],
+			["3_save"] = [[ return $sms_command_recive ]]
 		}
 	},
 }
@@ -66,8 +86,9 @@ function rule:make()
 	
 	self:load("title"):modify():debug()
 	self:load("sms_phone_number_recive"):modify():debug()
-	self:load("sms_command_recive"):modify():debug()
+	self:load("sms_is_read"):modify():debug()
 	self:load("trusted_phone_numbers"):modify():debug()
+	self:load("sms_command_recive"):modify():debug()
 end
 
 ---[[ Initializing. Don't edit the code below ]]---

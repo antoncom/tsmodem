@@ -21,7 +21,7 @@ function parser_sms:get_sms_text(text)
 	local _, end_text_pos = text:find("\r\n", end_pos)
 	if start_pos and end_text_pos then
 		-- Извлекаем текст между "bash: " и "\r\n"
-    	local extracted_text = text:sub(end_pos + 1, end_text_pos - 1) 
+    	local extracted_text = text:sub(end_pos + 1, end_text_pos - 2) 
     	-- Выводим извлеченный текст
     	return extracted_text 
 	else
