@@ -1,6 +1,7 @@
 local lpeg = require "lpeg"
 local log = require "tsmodem.util.log"
 local uci = require "luci.model.uci".cursor()
+--local ucs2_ascii = require "tsmodem.parserucs2_ascii"
 
 function comma_to_point(s)
 	local r = s:gsub(",", ".")
@@ -13,10 +14,15 @@ function balance(sim_id)
 	local n_RUB = balance_mask and balance_mask:find("__RUB__")
 	local first_chunk = n_RUB and balance_mask:sub(1, n_RUB - 1) or ""
 
+	--print("provider_id:", provider_id)
+	--print("balance_mask:", balance_mask)
+	--print("first_chunk:", first_chunk)
+	--print("n_RUB:", n_RUB)
+
 	local spc = lpeg.S(" \t\n\r")^0
 
-	local balance_value = spc * lpeg.P("+CUSD: ") * lpeg.P(lpeg.R('09')^-2) * ',"' *
-								lpeg.P(first_chunk) * spc *
+	--local balance_value = spc * lpeg.P("+CUSD: ") * lpeg.P(lpeg.R('09')^-2) * ',"' *
+	local balance_value = spc * lpeg.P(first_chunk) * spc *
 								lpeg.C(
 									lpeg.P('-')^-1 *
 								 	lpeg.R('09')^0 *
@@ -39,7 +45,6 @@ return balance
 --print(balance(1):match(text))
 
 -- [[ BEELINE ]]
--- local text = [[+CUSD: 2," Vash balans 510.20 r.
--- Slushajte 200 radiostantsij s bilajnom 1 den\' besplatno! Podkl: *279#]]
--- print(text)
--- print(balance(1):match(text))
+--local text = [[1201.5 р.]]
+--print("text:", text)
+--print("balance:",balance(1):match(text))

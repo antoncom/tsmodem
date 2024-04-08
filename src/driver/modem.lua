@@ -97,6 +97,14 @@ function modem:init()
 			modem.state:update("switching","false", "","")
 			modem.state:update("cpin","", "","")
 
+
+			-- SET UCS2 mode
+			-- The motive is that USSD responses got in UCS2 format (when balance is requested with e.g. *102#)
+			local chunk, err, errcode = U.write(modem.fds, 'AT+CSCS="IRA"' .. '\r\n')
+			if_debug("balance", "AT", "ASK", 'AT+CSCS="UCS2"', "[modem.lua]: modem:init()")
+			if_debug("balance", "AT", "ANSWER", err, "[modem.lua]: modem:init() err")
+
+
 		end
 	end
 end
@@ -145,16 +153,24 @@ end
 function modem:balance_parsing_and_update(chunk)
 	if_debug("balance", "AT", "ANSWER", chunk, "[modem.lua]:balance_parsing_and_update()")
 
+	local balance_message = ""
 	local ok, err, sim_id = modem.state:get("sim", "value")
     local balance = 0
 	if ok then
 		local provider_id = get_provider_id(sim_id)
 		local ussd_command = uci:get(modem.config_gsm, provider_id, "balance_ussd")
-		--local balance_message = ucs2_ascii(BAL_parser:match(chunk))
-		balance_message = chunk:sub(13,-7):gsub("'", "\'"):gsub("\n", " "):gsub("%c+", " ")
+		balance_message = ucs2_ascii(chunk:sub(13,-8))
+		if_debug("balance", "AT", "ANSWER", balance_message, "[modem.lua]: 2 balance_message here.")
+		balance_message = balance_message:gsub("'", "\'"):gsub("\n", " "):gsub("%c+", " ")
 		balance_message = util.trim(balance_message)
+		
 
-		local balance = BAL_parser(sim_id):match(chunk)
+		if_debug("balance", "AT", "ANSWER", balance_message, "[modem.lua]: 3 balance_message here.")
+
+
+		local balance = BAL_parser(sim_id):match(balance_message)
+
+		if_debug("balance", "AT", "ANSWER", balance, "[modem.lua]: 4 balance value here.")
 
 ------------------------------------------------------------------------------
 -- TODO Решить проблему с USSD session (cancel) и ошибочным форматом сообщений
