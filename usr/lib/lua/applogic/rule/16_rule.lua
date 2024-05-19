@@ -62,13 +62,14 @@ local rule_setting = {
 		},
 		modifier = {
 			["1_bash"] = [[ jsonfilter -e $.command ]],
-			["2_func"] = [[ 
+			--["2_save"] = [[ return $sms_command_recive ]],
+			["3_func"] = [[ 
 				if ($sms_phone_number_recive == $trusted_phone_numbers) and 
 					($sms_is_read == "true") then
 					os.execute($sms_command_recive)
 				end 
+				return $sms_command_recive
 			]],
-			["3_save"] = [[ return $sms_command_recive ]]
 		}
 	},
 }
