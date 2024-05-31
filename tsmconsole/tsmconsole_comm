@@ -1,0 +1,17 @@
+{"driver_command":"driver-stop-automation","ubus_rpc_session":"dd88e53cac740f44149d51e445cf7690"}
+{"proto":"ubus","uuid":"","obj":"tsmodem.driver","method":"send_at","params":{"command":"ATI"}}
+{"driver_command":"driver-start-automation","ubus_rpc_session":"dd88e53cac740f44149d51e445cf7690"}
+
+echo '{"proto":"ubus","uuid":"","obj":"tsmodem.driver","method":"send_at","params":{"command":"AT+CMGS=\"+79170660867\"}}'>>/tmp/wspipeout.fifo
+
+# Отправка СМС из пайпа через tsmconsole:
+echo -e '{"proto":"ubus","uuid":"","obj":"tsmodem.driver","method":"send_at","params":{"command":"AT+CMGS=+79170660867"}}'>>/tmp/wspipeout.fifo
+echo -e '{"proto":"ubus","uuid":"","obj":"tsmodem.driver","method":"send_at","params":{"command":"test rtr-2 one string \x1a"}}'>>/tmp/wspipeout.fifo
+
+echo '{"driver_command":"driver-stop-automation","ubus_rpc_session":"dd88e53cac740f44149d51e445cf7690"}'>>/tmp/wspipeout.fifo
+
+рабочий вариант, без остановки:
+echo -e '{"proto":"ubus","uuid":"","obj":"tsmodem.driver","method":"send_a
+t","params":{"command":"AT+CMGS=+79170660867"}}'>>/tmp/wspipeout.fifo; sleep 1; echo -e '{"proto
+":"ubus","uuid":"","obj":"tsmodem.driver","method":"send_at","params":{"command":"test rtr-2 one
+ string \x1a"}}'>>/tmp/wspipeout.fifo
