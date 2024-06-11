@@ -327,6 +327,13 @@ function modem:parse_AT_response(chunk)
 	end
 end
 
+function modem:send_sms()
+	if checkubus(modem.state.conn, "tsmodem.console", "send_sms") then
+		-- Если есть данные в убас, сгенерировать на их основе ат-команду. 
+		-- Записать команду в модем.
+	end
+end
+
 function modem:send_AT_responce_to_webconsole(chunk)
 	-- Send notification only when web-cosole is opened. E.g. when modem automation mode is "stop".
 	if modem.automation == "stop" then
