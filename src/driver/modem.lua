@@ -328,10 +328,15 @@ function modem:parse_AT_response(chunk)
 end
 
 function modem:send_sms()
-	if checkubus(modem.state.conn, "tsmodem.console", "send_sms") then
-		-- Если есть данные в убас, сгенерировать на их основе ат-команду. 
-		-- Записать команду в модем.
+	local ok, err, send_sms_command = modem.state:get("send_sms", "command")
+	if ok then
+		if_debug("send_sms", "AT", "ANSWER", send_sms_command, "[modem.lua]: SMS command")
 	end
+	local ok, err, send_sms_value = modem.state:get("send_sms", "value")
+	if ok then
+		if_debug("send_sms", "AT", "ANSWER", send_sms_value, "[modem.lua]: SMS value")
+	end
+
 end
 
 function modem:send_AT_responce_to_webconsole(chunk)

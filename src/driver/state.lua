@@ -1,427 +1,576 @@
 
-local socket = require "socket"
 local bit = require "bit"
 local uci = require "luci.model.uci".cursor()
 local util = require "luci.util"
 local log = require "tsmodem.util.log"
 local uloop = require "uloop"
-local sys  = require "luci.sys"
 
 local M = require 'posix.termio'
 local F = require 'posix.fcntl'
 local U = require 'posix.unistd'
 
--- Constants & utils
-local CNSMODES = require 'tsmodem.constants.cnsmodes'
-local AT_RELATED_UBUS_METHODS = require 'tsmodem.constants.AT_related_ubus_methods'
-require "tsmodem.util.split_string"
 require "tsmodem.driver.util"
-local checkubus = require "tsmodem.util.checkubus"
+local CREG_STATE = require "tsmodem.constants.creg_state"
 local balance_event_keys = require "tsmodem.constants.balance_event_keys"
 
 
--- Parsers
-local CPIN_parser = require 'tsmodem.parser.cpin' -- not needed anymore
-local CREG_parser = require 'tsmodem.parser.creg'
-local CSQ_parser = require 'tsmodem.parser.csq'
-local CUSD_parser = require 'tsmodem.parser.cusd'
-local SMS_parser = require 'tsmodem.parser.sms'
-local BAL_parser = require 'tsmodem.parser.balance'
-local CNSMOD_parser = require 'tsmodem.parser.cnsmod'
-local ucs2_ascii = require 'tsmodem.parser.ucs2_ascii'
-local provider_name = require 'tsmodem.parser.provider_name'
-local check_host = require 'tsmodem.parser.hostip'
--- Парссер смс для удаленного управления.
-local remote_control_pars = require'tsmodem.parser.parser_sms'
+local state = {}
+state.conn = nil      -- Link to UBUS
+state.ubus_methods = nil
 
-local modem = {}
-modem.debug = (uci:get("tsmodem", "debug", "enable") == "1") and true
-modem.debug_type = uci:get("tsmodem", "debug", "type")
+state.modem = nil
+state.stm = nil
+state.timer = nil
 
-modem.device = arg[1] or '/dev/ttyUSB1'         -- First port
-modem.fds = nil                                 -- File descriptor for /dev/ttyUSB2
-modem.fds_ev = nil      						-- Event loop descriptor
-modem.ws_fds = nil								-- Websocket file descriptor
-modem.ws_fds_ev = nil
-modem.ws_pipeout_file = "/tmp/wspipeout.fifo"	-- Gwsocket creates it
-modem.ws_pipein_file = "/tmp/wspipein.fifo" -- Gwsocket creates it
-
-
-modem.automation = "run"						-- "run" or "stop" are only possible
-												-- "run" means gather modem state, sending AT-commands automatically (see timer.lua)
-												-- "stop" means don't gather the one. It is used when user open SIM-setting panel in the web UI
-												-- Also, "stop" is used when user needs to send AT manualy via web-console, or via "send_at" ubus method
--- [[ UCI staff ]]
-modem.config = "tsmodem"
-modem.config_gsm = "tsmodem_adapter_provider"
-modem.section = "sim"
-modem.resive_sms_counter = nil
-modem.read_sms_timer = nil
-
-
-function modem:init()
-	if not self:is_connected(modem.fds) then
-		modem:unpoll()
-		if modem.fds then
-			U.close(modem.fds)
-			modem.state:update("usb", "disconnected", modem.device .. " close")
-			modem.state:update("reg", "7", "AT+CREG?")
-			modem.state:update("signal", "", "AT+CSQ")
-			modem.state:update("cpin","", "","")
-		end
-
-		local fds, err, errnum = F.open(modem.device, bit.bor(F.O_RDWR, F.O_NONBLOCK))
-		if fds then
-			M.tcsetattr(fds, 0, {
-			   cflag = M.B115200 + M.CS8 + M.CLOCAL + M.CREAD,
-			   iflag = M.IGNPAR,
-			   oflag = M.OPOST,
-			   cc = {
-			      [M.VTIME] = 0,
-			      [M.VMIN] = 1,
-			   }
-			})
-			modem.fds = fds
-
-			local ok, err, sim_id = modem.state:get("sim", "value")
-			if ok and (sim_id == "1" or sim_id == "0") then
-                local provider_id = get_provider_id(sim_id)
-				local apn_provider = uci:get(modem.config_gsm, provider_id, "gate_address") or "APNP"
-				local apn_network = uci:get("network", "tsmodem", "apn") or "APNN"
-				if(apn_provider ~= apn_network) then
-					uci:set("network", "tsmodem", "apn", apn_provider)
-					uci:save("network")
-					uci:commit("network")
-				end
-			end
-
-			modem.state:update("usb", "connected", modem.device .. " open", "")
-			modem.state:update("reg", "7", "AT+CREG?", "")
-			modem.state:update("signal", "", "AT+CSQ", "")
-			modem.state:update("switching","false", "","")
-			modem.state:update("cpin","", "","")
-
-		end
-	end
+state.init = function(modem, stm, timer)
+    state.modem = modem
+    state.stm = stm
+    state.timer = timer
+    return state
 end
 
+--[[ STATE VARIABLES. UBUS IS USED TO GET ITS' VALUES ]]
+-- It helps to make Journal records in Web UI
+state.queue_for = {"stm32", "usb", "reg", "netmode", "provider_name"}
 
---[[
-	Modem driver checks if http session is active.
-	If the http session is expired or user logged off from UI,
-	then Modem driver go back to 'run' mode automatically.
-]]
-function modem:check_session_and_set_automation_mode()
---[[ 	Session is considered as Alive under all these conditions:
-		- Ubus RPC session exists and equals to console.session (got from UI)
-]]
-	local check_result = false
-
-	if checkubus(modem.state.conn, "tsmodem.console", "session") then
-		local console_session = util.ubus("tsmodem.console", "session", {})
-		if console_session then
-			local console_sess = console_session["ubus_rpc_session"] or nil
-			local modal_sess = console_session["modal"] or nil
-
-
-			local ubus_sess = util.ubus("session", "get", {
-				ubus_rpc_session = console_sess
-			})
-			if (ubus_sess and modal_sess == "opened") then
-				modem.automation = "stop"
-				return
-			else
-				modem.automation = "run"
-				return
-			end
-		end
-	end
-	modem.automation = "run"
-	return
-end
-
-
-
-function modem:is_connected(fd)
-	return fd and U.isatty(fd)
-end
-
-function modem:balance_parsing_and_update(chunk)
-	if_debug("balance", "AT", "ANSWER", chunk, "[modem.lua]:balance_parsing_and_update()")
-
-	local ok, err, sim_id = modem.state:get("sim", "value")
-    local balance = 0
-	if ok then
-		local provider_id = get_provider_id(sim_id)
-		local ussd_command = uci:get(modem.config_gsm, provider_id, "balance_ussd")
-		--local balance_message = ucs2_ascii(BAL_parser:match(chunk))
-		balance_message = chunk:sub(13,-7):gsub("'", "\'"):gsub("\n", " "):gsub("%c+", " ")
-		balance_message = util.trim(balance_message)
-
-		local balance = BAL_parser(sim_id):match(chunk)
-
-------------------------------------------------------------------------------
--- TODO Решить проблему с USSD session (cancel) и ошибочным форматом сообщений
-------------------------------------------------------------------------------
-
-		if (balance and type(balance) == "number") then --[[ if balance value is OK ]]
-			modem.state:update("balance", balance, ussd_command, balance_message)
-			uci:set(modem.config_gsm, provider_id, "balance_last_message", balance_message)
-			uci:commit(modem.config_gsm)
-			if_debug("balance", "AT", "ANSWER", balance, "[modem.lua]: Got balance OK.")
-		else
-			if(#balance_message > 0) then -- If balance message template is wrong
-				modem.state:update("balance", "", ussd_command, balance_message)
-				if_debug("balance", "AT", "ANSWER", balance_message, "[modem.lua]: balance_message when parsed can't fetch value.")
-			elseif(chunk:find("+CUSD: 2") and #chunk <= 12) then -- we need send USSD once again
-				modem.state:update("balance", "", ussd_command, balance_message)
-				if_debug("balance", "AT", "ANSWER", chunk, "[modem.lua]: chunk when balance_message is empty.")
-				return ""
-			end
-		end
-
-	else
-		util.perror('driver.lua : ' .. err)
-	end
-    return balance
-end
-
--- Обработчик для чтения СМС
-function AtCommandReadSMS()
-	-- Запрос в модем на считывание принятой смс
-	local at_get_sms_counter = "\r\nAT+CMGR=" .. tostring(modem.resive_sms_counter) .. "\r\n"
-	U.write(modem.fds, at_get_sms_counter)
-	if_debug("remote_control", "AT", "ANSWER", at_get_sms_counter, "[modem.lua]: Send AT to read SMS")
-	modem.read_sms_timer:cancel() -- отмена таймера
-end
-
-function modem:parse_AT_response(chunk)
-	if (chunk:find("+CME ERROR") or chunk:find("+CPIN: READY") or chunk:find("+SIMCARD: NOT AVAILABLE")) then
-		local cpin = CPIN_parser:match(chunk)
-		if cpin then
-			modem.state:update("cpin", cpin, "AT+CPIN?", "")
-			if_debug("cpin", "AT", "ANSWER", cpin, "[modem.lua]: +CME ERROR, +CPIN: READY or +SIMCARD: NOT AVAILABLE parsed.")
-			if (cpin == "false" or cpin == "failure") then return end
-		end
-	elseif chunk:find("+CREG:") then
-		local creg = CREG_parser:match(chunk)
-		if_debug("reg", "AT", "ANSWER", creg, "[modem.lua]: +CREG parsed.")
-		if creg and creg ~= "" then
-
-			--[[ START PING AND GET BALANCE AS SOON AS SIM REGISTERED AND CONNECTION ESTABLISHED ]]
-			--[[ But wait 3 seconds before do it to ensure that the connection is stable ]]
-			local ok, err, lastreg = modem.state:get("reg", "value")
-			if(lastreg ~= "1" and creg =="1") then
-
-				-- local timer_CUSD_SINCE_SIM_REGISTERED
-				-- function t_CUSD_SINCE_SIM_REGISTERED()
-				-- 	local ok, err, reg = modem.state:get("reg", "value")
-				-- 	if(reg == "1") then
-				-- 		if(modem:is_connected(modem.fds)) then
-				-- 			local ok_reg, err, reg = modem.state:get("reg", "value")
-				-- 			if ok_reg and reg == "1" then
-				-- 				local ok_sim, err, sim_id = modem.state:get("sim", "value")
-				-- 				if ok_sim and (sim_id == "0" or sim_id =="1") then
-				-- 					local provider_id = get_provider_id(sim_id)
-				--
-				-- 					local ussd_command = string.format("AT+CUSD=2,%s,15\r\n", tostring(uci:get(modem.config_gsm, provider_id, "balance_ussd")))
-				-- 					if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("----->>> Cancel USSD session before start new one: "..ussd_command) end
-				--
-				-- 					--[[ Stop USSD here while testing other features to avoid USSD blocking ]]
-				-- 					local chunk, err, errcode = U.write(modem.fds, ussd_command)
-				--
-				-- 					local ussd_command = string.format("AT+CUSD=1,%s,15\r\n", tostring(uci:get(modem.config_gsm, provider_id, "balance_ussd")))
-				-- 					if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print("----->>> Sending BALANCE REQUEST ASAP SIM REGISTERED: "..ussd_command) end
-				-- 					local chunk, err, errcode = U.write(modem.fds, ussd_command)
-				--
-				-- 					modem.last_balance_request_time = os.time() -- Do it each time USSD request runs
-				--
-				-- 					modem.timer.PING:set(modem.timer.interval.ping)
-				-- 				end
-				-- 			end
-				-- 		end
-				-- 	end
-				-- end
-				-- timer_CUSD_SINCE_SIM_REGISTERED = uloop.timer(t_CUSD_SINCE_SIM_REGISTERED, 3000)
-
-				-- modem.state:update("balance", balance_event_keys["get-balance-in-progress"], ussd_command, balance_message)	    -- set "in progres" balance state
-				-- modem.timer.BAL_TIMEOUT:set(modem.timer.timeout["balance"])					-- clear balance state after timeout
-				--
-				-- if (modem.debug and (modem.debug_type == "balance" or modem.debug_type == "all")) then print(string.format("[modem.lua]: updated balance state: 'in progress', %s, %s", tostring(ussd_command), tostring(balance_message))) end
-
-			end
-
-			modem.state:update("reg", creg, "AT+CREG?", "")
-			modem.state:update("usb", "connected", modem.device .. " open", "")
-		end
-	elseif chunk:find("+CSQ:") then
-		local signal = CSQ_parser:match(chunk)
-		if_debug("signal", "AT", "ANSWER", signal, "[modem.lua]: +CSQ parsed every " .. tostring(modem.timer.interval.signal).."ms")
-		local no_signal_aliase = {"0", "99", "31", "nil", nil, ""}
-		if not util.contains(no_signal_aliase, signal) then
-			signal = tonumber(signal) or false
-			if (signal and signal > 0 and signal <= 30) then signal = math.ceil(signal * 100 / 31) else signal = "" end
-		else
-			signal = ""
-		end
-		modem.state:update("signal", tostring(signal), "AT+CSQ", "")
-	elseif chunk:find("+CUSD:") then
-		modem:balance_parsing_and_update(chunk)
-		--[[ Parse and update 3G/4G mode ]]
-	elseif chunk:find("+CNSMOD:") then
-		local netmode = CNSMOD_parser:match(chunk) or ""
-		if((tonumber(netmode) ~= nil) and tonumber(netmode) <= 16) then
-			if(CNSMODES[netmode] ~= nil) then
-				modem.state:update("netmode", CNSMODES[netmode]:split("|")[2]:gsub("%s+", "") or "", "AT+CNSMOD?", CNSMODES[netmode])
-			else
-				modem.state:update("netmode", netmode, "AT+CNSMOD?", CNSMODES["0"])
-			end
-		end
-		if_debug("netmode", "AT", "ANSWER", netmode, "[modem.lua]: parse_AT_response() +NSMOD parsed.")
-		-- if (modem.debug and (modem.debug_type == "netmode" or modem.debug_type == "all")) then
-		-- 	local cnsmode = CNSMODES[netmode] or " | "
-		-- 	print("AT says: ","+NSMOD", tostring(modem.timer.interval.netmode).."ms", cnsmode:split("|")[2]:gsub("%s+", "") or "", "","","","Note: GSM mode")
-		-- end
-	elseif chunk:find("+NITZ") then
-		local pname = provider_name:match(chunk)
-		if pname and pname ~= "" then
-			modem.state:update("provider_name", pname, "+NITZ", "")
-		end
-		if_debug("provider", "AT", "ANSWER", pname, "[modem.lua]: parse_AT_response() +NITZ parsed every " .. tostring(modem.timer.interval.provider).."ms.")
-
-	elseif chunk:find("+COPS:") then
-		local pcode = chunk:split('\"')
-		local pname = ""
-		if pcode and pcode[2] then
-			uci:foreach(modem.config_gsm, "adapter", function(sec)
-				if sec.code == pcode[2] then
-					pname = sec.name
-					modem.state:update("provider_name", pname, "AT+COPS?", pcode[2])
-				end
-			end)
-		end
-		if_debug("provider", "AT", "ANSWER", pname, "[modem.lua]: parse_AT_response() +COPS parsed every " .. tostring(modem.timer.interval.provider).."ms.")
-	
-	-- Реакция на получение нового SMS.
-	elseif chunk:find("+CMTI:") then
-		modem.resive_sms_counter = remote_control_pars:get_sms_count(chunk)
-		if_debug("remote_control", "AT", "NOTIFY", modem.resive_sms_counter, "[modem.lua]: +CMTI new sms receive, sms count=" .. tostring(modem.resive_sms_counter))
-		-- Задержка для модема, дающая время на обработку запроса
-		modem.read_sms_timer = uloop.timer(AtCommandReadSMS)
-		modem.read_sms_timer:set(3000) -- Задержка 3 сек
-
-	-- Обработать ответ и выделить тело смс.
-	elseif chunk:find("+CMGR:") then
-		local sms_phone_number = remote_control_pars:get_phone_number(chunk)
-		local sms_command = remote_control_pars:get_sms_text(chunk)
-		-- Запись принятых данных в state: [param, value, command, comment]
-		modem.state:update("remote_control", sms_phone_number, sms_command, "+CMGR:".. tostring(modem.resive_sms_counter))
-		if_debug("remote_control", "AT", "ANSWER", sms_phone_number, "[modem.lua]: +CMGR Sender Phone Number")
-		if_debug("remote_control", "AT", "ANSWER", sms_command, "[modem.lua]: +CMGR Resive Command")
-		-- Удалить все СМС если их колличество больше 10
-		if (modem.resive_sms_counter > 6) then
-			-- Отправить команду в модем на удаление смс 
-			U.write(modem.fds, "AT+CMGD=,1" .. "\r\n")
-			if_debug("remote_control", "AT", "ANSWER", modem.resive_sms_counter, "[modem.lua]: SMS storage limited. Delete all read messages.")
-		end
-	end
-end
-
-function modem:send_sms()
-	if checkubus(modem.state.conn, "tsmodem.console", "send_sms") then
-		-- Если есть данные в убас, сгенерировать на их основе ат-команду. 
-		-- Записать команду в модем.
-	end
-end
-
-function modem:send_AT_responce_to_webconsole(chunk)
-	-- Send notification only when web-cosole is opened. E.g. when modem automation mode is "stop".
-	if modem.automation == "stop" then
-		modem.state.conn:notify( modem.state.ubus_methods["tsmodem.driver"].__ubusobj, "AT-answer", {answer = chunk} )
-		if (modem.debug and (util.contains(AT_RELATED_UBUS_METHODS, modem.debug_type) or modem.debug_type == "all")) then
-			if_debug(modem.debug_type, "UBUS", "NOTIFY", {answer = chunk}, "[modem.lua]: tsmodem.driver notifies subscribers, e.g. when AT-response sent to web-console.")
-		end
-	end
-end
-
-function modem:poll()
-	if (modem.fds_ev == nil) and modem:is_connected(modem.fds) then
-
-		modem.fds_ev = uloop.fd_add(modem.fds, function(ufd, events)
-
-			local message_from_browser, message_to_browser = "", ""
-			local chunk, err, errcode = U.read(modem.fds, 1024)
-			if not err then
-				modem:parse_AT_response(chunk)
-				modem:send_AT_responce_to_webconsole(chunk)
-			else
-				if (modem.debug and (util.contains(AT_RELATED_UBUS_METHODS, modem.debug_type) or modem.debug_type == "all")) then
-					if_debug(modem.debug_type, "FILE", "POLL", "ERROR", "[modem.lua]: " .. string.format("tsmodem: U.read(modem.fds, 1024) ERROR CODE: %s", tostring(errcode)))
-				end
-			end
-
-		end, uloop.ULOOP_READ)
-
-	end
-
-end
-
-function modem:unpoll()
-	if(modem.fds_ev) then
-		modem.fds_ev:delete()
-		modem.fds_ev = nil
-	end
-	if (modem.debug) then print("MODEM UNPOLL") end
-end
-
---[[
-Sometime we need to stop automation. For example,
-when user click "Setting" of the SIM card in the web UI, then
-automation may give him a surprise (switching SIM card while user is editting setting).
-To give user a possibility to complete the settings we must stop any automation
-]]
-function modem:run_automation()
-	modem.automation = "run"
-end
-
-function modem:stop_automation()
-	modem.automation = "stop"
-end
-
-
--- [[ Initialize ]]
-local metatable = {
-	__call = function(modem, state, stm, timer)
-        modem.state = state
-        modem.timer = timer
-        modem.stm = stm
-
-        modem.state.init(modem, stm, timer)
-        modem.stm.init(modem, state, timer)
-        modem.timer.init(modem, state, stm)
-
-        modem.state:make_ubus()
-
-		uloop.init()
-		modem:poll()
-
-		timer.general:set(timer.interval.general)
-		timer.CPIN:set(timer.interval.cpin)
-		timer.CREG:set(timer.interval.reg)
-		timer.CSQ:set(timer.interval.signal)
-		-- timer.CUSD:set(1000)
-		timer.COPS:set(timer.interval.provider)
-		timer.CNSMOD:set(timer.interval.netmode)
-		timer.PING:set(timer.interval.ping)
-
-		uloop.run()
-
-
-		state.conn:close()
-
-		return table
-	end
+state.stm32 = {}
+state.stm32[1] = {
+	command = "",
+	value = "",					-- 0 / 1 / OK / ERROR
+	time = "",
+	unread = ""
 }
-setmetatable(modem, metatable)
 
-return modem
+state.cpin = {}
+state.cpin[1] = {
+	command = "",
+	value = "",					-- "true" or "false" mean sim is inserted or not
+	time = "",
+	unread = ""
+}
+
+state.reg = {}
+state.reg[1] = {
+	command = "",
+	value = "",					-- 0 / 1 / 2 / 3 / 4 / 5 / 6 / 7
+	time = "",
+	unread = ""
+}
+
+state.sim = {}
+state.sim[1] = {
+    command = "~0:SIM.SEL=?",
+	value = "",					-- 0 / 1
+	time = "",
+	unread = ""
+}
+
+state.signal = {}
+state.signal[1] = {
+	command = "AT+CSQ",
+	value = "",					-- 0..31
+	time = "",
+	unread = "true"
+}
+
+
+state.balance = {}
+state.balance[1] = {
+	command = "",
+	value = "",
+	time = "",
+	unread = ""
+}
+
+state.usb = {}
+state.usb[1] = {
+	command = "", 				-- /dev/ttyUSB open  |  /dev/ttyUSB close
+	value = "",					-- connected / disconnected
+	time = "",
+	unread = ""
+}
+
+state.netmode = {}
+state.netmode[1] = {
+	command = "", 				-- AT+.... __TODO__
+	value = "",					-- _TODO__
+	time = "",
+	unread = "true"
+}
+
+state.provider_name = {}
+state.provider_name[1] = {
+	command = "",
+	value = "",
+	time = "",
+	unread = ""
+}
+
+state.ping = {}
+state.ping[1] = {
+	command = "",
+	value = "",
+	time = "",
+	unread = ""
+}
+
+state.switching = {}
+state.switching[1] = {
+	command = "",
+	value = "",          -- true or false
+	time = "",
+	unread = ""
+}
+
+state.remote_control = {}
+state.remote_control[1] = {
+    command = "",
+    value = "",
+    time = "",
+    unread = ""
+}
+
+-- command - sms text
+-- value - phone number
+state.send_sms = {}
+state.send_sms[1] = {
+    command = "",
+    value = "",
+    time = "",
+    unread = ""
+}
+
+local ubus_methods = {
+    ["tsmodem.driver"] = {
+        cpin = {
+            function(req, msg)
+                local resp = makeResponse("cpin")
+                state.conn:reply(req, resp);
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+        reg = {
+            function(req, msg)
+                local resp = makeResponse("reg")
+                state.conn:reply(req, resp);
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+
+        sim = {
+            function(req, msg)
+                local resp = makeResponse("sim")
+                state.conn:reply(req, resp);
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+
+        signal = {
+            function(req, msg)
+                local resp = makeResponse("signal")
+                state.conn:reply(req, resp);
+
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+
+        balance = {
+            function(req, msg)
+                local resp = makeResponse("balance")
+                state.conn:reply(req, resp);
+
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+
+        do_request_ussd_balance = {
+            function(req, msg)
+                local sim_id_settings = msg["sim_id"] or "empty"
+                local ok, err, sim_id = state:get("sim", "value")
+                local resp = {}
+
+                if(sim_id_settings == sim_id) then
+                    -- local provider_id = get_provider_id(sim_id)
+                    -- state:update("balance", balance_event_keys["get-balance-in-progress"], ussd_command, uci:get(state.modem.config_gsm, provider_id, "balance_last_message"))
+                    --
+                    -- --local ussd_command = string.format("AT+CUSD=2,%s,15\r\n", uci:get(state.modem.config_gsm, provider_id, "balance_ussd"))
+                    -- local ussd_command = string.format("AT+CUSD=2\r\n")
+                    -- if (state.modem.debug and (state.modem.debug_type == "balance" or state.modem.debug_type == "all")) then print("----->>> Cancel USSD session before start new one: "..ussd_command) end
+                    -- local chunk, err, errcode = U.write(state.modem.fds, ussd_command)
+                    --
+                    -- ussd_command = string.format("AT+CUSD=1,%s,15\r\n", tostring(uci:get(state.modem.config_gsm, provider_id, "balance_ussd")))
+                    -- state.modem.last_balance_request_time = os.time() -- Do it each time USSD request runs
+                    -- state.timer.BAL_TIMEOUT:set(state.timer.timeout["balance"])					-- clear balance state after timeout
+                    -- if (state.modem.debug and (state.modem.debug_type == "balance" or state.modem.debug_type == "all")) then print("----->>> Do USSD request: "..ussd_command .. " ... " .. state.timer.timeout["balance"]) end
+                    -- local chunk, err, errcode = U.write(state.modem.fds, ussd_command)
+
+                    resp = {
+                        ["ussd_command"] = ussd_command,
+                        ["chunk"] = chunk,
+                        ["err"] = err,
+                        ["errcode"] = errcode
+                    }
+                else
+                    resp = {
+                        ["error"] = string.format("[sim_id]=%s parameter doesn't match current modem state [sim]=%s", tostring(sim_id_settings), tostring(sim_id))
+                    }
+                end
+
+                state.conn:reply(req, resp);
+
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+
+        usb = {
+            function(req, msg)
+                local resp = makeResponse("usb")
+                state.conn:reply(req, resp);
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+
+        stm32 = {
+            function(req, msg)
+                local resp = makeResponse("stm32")
+                state.conn:reply(req, resp);
+
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+
+        netmode = {
+            function(req, msg)
+                local resp = makeResponse("netmode")
+                state.conn:reply(req, resp);
+
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+
+        provider_name = {
+            function(req, msg)
+                local resp = makeResponse("provider_name")
+                state.conn:reply(req, resp);
+
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+
+        ping = {
+            function(req, msg)
+                local resp = makeResponse("ping")
+                state.conn:reply(req, resp);
+
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+
+        do_switch = {
+            function(req, msg)
+                local resp = {
+    				command = "do_switch",
+    				value = "false",
+    				time = "",
+    				unread = "",
+    				comment = ""
+    			}
+
+                state:update("balance", CREG_STATE["SWITCHING"], "", "")
+
+                if (state.modem.debug) then
+                    print("-----------------------------------------------")
+                    print(string.format('|  DO_SWITCH form [%s]', tostring(msg["rule"])))
+                    print("-----------------------------------------------")
+                end
+
+                local switch_already_started = state:get("switching", "value")
+                if (switch_already_started == "true") then
+                    resp.value = "false"
+                else
+                    state.timer.SWITCH_1:set(state.timer.switch_delay["1_MDM_UNPOLL"])
+                    resp.value = "true"
+                end
+                state.conn:reply(req, resp);
+
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+
+        ping_update = {
+            function(req, msg)
+                if_debug("ping", "UBUS", "ASK", msg, "Note: ping.sh do the job. and call ubus ping_update method.")
+
+                local resp = {}
+                if msg["host"] and msg["value"] and msg["sim_id"] then
+                    local host   = msg["host"]
+                    local value  = msg["value"]
+                    local sim_id = tostring(msg["sim_id"])
+
+                    if value == "1" or value == "0" then
+                        local _,_,active_sim_id = state:get("sim", "value")
+                        if not (sim_id == "1" or sim_id == "0") then
+                            resp = { msg = "Param [sim_id] has to be 0 or 1. Nothing was done. "}
+                        elseif sim_id == active_sim_id then
+                            state:update("ping", value, "ping "..host, "updated via ubus call 'ping_update'")
+                            resp = { msg = "ok" }
+                        elseif sim_id ~= active_sim_id and (sim_id == "0" or sim_id == "1") then
+                            resp = { msg = "Active sim was switched by user or automation rules. So 'ping_update' doesn't affect this time." }
+                        end
+                    else
+                        resp = { msg = "Param [value] has to be 0 or 1. Nothing was done. "}
+                    end
+                else
+                    resp = { msg = "[host], [value] and [sim_id] are required params. Nothing was done." }
+                end
+
+                if_debug("ping", "UBUS", "ANSWER", resp, "Response from ubus ping_update method")
+
+                state.conn:reply(req, resp);
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+
+        switching = {
+            function(req, msg)
+                local resp = makeResponse("switching")
+                state.conn:reply(req, resp);
+
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+
+
+        send_at = {
+            function(req, msg)
+                local resp = {}
+                if_debug("send_at", "UBUS", "ASK", msg, "Note: sends AT command to the modem")
+                if msg["command"] then
+                    if(state.modem:is_connected(state.modem.fds)) then
+                        if (msg["what-to-update"] == "balance") then
+                            state:update("balance", "*", msg["command"], "")
+                            state.timer.BAL_TIMEOUT:set(state.timer.timeout["balance"])	-- clear balance state after timeout
+                            if_debug("balance", "AT", "ASK", msg, "Note: sends AT command to get balance and clear balance state if no AT-answer during " .. tostring(state.timer.timeout["balance"]/60000) .. " min.")
+                        end
+
+                        local chunk, err, errcode = U.write(state.modem.fds, msg["command"] .. "\r\n")
+                        if err then
+                            resp["at_answer"] = "tsmodem [state.lua]: Error of sending AT to modem."
+                        else
+                            if (state.modem.automation == "stop") then
+                                resp["at_answer"] = "UBUS will notify subscribers of tsmodem.driver object with the AT answer."
+                            else
+                                resp["note"] = "UBUS will NOT notify subscribers with AT answer as tsmodem.driver automation is [" .. state.modem.automation .. "]"
+                            end
+                        end
+                    end
+                else
+                    resp["at_answer"] = "Enter AT command like this " .. "'{" .. '"command": "AT+CSQ"' .. "}'"
+                end
+                if_debug("send_at", "UBUS", "ANSWER", msg, "Note: sends AT command to the modem")
+                resp["value"] = "true"
+                state.conn:reply(req, resp);
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+
+        -- [[ Clear all states ]]
+        -- [[ e.g. when we save Sim-settings on the web UI]]
+        clear_state = {
+            function(req, msg)
+                if_debug("clear_state", "UBUS", "ASK", msg, "Note: Clear states, e.g. when we save Sim-settings on the web UI")
+
+                local resp = { res = "OK" }
+    			state:update("reg", "7", "", "")
+    			state:update("signal", "", "", "")
+                state:update("balance", "", "", "")
+                state:update("provider_name", "", "", "")
+                state:update("netmode", "", "", "")
+                state:update("cpin", "", "", "")
+                state:update("ping", "", "", "")
+
+                if_debug("clear_state", "UBUS", "ANSWER", resp, "")
+
+                state.conn:reply(req, resp);
+
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+
+        automation = {
+            function(req, msg)
+                if_debug("automation", "UBUS", "ASK", msg, "Note: Run or Stop Driver automation")
+                if msg and msg["mode"] and msg["mode"] == "run" then
+                    state.modem:run_automation()
+                    resp = { mode = state.modem.automation }
+                elseif msg and msg["mode"] and msg["mode"] == "stop" then
+                    state.modem.stop_automation()
+                    resp = { mode = state.modem.automation }
+                else
+                    resp = { mode = state.modem.automation }
+                end
+                if_debug("automation", "UBUS", "ANSWER", resp, "")
+                state.conn:reply(req, resp);
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+        -- Дистанционное управление по СМС.
+        remote_control = {
+            function(req, msg)
+                local resp = makeResponse("remote_control")
+                state.conn:reply(req, resp);
+
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+        -- Отправка смс:
+        -- command = "sms text"
+        -- value = "phone number"
+        send_sms = {
+            function(req, msg)
+                --local resp = makeResponse("send_sms")
+                if msg["command"] then
+                    state:update("send_sms", msg["value"], msg["command"], "")
+                end
+                state.conn:reply(req, resp);
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+    }
+}
+
+function state:make_ubus()
+	state.conn = ubus.connect()
+	if not state.conn then
+		error("tsmodem: Failed to connect to ubus")
+	end
+
+	-- Сделать перебор очереди статусов, проверяя параметр "unread"
+	-- и выдавать до тех пор пока unread==true
+	function getFirstUnread(name)
+		local n = #state[name]
+		if n > 0 then
+			for i=1, #state[name] do
+				if state[name][i].unread == "true" then
+					return state[name][i]
+				end
+			end
+			-- If no unread states then return the last one.
+            -- if name == "signal" then
+            --     print("+++++", state[name][n].time, #state[name])
+            -- end
+			return state[name][n]
+		end
+		return {}
+	end
+
+	function makeResponse(name)
+		local r, resp = {}, {}
+		local n = #state[name]
+		if (n > 0) then
+			r = getFirstUnread(name)
+			resp = util.clone(r)
+			r["unread"] = "false"
+		else
+			resp = {
+				command = "",
+				value = "",
+				time = "",
+				unread = "",
+				comment = ""
+			}
+		end
+		return resp
+	end
+
+    state.conn:add( ubus_methods )
+    state.ubus_methods = ubus_methods
+end
+
+--[[ For thouse params where queue of state is required ]]
+--[[ see state.queue_for table to define the param names which need queue ]]
+function state:update_queue(param, value, command, comment)
+	local newval = tostring(value)
+
+	local n = #state[param]
+
+	if (n == 0) then
+		local item = {
+			["command"] = command,
+			["value"] = newval,
+			["time"] = tostring(os.time()),
+			["unread"] = "true",
+			["comment"] = comment
+		}
+		state[param][1] = util.clone(item)
+	elseif (n >= 1) then
+		if(state[param][n].value ~= newval or state[param][n].command ~= command) then
+			local item = {
+				["command"] = command,
+				["value"] = newval,
+				["time"] = tostring(os.time()),
+				["unread"] = "true",
+				["comment"] = comment
+			}
+			state[param][n+1] = util.clone(item)
+			if n > 5 then
+				table.remove(state[param], 1)
+			end
+		--[[ Update last time of succesful registration state ]]
+    elseif (param == "reg" and (newval == CREG_STATE["REGISTERED"] or newval == CREG_STATE["SWITCHING"])) then
+			state["reg"][n].time = tostring(os.time())
+		--[[ Update time of last balance ussd request if balance's value is not changed ]]
+        elseif (param == "balance") then
+		    state["balance"][n].time = tostring(os.time())
+		--[[ Update time of last successful ping ]]
+		elseif (param == "ping") and value == "1" then
+			state["ping"][n].time = tostring(os.time())
+		end
+	end
+end
+
+function state:update(param, value, command, comment)
+    local newval = tostring(value)
+
+    if (util.contains(state.queue_for, param)) then
+        state:update_queue(param, value, command, comment)
+    else
+        local n = #state[param]
+        if (n == 0) then
+    		local item = {
+    			["command"] = command,
+    			["value"] = newval,
+    			["time"] = tostring(os.time()),
+    			["unread"] = "true",
+    			["comment"] = comment
+    		}
+    		state[param][1] = util.clone(item)
+        else
+            local _,_,oldval =state:get(param, "value")
+            local _,_,oldcomm = state:get(param, "command")
+            if(oldval ~= newval or oldcomm ~= command) then
+                local item = {
+                    ["command"] = command,
+                    ["value"] = newval,
+                    ["time"] = tostring(os.time()),
+                    ["unread"] = "true",
+                    ["comment"] = comment
+                }
+                state[param][1] = util.clone(item)
+                
+            --[[ IF NOTHING CHANGED THEN UPDATE ONLY TIME ]]
+            --[[ Update last time of succesful registration state ]]
+            elseif (param == "reg" and (newval == CREG_STATE["REGISTERED"] or newval == CREG_STATE["SWITCHING"])) then
+    			state["reg"][1].time = tostring(os.time())
+            --[[ Update last time when signal was Ok ]]
+            elseif (param == "signal") then
+                state["signal"][1].time = tostring(os.time())
+    		--[[ Update time of last balance ussd request if balance's value is not changed ]]
+    		elseif (param == "balance") then
+    			state["balance"][1].time = tostring(os.time())
+    		--[[ Update time of last successful ping ]]
+    		elseif (param == "ping") and value == "1" then
+    			state["ping"][1].time = tostring(os.time())
+            --[[ Update time of last successful cpin ]]
+            elseif (param == "cpin") and value == "true" then
+    			state["cpin"][1].time = tostring(os.time())
+    		end
+        end
+    end
+end
+
+-- returns triplet: noerror, errmsg, value
+function state:get(var, param)
+	local value = ""
+	local v, p = tostring(var), tostring(param)
+	if state[v] and (#state[v] > 0) and state[v][#state[v]][p] then
+		value = state[v][#state[v]][p]
+		return true, "", value
+	else
+		return false, string.format("State Var '%s' or Param '%s' are not found in list of state vars.", tostring(v), tostring(p)), value
+	end
+end
+
+
+return state
