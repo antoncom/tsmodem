@@ -397,7 +397,7 @@ local ubus_methods = {
                 state.conn:reply(req, resp);
             end, {id = ubus.INT32, msg = ubus.STRING }
         },
-        -- Дистанционное управление по СМС.
+        -- Дистанционное управление по СМС. Удалить, т.к. не нужно.
         remote_control = {
             function(req, msg)
                 local resp = makeResponse("remote_control")
@@ -405,14 +405,31 @@ local ubus_methods = {
 
             end, {id = ubus.INT32, msg = ubus.STRING }
         },
+
         -- Отправка смс:
         -- command = "sms text"
         -- value = "phone number"
         send_sms = {
             function(req, msg)
-                --local resp = makeResponse("send_sms")
-                if msg["command"] then
-                    state:update("send_sms", msg["value"], msg["command"], "")
+                local resp = {}
+                -- Проверка, что сообщение не пустое и номер начинается с +7...
+                if #msg["command"] > 0 and string.sub(msg["value"], 1, 2) == "+7" then
+                    if_debug("send_sms", "UBUS", "ASK", msg, "[state.lua]: send_sms")
+                    -- Создание АТ-команды
+                    local at_command_num = "AT+CMGS=" .. msg["value"] .. "\r\n"
+                    local at_command_text = msg["command"]
+                    -- Отправка команды в модем
+                    local chunk, err, errcode = U.write(state.modem.fds, at_command_num)
+                    os.execute("sleep " .. 1)
+                    chunk, err, errcode = U.write(state.modem.fds, at_command_text .. "\26")
+                    -- Формирование ответа в UBUS
+                    if err then
+                        resp["at_answer"] = "tsmodem [state.lua]: Error of sending AT to modem."
+                    else
+                        resp = { res = "OK" }
+                    end
+                else
+                    resp["note"] = "Example: [command] = 'SMS text', [value] = '+79998881234'"
                 end
                 state.conn:reply(req, resp);
             end, {id = ubus.INT32, msg = ubus.STRING }
