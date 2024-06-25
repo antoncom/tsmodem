@@ -28,7 +28,6 @@ timer.interval = {
     netmode = 5000,     -- 4G/3G mode state (checking interval)
     provider = 6000,    -- GSM provider name (autodetection checking interval)
     ping = 4000,        -- Ping GSM network (checking interval)
-    send_sms = 1000,
 
     last_balance_request_time = os.time(),  -- Helper. Need to avoid doing USSD requests too often.
 
@@ -65,7 +64,6 @@ function t_general()
     timer.modem:init()
     timer.modem:poll()
     timer.modem:check_session_and_set_automation_mode()
-    timer.modem:send_sms()
 
     timer.general:set(timer.interval.general)
 end

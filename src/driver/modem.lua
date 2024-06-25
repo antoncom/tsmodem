@@ -327,15 +327,6 @@ function modem:parse_AT_response(chunk)
 	end
 end
 
-function modem:send_sms()
-	--[[local ok_unread, err_unread, send_sms_unread = modem.state:get("send_sms", "unread")
-	if send_sms_unread == true then
-		--local ok_command, err_command, send_sms_command = modem.state:get("send_sms", "command")
-		--local ok_value, err_value, send_sms_value = modem.state:get("send_sms", "value")
-	if_debug("send_sms", "AT", "ANSWER", tostring(ok_unread), "[modem.lua]: Send SMS from " .. tostring(send_sms_unread))
-	end]]
-end
-
 function modem:send_AT_responce_to_webconsole(chunk)
 	-- Send notification only when web-cosole is opened. E.g. when modem automation mode is "stop".
 	if modem.automation == "stop" then
