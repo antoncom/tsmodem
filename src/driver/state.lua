@@ -414,20 +414,21 @@ local ubus_methods = {
                 local resp = {}
                 -- Проверка, что сообщение не пустое и номер начинается с +7...
                 if #msg["command"] > 0 and string.sub(msg["value"], 1, 2) == "+7" then
-                    if_debug("send_sms", "UBUS", "ASK", msg, "[state.lua]: send_sms")
-                    -- Создание АТ-команды
-                    local at_command_num = "AT+CMGS=" .. msg["value"] .. "\r\n"
-                    local at_command_text = msg["command"]
-                    -- Отправка команды в модем
-                    local chunk, err, errcode = U.write(state.modem.fds, at_command_num)
-                    os.execute("sleep " .. 1)
-                    chunk, err, errcode = U.write(state.modem.fds, at_command_text .. "\26")
-                    -- Формирование ответа в UBUS
-                    if err then
-                        resp["at_answer"] = "tsmodem [state.lua]: Error of sending AT to modem."
-                    else
-                        resp = { res = "OK" }
+                	if_debug("send_sms", "UBUS", "ASK", msg, "[state.lua]: send_sms")
+                	-- Создание AT-команды для номера адресата смс.
+                	local at_command_num = "AT+CMGS=" .. msg["value"] .. "\r\n"
+                	-- TODO: Вывести максимальную длинну сообщения в именованную константу.
+                	local parts = split_message(msg["command"], 160)
+                	for _, part in ipairs(parts) do
+                    	-- Создание АТ-команды для текста смс. Временно, потом удалить.
+                    	--local at_command_text = parts
+                    	-- Отправка команды в модем
+                    	local chunk, err, errcode = U.write(state.modem.fds, at_command_num)
+                    	os.execute("sleep " .. 1)
+                    	chunk, err, errcode = U.write(state.modem.fds, part .. "\26")
+                    	os.execute("sleep " .. 1)
                     end
+                    resp = { res = "Command received" }
                 else
                     resp["note"] = "Example: [command] = 'SMS text', [value] = '+79998881234'"
                 end

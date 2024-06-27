@@ -32,3 +32,17 @@ function if_debug(ubus_method, protocol, request_or_response, value, comment)
 		print(protocol .. ":" .. ubus_method, request_or_response,"", val,"","","", comment)
 	end
 end
+
+-- Разбивает длинный текст на куски, для отправки по смс
+function split_message(text, max_length)
+  local chunks = {}
+  local start = 1
+  local chunk_size = max_length
+
+  while start <= #text do
+    chunks[#chunks + 1] = string.sub(text, start, start + chunk_size - 1)
+    start = start + chunk_size
+  end
+
+  return chunks
+end
