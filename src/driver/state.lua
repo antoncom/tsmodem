@@ -420,8 +420,6 @@ local ubus_methods = {
                 	-- TODO: Вывести максимальную длинну сообщения в именованную константу.
                 	local parts = split_message(msg["command"], 160)
                 	for _, part in ipairs(parts) do
-                    	-- Создание АТ-команды для текста смс. Временно, потом удалить.
-                    	--local at_command_text = parts
                     	-- Отправка команды в модем
                     	local chunk, err, errcode = U.write(state.modem.fds, at_command_num)
                     	os.execute("sleep " .. 1)
