@@ -31,8 +31,9 @@ timer.interval = {
 
     last_balance_request_time = os.time(),  -- Helper. Need to avoid doing USSD requests too often.
 
-    balance_repeated_request_delay = 125    -- If GSM opeator doen't send back the balance USSD-response
+    balance_repeated_request_delay = 125,   -- If GSM opeator doen't send back the balance USSD-response
                                             -- then we should wait 1..2 mins before repeating
+    set_automation_mode_time = 5000
 }
 
 timer.timeout = {
@@ -63,12 +64,18 @@ end
 function t_general()
     timer.modem:init()
     timer.modem:poll()
-    timer.modem:check_session_and_set_automation_mode()
+    --timer.modem:check_session_and_set_automation_mode()
 
     timer.general:set(timer.interval.general)
 end
 timer.general = uloop.timer(t_general)
 
+-- [[ Check session and set automation mode ]]
+function t_set_automation_mode()
+    timer.modem:check_session_and_set_automation_mode()
+    timer.set_automation_mode:set(timer.interval.set_automation_mode_time)
+end
+timer.set_automation_mode = uloop.timer(t_set_automation_mode)
 
 -- [[ AT+CREG requests interval ]]
 function t_CREG()
