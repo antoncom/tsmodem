@@ -413,7 +413,7 @@ local ubus_methods = {
             function(req, msg)
                 local resp = {}
                 -- Проверка, что сообщение не пустое и номер начинается с +7...
-                if #msg["command"] > 0 and string.sub(msg["value"], 1, 2) == "+7" then
+                if msg["command"] and #msg["command"] > 0 and string.sub(msg["value"], 1, 2) == "+7" then
                 	if_debug("send_sms", "UBUS", "ASK", msg, "[state.lua]: send_sms")
                 	-- Создание AT-команды для номера адресата смс.
                 	local at_command_num = "AT+CMGS=" .. msg["value"] .. "\r\n"
