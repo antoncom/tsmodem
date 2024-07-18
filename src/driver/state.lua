@@ -419,6 +419,7 @@ local ubus_methods = {
                 	local at_command_num = "AT+CMGS=" .. msg["value"] .. "\r\n"
                 	-- TODO: Вывести максимальную длинну сообщения в именованную константу.
                 	local parts = split_message(msg["command"], 160)
+                    state.modem.stop_automation()
                 	for _, part in ipairs(parts) do
                     	-- Отправка команды в модем
                     	local chunk, err, errcode = U.write(state.modem.fds, at_command_num)
@@ -430,6 +431,7 @@ local ubus_methods = {
                 else
                     resp["note"] = "Example: [command] = 'SMS text', [value] = '+79998881234'"
                 end
+                state.modem:run_automation()
                 state.conn:reply(req, resp);
             end, {id = ubus.INT32, msg = ubus.STRING }
         },
