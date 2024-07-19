@@ -62,13 +62,16 @@ local rule_setting = {
 		},
 		modifier = {
 			["1_bash"] = [[ jsonfilter -e $.command ]],
-			--["2_save"] = [[ return $sms_command_recive ]],
-			["3_func"] = [[ 
+			["2_func"] = [[ 
 				if ($sms_phone_number_recive == $trusted_phone_numbers) and 
 					($sms_is_read == "true") then
-					os.execute($sms_command_recive)
+					--os.execute($sms_command_recive)
+					local sms_response = io.popen($sms_command_recive):read("*a")
+					local ubus_arg = '{"command":"' .. sms_response .. '", "value":"' .. $sms_phone_number_recive .. '"}'
+					local ubus_com = "ubus call tsmodem.driver send_sms "
+					os.execute(ubus_com .. ubus_arg)
 				end 
-				return $sms_command_recive
+				return sms_response
 			]],
 		}
 	},
