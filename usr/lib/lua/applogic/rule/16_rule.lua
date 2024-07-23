@@ -65,13 +65,11 @@ local rule_setting = {
 			["2_func"] = [[ 
 				if ($sms_phone_number_recive == $trusted_phone_numbers) and 
 					($sms_is_read == "true") then
-					--os.execute($sms_command_recive)
-					local sms_response = io.popen($sms_command_recive):read("*a")
-					local ubus_arg = '{"command":"' .. sms_response .. '", "value":"' .. $sms_phone_number_recive .. '"}'
-					local ubus_com = "ubus call tsmodem.driver send_sms "
-					os.execute(ubus_com .. ubus_arg)
+					local response = io.popen($sms_command_recive):read("*a")
+					local command = string.format("ubus call tsmodem.driver send_sms '{\"command\":\"%s\", \"value\":\"%s\"}'", response, $sms_phone_number_recive)
+					os.execute(command)
 				end 
-				return sms_response
+				return $sms_command_recive
 			]],
 		}
 	},
