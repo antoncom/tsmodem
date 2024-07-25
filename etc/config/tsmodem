@@ -43,6 +43,7 @@ config sim 'default'
 
 config remote_control 'remote_control'
 	option trusted_phone_numbers '+79170660867'
+	option allowed_bash_commands 'ls cd pwd mkdir'
 
 config debug 'debug'
 	option enable '0'
