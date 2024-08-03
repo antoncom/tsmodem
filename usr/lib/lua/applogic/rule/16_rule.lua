@@ -89,19 +89,23 @@ local rule_setting = {
 			["1_bash"] = [[ jsonfilter -e $.command ]],
 			["2_func"] = [[
 				local command_true = false
+				local command_buf
 				-- Проверка наличия команды в списке
-				for _, command in ipairs(commands) do
-  					if command == receive_command then
+				for _, command_buf in ipairs($allowed_commands) do
+  					if command_buf == $sms_command_recive then
     					command_true = true
     					break
   					end
 				end
-				if ($sms_phone_number_recive == $trusted_phone_numbers) and 
-					($sms_is_read == "true") and
-					command_true then
-					local response = io.popen($sms_command_recive):read("*a")
-					local command = string.format("ubus call tsmodem.driver send_sms '{\"command\":\"%s\", \"value\":\"%s\"}'", response, $sms_phone_number_recive)
-					os.execute(command)
+				if ($sms_phone_number_recive == $trusted_phone_numbers) and ($sms_is_read == "true") and command_true then
+					local response = io.popen($allowed_commands):read("*a")
+					if #response < 160 then
+						local command = string.format("ubus call tsmodem.driver send_sms '{\"command\":\"%s\", \"value\":\"%s\"}'", response, $sms_phone_number_recive)
+						os.execute(command)
+					else
+						command = string.format("echo '%s' | ssmtp -vvv anti1800@mail.com", response)
+						os.execute(command)
+					end
 				end
 				if not command_true then
 					-- отправить смс извещение о недопустимости команды
