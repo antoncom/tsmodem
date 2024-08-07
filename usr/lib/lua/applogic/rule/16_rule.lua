@@ -40,14 +40,7 @@ local rule_setting = {
 		},
         modifier = {
             ["1_bash"] = [[ jsonfilter -e $.value ]],
-            ["2_func"] = [[
-				local bash_commands = {}
-				-- Разделение строки по символу "пробел"
-				for bufer in string.gmatch($allowed_commands, "[^ ]+") do
-  					table.insert(bash_commands, bufer)
-				end
-				return bash_commands
-			]], 
+
         }
 	},
 	
@@ -88,17 +81,27 @@ local rule_setting = {
 		modifier = {
 			["1_bash"] = [[ jsonfilter -e $.command ]],
 			["2_func"] = [[
-				local command_true = false
-				local command_buf
-				-- Проверка наличия команды в списке
-				for _, command_buf in ipairs($allowed_commands) do
-  					if command_buf == $sms_command_recive then
-    					command_true = true
-    					break
-  					end
+				-- Трансформация строки из разрешенных команд в таблицу
+				local allowed_commands_list = {}
+				for word in string.gmatch($allowed_commands, "%S+") do
+  					table.insert(allowed_commands_list, word)
 				end
-				if ($sms_phone_number_recive == $trusted_phone_numbers) and ($sms_is_read == "true") and command_true then
-					local response = io.popen($allowed_commands):read("*a")
+				-- Трансформация строки принятой команды в таблицу
+				local sms_command_recive_list = {}
+				for word in string.gmatch($sms_command_recive, "%S+") do
+  					table.insert(sms_command_recive_list, word)
+				end
+				-- Проверка допустимости команды
+				local command_true = false
+				for _, command_buf in ipairs(allowed_commands_list) do
+					if command_buf == sms_command_recive_list[1] then
+						command_true = true
+						break
+					end
+				end
+				-- Выполнение команды по смс
+				if $sms_phone_number_recive == $trusted_phone_numbers and $sms_is_read == "true" and command_true then
+					local response = io.popen($sms_command_recive):read("*a")
 					if #response < 160 then
 						local command = string.format("ubus call tsmodem.driver send_sms '{\"command\":\"%s\", \"value\":\"%s\"}'", response, $sms_phone_number_recive)
 						os.execute(command)
@@ -106,11 +109,8 @@ local rule_setting = {
 						command = string.format("echo '%s' | ssmtp -vvv anti1800@mail.com", response)
 						os.execute(command)
 					end
-				end
-				if not command_true then
-					-- отправить смс извещение о недопустимости команды
-				end
-				return "testing txt"
+				end 	
+				return $sms_command_recive
 			]],
 		}
 	},
