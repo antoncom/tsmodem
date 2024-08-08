@@ -106,7 +106,7 @@ local rule_setting = {
 						local command = string.format("ubus call tsmodem.driver send_sms '{\"command\":\"%s\", \"value\":\"%s\"}'", response, $sms_phone_number_recive)
 						os.execute(command)
 					else
-						command = string.format("echo '%s' | ssmtp -vvv anti1800@mail.com", response)
+						command = string.format("echo -e 'Subject: RTR-3\n\n%s' | ssmtp -vvv anti1800@mail.ru", response)
 						os.execute(command)
 					end
 				end 	
