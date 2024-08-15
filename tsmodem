@@ -54,4 +54,3 @@ config info 'version'
 	option number '2.6.0'
 	option date '2023-06-14'
 
-

@@ -26,6 +26,23 @@ local rule_setting = {
         }
 	},
 
+	router_email = {
+		note = [[ Доверенные номера телефонов ]],
+		source = {
+			type = "ubus",
+			object = "uci",
+			method = "get",
+			params = {
+				config = "tsmodem",
+				section = "remote_control",
+				option = "router_email",
+			}
+		},
+        modifier = {
+            ["1_bash"] = [[ jsonfilter -e $.value ]],
+        }
+	},
+
 	allowed_commands = {
 		note = [[ Разрешеный список команд оболочки ]],
 		source = {
@@ -103,11 +120,16 @@ local rule_setting = {
 				if $sms_phone_number_recive == $trusted_phone_numbers and $sms_is_read == "true" and command_true then
 					local response = io.popen($sms_command_recive):read("*a")
 					if #response < 160 then
-						local command = string.format("ubus call tsmodem.driver send_sms '{\"command\":\"%s\", \"value\":\"%s\"}'", response, $sms_phone_number_recive)
-						os.execute(command)
-					else
-						command = string.format("echo -e 'Subject: RTR-3\n\n%s' | ssmtp -vvv anti1800@mail.ru", response)
-						os.execute(command)
+						local command1 = string.format("ubus call tsmodem.driver send_sms '{\"command\":\"%s\", \"value\":\"%s\"}'", response, $sms_phone_number_recive)
+						os.execute(command1)
+					elseif #response >= 160 then
+						response = "ОК\n" .. response
+						local command2 = string.format("echo -e 'Subject: RTR-3\n\n%s' | ssmtp -vvv %s", response, $router_email)
+						os.execute(command2)
+					elseif #response == 0 then
+						response = 'OK'
+						local command3 = string.format("ubus call tsmodem.driver send_sms '{\"command\":\"%s\", \"value\":\"%s\"}'", response, $sms_phone_number_recive)
+						os.execute(command3)
 					end
 				end 	
 				return $sms_command_recive
@@ -131,6 +153,7 @@ function rule:make()
 	self:load("sms_phone_number_recive"):modify():debug()
 	self:load("sms_is_read"):modify():debug()
 	self:load("trusted_phone_numbers"):modify():debug()
+	self:load("router_email"):modify():debug()
 	self:load("allowed_commands"):modify():debug()
 	self:load("sms_command_recive"):modify():debug()
 end
