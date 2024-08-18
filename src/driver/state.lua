@@ -427,11 +427,12 @@ local ubus_methods = {
                     	chunk, err, errcode = U.write(state.modem.fds, part .. "\26")
                     	os.execute("sleep " .. 1)
                     end
-                    resp = { res = "Command received" }
+                    resp = { sms_send_result = "Command received from: " ..  msg["value"] }
+                    state.conn:notify( state.ubus_methods["tsmodem.driver"].__ubusobj, "SMS_send_result", resp )
+                    if_debug("send_sms", "UBUS", "RESP", at_command_num, "[state.lua]: if err: " .. tostring(err))
                 else
                     resp["note"] = "Example: [command] = 'SMS text', [value] = '+79998881234'"
                 end
-                state.modem:run_automation()
                 state.conn:reply(req, resp);
             end, {id = ubus.INT32, msg = ubus.STRING }
         },
