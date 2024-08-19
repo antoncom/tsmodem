@@ -118,21 +118,24 @@ local rule_setting = {
 				end
 				-- Выполнение команды по смс
 				if $sms_phone_number_recive == $trusted_phone_numbers and $sms_is_read == "true" and command_true then
-					local response = io.popen($sms_command_recive):read("*a")
-					if #response < 160 then
-						local command1 = string.format("ubus call tsmodem.driver send_sms '{\"command\":\"%s\", \"value\":\"%s\"}'", response, $sms_phone_number_recive)
-						os.execute(command1)
+					local command
+					local response
+					response = io.popen($sms_command_recive):read("*a")
+					if #response < 160 and #response > 1 then
+						command = string.format("ubus call tsmodem.driver send_sms '{\"command\":\"%s\", \"value\":\"%s\"}'", response, $sms_phone_number_recive)
+						os.execute(command)
 					elseif #response >= 160 then
-						response = "ОК\n" .. response
-						local command2 = string.format("echo -e 'Subject: RTR-3\n\n%s' | ssmtp -vvv %s", response, $router_email)
-						os.execute(command2)
-					elseif #response == 0 then
-						response = 'OK'
-						local command3 = string.format("ubus call tsmodem.driver send_sms '{\"command\":\"%s\", \"value\":\"%s\"}'", response, $sms_phone_number_recive)
-						os.execute(command3)
+						-- Дублирование принятой команды в ответном сообщении
+						response = "Command: " .. $sms_command_recive .."\n" .. response
+						command = string.format("echo -e 'Subject: RTR-3\n\n%s' | ssmtp -vvv %s", response, $router_email)
+						os.execute(command)
+					else 
+						response = "OK"
+						command = string.format("ubus call tsmodem.driver send_sms '{\"command\":\"%s\", \"value\":\"%s\"}'", response, $sms_phone_number_recive)
+						os.execute(command)
 					end
 				end 	
-				return $sms_command_recive
+				return "TESTED"
 			]],
 		}
 	},
