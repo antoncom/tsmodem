@@ -433,6 +433,7 @@ local ubus_methods = {
                 else
                     resp["note"] = "Example: [command] = 'SMS text', [value] = '+79998881234'"
                 end
+                state.modem:run_automation()
                 state.conn:reply(req, resp);
             end, {id = ubus.INT32, msg = ubus.STRING }
         },

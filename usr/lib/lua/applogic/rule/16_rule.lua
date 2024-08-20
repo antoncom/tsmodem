@@ -26,7 +26,7 @@ local rule_setting = {
         }
 	},
 
-	router_email = {
+	trusted_email = {
 		note = [[ Доверенные номера телефонов ]],
 		source = {
 			type = "ubus",
@@ -35,7 +35,7 @@ local rule_setting = {
 			params = {
 				config = "tsmodem",
 				section = "remote_control",
-				option = "router_email",
+				option = "trusted_email",
 			}
 		},
         modifier = {
@@ -127,7 +127,11 @@ local rule_setting = {
 					elseif #response >= 160 then
 						-- Дублирование принятой команды в ответном сообщении
 						response = "Command: " .. $sms_command_recive .."\n" .. response
-						command = string.format("echo -e 'Subject: RTR-3\n\n%s' | ssmtp -vvv %s", response, $router_email)
+						command = string.format("echo -e 'Subject: RTR-3\n\n%s' | ssmtp -vvv %s", response, $trusted_email)
+						os.execute(command)
+						-- Подтверждение отправки через СМС
+						response = "The result is too long and has been sent to the email address: " .. $trusted_email
+						command = string.format("ubus call tsmodem.driver send_sms '{\"command\":\"%s\", \"value\":\"%s\"}'", response, $sms_phone_number_recive)
 						os.execute(command)
 					else 
 						response = "OK"
@@ -135,7 +139,7 @@ local rule_setting = {
 						os.execute(command)
 					end
 				end 	
-				return "TESTED"
+				return $sms_command_recive
 			]],
 		}
 	},
@@ -156,7 +160,7 @@ function rule:make()
 	self:load("sms_phone_number_recive"):modify():debug()
 	self:load("sms_is_read"):modify():debug()
 	self:load("trusted_phone_numbers"):modify():debug()
-	self:load("router_email"):modify():debug()
+	self:load("trusted_email"):modify():debug()
 	self:load("allowed_commands"):modify():debug()
 	self:load("sms_command_recive"):modify():debug()
 end
