@@ -66,7 +66,7 @@ function LengthPduMess(pdu)
     return tostring(math.floor(length / 2) - 1) -- Делим на 2, отнимаем 1 и преобразуем в строку
 end
 
-function PduEncoder(recipient_number, sms_text)
+function EncoderPDU(recipient_number, sms_text)
 	local pdu_head = "0011000C91"
 	local pdu_middle = "00080B"
 	local pdu_send_mess = pdu_head .. PhoneNumberToPDU(recipient_number) .. pdu_middle .. 
@@ -74,6 +74,8 @@ function PduEncoder(recipient_number, sms_text)
 	local cmgs_len = LengthPduMess(pdu_send_mess)
 	return cmgs_len, pdu_send_mess
 end
+
+return EncoderPDU
 	
 -- Тесты
 --local num = "+79170660867"

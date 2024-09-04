@@ -82,7 +82,9 @@ function modem:init()
 			   }
 			})
 			modem.fds = fds
-
+			-- Принудительный перевод модема в режим PDU
+			U.write(modem.fds, "AT+CMGF=0\r\n")
+			--
 			local ok, err, sim_id = modem.state:get("sim", "value")
 			if ok and (sim_id == "1" or sim_id == "0") then
                 local provider_id = get_provider_id(sim_id)

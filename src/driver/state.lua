@@ -10,6 +10,7 @@ local F = require 'posix.fcntl'
 local U = require 'posix.unistd'
 
 require "tsmodem.driver.util"
+require "tsmodem.util.pdu_encoder"
 local CREG_STATE = require "tsmodem.constants.creg_state"
 local balance_event_keys = require "tsmodem.constants.balance_event_keys"
 
@@ -415,17 +416,19 @@ local ubus_methods = {
                 -- Проверка, что сообщение не пустое и номер начинается с +7...
                 if msg["command"] and #msg["command"] > 0 and string.sub(msg["value"], 1, 2) == "+7" then
                 	if_debug("send_sms", "UBUS", "ASK", msg, "[state.lua]: send_sms")
-                	-- Создание AT-команды для номера адресата смс.
-                	local at_command_num = "AT+CMGS=" .. msg["value"] .. "\r\n"
                 	-- TODO: Вывести максимальную длинну сообщения в именованную константу.
-                	local parts = split_message(msg["command"], 160)
+                	local parts = split_message(msg["command"], 70)
                     state.modem.stop_automation()
                 	for _, part in ipairs(parts) do
-                    	-- Отправка команды в модем
-                    	local chunk, err, errcode = U.write(state.modem.fds, at_command_num)
+                        -- Перекодирование текста сообщения в PDU формат
+                        local sms_len, pdu_send_mess = EncoderPDU(msg["value"], msg["command"])
+                        -- Формирование AT-команды и отправка длинны PDU блока
+                        local at_command_num = "AT+CMGS=" .. sms_len .. "\r\n"
+                    	U.write(state.modem.fds, at_command_num)
                     	os.execute("sleep " .. 1)
-                    	chunk, err, errcode = U.write(state.modem.fds, part .. "\26")
-                    	os.execute("sleep " .. 1)
+                        -- Отправка тела PDU блока. "\26" - Ctrl+Z
+                        U.write(state.modem.fds, pdu_send_mess .. "\26")
+                        os.execute("sleep " .. 1)
                     end
                     resp = { sms_send_result = "Command received from: " ..  msg["value"] }
                     state.conn:notify( state.ubus_methods["tsmodem.driver"].__ubusobj, "SMS_send_result", resp )
