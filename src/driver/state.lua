@@ -418,7 +418,11 @@ local ubus_methods = {
                 	if_debug("send_sms", "UBUS", "ASK", msg, "[state.lua]: send_sms")
                 	-- TODO: Вывести максимальную длинну сообщения в именованную константу.
                 	local parts = split_message(msg["command"], 70)
+                    -- Остановка опроса модема
                     state.modem.stop_automation()
+                    -- Принудительный перевод модема в режим PDU
+                    U.write(state.modem.fds, "AT+CMGF=0\r\n")
+                    os.execute("sleep " .. 1)
                 	for _, part in ipairs(parts) do
                         -- Перекодирование текста сообщения в PDU формат
                         local sms_len, pdu_send_mess = EncoderPDU(msg["value"], msg["command"])
@@ -430,6 +434,9 @@ local ubus_methods = {
                         U.write(state.modem.fds, pdu_send_mess .. "\26")
                         os.execute("sleep " .. 1)
                     end
+                    -- Возврат модема в режим Text
+                    U.write(state.modem.fds, "AT+CMGF=1\r\n")
+                    --
                     resp = { sms_send_result = "Command received from: " ..  msg["value"] }
                     state.conn:notify( state.ubus_methods["tsmodem.driver"].__ubusobj, "SMS_send_result", resp )
                     if_debug("send_sms", "UBUS", "RESP", at_command_num, "[state.lua]: if err: " .. tostring(err))

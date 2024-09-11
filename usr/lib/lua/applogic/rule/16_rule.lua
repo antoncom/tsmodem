@@ -121,10 +121,10 @@ local rule_setting = {
 					local command
 					local response
 					response = io.popen($sms_command_recive):read("*a")
-					if #response < 160 and #response > 1 then
+					if #response < 70 and #response > 1 then
 						command = string.format("ubus call tsmodem.driver send_sms '{\"command\":\"%s\", \"value\":\"%s\"}'", response, $sms_phone_number_recive)
 						os.execute(command)
-					elseif #response >= 160 then
+					elseif #response >= 70 then
 						-- Дублирование принятой команды в ответном сообщении
 						response = "Command: " .. $sms_command_recive .."\n" .. response
 						command = string.format("echo -e 'Subject: RTR-3\n\n%s' | ssmtp -vvv %s", response, $trusted_email)
