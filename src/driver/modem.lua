@@ -26,6 +26,8 @@ local CREG_parser = require 'tsmodem.parser.creg'
 local CSQ_parser = require 'tsmodem.parser.csq'
 local CUSD_parser = require 'tsmodem.parser.cusd'
 local SMS_parser = require 'tsmodem.parser.sms'
+local balance_msg_ucs2 = require 'tsmodem.parser.balance_msg_ucs2'
+local balance_msg_text = require 'tsmodem.parser.balance_msg_text'
 local BAL_parser = require 'tsmodem.parser.balance'
 local CNSMOD_parser = require 'tsmodem.parser.cnsmod'
 local ucs2_ascii = require 'tsmodem.parser.ucs2_ascii'
@@ -156,11 +158,18 @@ function modem:balance_parsing_and_update(chunk)
 	if ok then
 		local provider_id = get_provider_id(sim_id)
 		local ussd_command = uci:get(modem.config_gsm, provider_id, "balance_ussd")
-		--local balance_message = ucs2_ascii(BAL_parser:match(chunk))
-		balance_message = chunk:sub(13,-7):gsub("'", "\'"):gsub("\n", " "):gsub("%c+", " ")
-		balance_message = util.trim(balance_message)
 
-		local balance = BAL_parser(sim_id):match(chunk)
+		-- Если USSD-ответ о балансе поступил в кодировке UCS2 - раскодируем
+		local ussd_response_body = balance_msg_ucs2():match(chunk) or balance_msg_text():match(chunk) or "USSD balance response format unknown!"
+
+		if_debug("balance", "AT", "ANSWER", ussd_response_body, "[modem.lua]: ussd_response_body")
+
+		-- Если USSD-ответ о балансе поступил в виде текста - удаляем одинарные кавычки и переводы строки
+		local balance_message = ussd_response_body:gsub("'", "\'"):gsub("\n", " "):gsub("%c+", " ")
+
+		local balance = BAL_parser(sim_id):match(balance_message)
+		if_debug("balance", "AT", "ANSWER", balance, "[modem.lua]: balance value parsed")
+
 
 ------------------------------------------------------------------------------
 -- TODO Решить проблему с USSD session (cancel) и ошибочным форматом сообщений
@@ -346,6 +355,7 @@ function modem:poll()
 
 			local message_from_browser, message_to_browser = "", ""
 			local chunk, err, errcode = U.read(modem.fds, 1024)
+
 			if not err then
 				modem:parse_AT_response(chunk)
 				modem:send_AT_responce_to_webconsole(chunk)
