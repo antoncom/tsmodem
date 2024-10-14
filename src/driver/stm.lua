@@ -14,10 +14,11 @@ stm.modem = nil
 stm.state = nil
 stm.timer = nil
 
-stm.init = function(modem, state, timer)
+stm.init = function(modem, state, timer, notifier)
     stm.modem = modem
     stm.state = state
     stm.timer = timer
+    stm.notifier = notifier
     stm:init_mk()
 
     return stm

@@ -29,7 +29,7 @@ function if_debug(ubus_method, protocol, request_or_response, value, comment)
 		else
 			val = value
 		end
-		print(protocol .. ":" .. ubus_method, request_or_response,"", val,"","","", comment)
+		print(protocol .. ":" .. ubus_method, request_or_response,"", val,"","", comment)
 	end
 end
 
@@ -46,3 +46,5 @@ function split_message(text, max_length)
 
   return chunks
 end
+
+

@@ -2,6 +2,7 @@ local stm = require "tsmodem.driver.stm"
 local timer = require "tsmodem.driver.timer"
 local state = require "tsmodem.driver.state"
 local modem = require "tsmodem.driver.modem"
+local notifier = require "tsmodem.driver.notifier"
 
 local signal = require("posix.signal")
 signal.signal(signal.SIGINT, function(signum)
@@ -15,4 +16,4 @@ signal.signal(signal.SIGINT, function(signum)
 end)
 
 
-modem(state, stm, timer)
+modem(state, stm, timer, notifier)

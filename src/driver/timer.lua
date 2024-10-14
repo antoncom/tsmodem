@@ -3,10 +3,14 @@ local uci = require "luci.model.uci".cursor()
 local util = require "luci.util"
 local log = require "tsmodem.util.log"
 local uloop = require "uloop"
+local flist = require "tsmodem.util.filelist"
+local nixio = require "nixio"
+
 
 local M = require 'posix.termio'
 local F = require 'posix.fcntl'
 local U = require 'posix.unistd'
+
 
 require "tsmodem.driver.util"
 
@@ -18,6 +22,7 @@ local timer = {}
 timer.modem = nil
 timer.state = nil
 timer.stm = nil
+timer.notifier = nil
 
 timer.interval = {
     general = 1400,     -- use 3000 interval in debug mode
@@ -30,7 +35,6 @@ timer.interval = {
     ping = 4000,        -- Ping GSM network (checking interval)
 
     last_balance_request_time = os.time(),  -- Helper. Need to avoid doing USSD requests too often.
-
     balance_repeated_request_delay = 125,   -- If GSM opeator doen't send back the balance USSD-response
                                             -- then we should wait 1..2 mins before repeating
     set_automation_mode_time = 5000
@@ -52,11 +56,11 @@ timer.switch_delay = {
     ["7_MDM_END_SWITCHING"] = 1000,
 }
 
-
-timer.init = function(modem, state, stm)
+timer.init = function(modem, state, stm, notifier)
     timer.modem = modem
     timer.state = state
     timer.stm = stm
+    timer.notifier = notifier
     return timer
 end
 
@@ -72,6 +76,9 @@ timer.general = uloop.timer(t_general)
 
 -- [[ Check session and set automation mode ]]
 function t_set_automation_mode()
+
+    if_debug("send_at", "TIMER",  "", string.format("Check session and set automation mode every [%s] sec.",tostring(timer.interval.set_automation_mode_time)))
+
     timer.modem:check_session_and_set_automation_mode()
     timer.set_automation_mode:set(timer.interval.set_automation_mode_time)
 end
@@ -80,6 +87,7 @@ timer.set_automation_mode = uloop.timer(t_set_automation_mode)
 -- [[ AT+CREG requests interval ]]
 function t_CREG()
     if timer.modem.automation == "run" then
+    --if timer.modem.automation_mode.normal == true then
         local SWITCHING = (timer.state:get("switching", "value") == "true")
         if not SWITCHING then
             if(timer.modem:is_connected(timer.modem.fds)) then
@@ -95,6 +103,7 @@ timer.CREG = uloop.timer(t_CREG)
 -- [[ AT+CPIN? requests interval ]]
 function t_CPIN()
     if timer.modem.automation == "run" then
+--    if timer.modem.automation_mode.normal == true then
         local SWITCHING = (timer.state:get("switching", "value") == "true")
         if not SWITCHING then
             if(timer.modem:is_connected(timer.modem.fds)) then
@@ -110,6 +119,7 @@ timer.CPIN = uloop.timer(t_CPIN)
 -- [[ AT+CSQ requests interval ]]
 function t_CSQ()
     if timer.modem.automation == "run" then
+    --if timer.modem.automation_mode.normal == true then
         local SWITCHING = (timer.state:get("switching", "value") == "true")
         if not SWITCHING then
             if(timer.modem:is_connected(timer.modem.fds)) then
@@ -125,6 +135,7 @@ timer.CSQ = uloop.timer(t_CSQ)
 -- [[ AT+COPS: get GSM provider name from the GSM network ]]
 function t_COPS()
     if timer.modem.automation == "run" then
+    --if timer.modem.automation_mode.normal == true then
         local SWITCHING = (timer.state:get("switching", "value") == "true")
         if not SWITCHING then
             if(timer.modem:is_connected(timer.modem.fds)) then
@@ -147,6 +158,7 @@ function t_PING()
     local host = uci:get("tsmodem", "default", "ping_host") or '8.8.8.8'
     local host_spc_sim = string.format("%s %s", tostring(host), tostring(sim_id))
 
+    --if timer.modem.automation_mode.normal == true then
     if timer.modem.automation == "run" then
         if(reg =="1") then
             local SWITCHING = (timer.state:get("switching", "value") == "true")
@@ -164,7 +176,7 @@ function t_PING()
             timer.PING:set(timer.interval.ping)
         end
     else
-        if_debug("ping", "PING", "SKIP", "ping.sh --host " .. host_spc_sim, "[timer.lua]: t_PING() skipping as 'automation' not equal 'run'")
+        if_debug("ping", "PING", "SKIP", "ping.sh --host " .. host_spc_sim, "[timer.lua]: t_PING() skipping as 'automation' not equal 'run': " .. tostring(timer.modem.automation))
         timer.PING:set(timer.interval.ping)
     end
 end
@@ -173,6 +185,7 @@ timer.PING = uloop.timer(t_PING)
 
 --[[ Get 3G/4G mode from the GSM network ]]
 function t_CNSMOD()
+    --if timer.modem.automation_mode.normal == true then
     if timer.modem.automation == "run" then
         local SWITCHING = (timer.state:get("switching", "value") == "true")
         if not SWITCHING then
@@ -194,6 +207,7 @@ timer.CNSMOD = uloop.timer(t_CNSMOD)
 
 --[[ Switch Sim: Unpoll modem ]]
 function t_SWITCH_1()
+    --if timer.modem.automation_mode.normal == true then
     if timer.modem.automation == "run" then
         if (timer.modem.debug) then print("----------- t_SWITCH_1_START ----------" .. os.date()) end
         if_debug("", "STM", "ASK", "~0:SIM.SEL=?", "[timer.lua]: t_SWITCH_1() gets current slot ID")
@@ -352,5 +366,6 @@ function t_BAL_TIMEOUT()
     end
 end
 timer.BAL_TIMEOUT = uloop.timer(t_BAL_TIMEOUT)
+
 
 return timer

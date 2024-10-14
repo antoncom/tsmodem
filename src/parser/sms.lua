@@ -11,11 +11,11 @@ local number = lpeg.C(
 	  lpeg.R('09')^0
   )^-1 )
 
-local sms_text =  spc * lpeg.P('+CMGR: 1,"",155') * spc *
+local sms_text =  spc * lpeg.P('+CMGR: "REC UNREAD"') * spc *
 			lpeg.P(54) * lpeg.C(lpeg.S('0123456789ABCDEF')^4)
 
 return sms_text
 
---local text = '+CUSD: 0,"04110430043b0430043d0441003a003200390036002c003000320440", 17r'
+--local text = '+CMGR: "REC UNREAD","+79030507175","","24/09/21,18:52:54+16"  log\n\r'
 
--- print(cusd:match(text))
+--print(cusd:match(text))

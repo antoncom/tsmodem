@@ -1,3 +1,5 @@
+local util = require "luci.util"
+
 local parser_sms = {}
 
 -- Парсер номера телефона приславшего смс.
@@ -15,8 +17,22 @@ end
 
 -- Парсер тела команды из смс.
 function parser_sms:get_sms_text(text)
+  local chunk = text:find("UNREAD")
 	-- Находим начало подстроки
-	local start_pos, end_pos = text:find("bash: ")
+	local comm
+	local comm_chunk
+	local chend = -1
+	local chunks = util.split(text,",",4)
+
+	comm_chunk = chunks[#chunks]
+	chend = comm_chunk:find('OK') or -1
+	if chend > 0 then chend = chend - 1 end
+	comm = comm_chunk:sub(15,chend):gsub('%c','')
+	
+	return comm	
+
+
+--[[	local start_pos, end_pos = text:find("bash: ")
 	-- Находим конец подстроки 		
 	local _, end_text_pos = text:find("\r\n", end_pos)
 	if start_pos and end_text_pos then
@@ -26,7 +42,7 @@ function parser_sms:get_sms_text(text)
     	return extracted_text 
 	else
     	return nil
-	end
+	end--]]
 end
 
 -- Парсер АТ-команды, сообщающей о поступлении смс.
@@ -47,3 +63,6 @@ end
 
 return parser_sms
 
+
+
+--print(parser_sms:get_sms_text('  +CMGR: "REC UNREAD","+79030507175","","24/09/21,18:52:54+16"  ls -l /tmp\rOK'))
