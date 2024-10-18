@@ -1,0 +1,6 @@
+menu "Configuration"
+  config GPIO_CH341_ENABLE
+    bool "Enable driver support GPIO for CH341"
+    default n
+
+endmenu
