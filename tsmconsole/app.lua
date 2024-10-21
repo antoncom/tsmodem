@@ -118,11 +118,23 @@ end
 function tsmconsole:subscribe_ubus()
 	local sub = {
 		notify = function(msg, name)
-			local shell_command = string.format("echo '%s' > %s", util.serialize_json({
-				module = "tsmconsole",
-				AT_answer = msg["answer"]
-			}), tsmconsole.pipein_file)
-			sys.process.exec({"/bin/sh", "-c", shell_command }, true, true, false)
+			--TODO
+			-- получить ответ от BITCORD CONSOLE (fix the bug with 2 terminal JS instance)
+			print(msg["resp"])
+			print("TSMCONSOLE NOTIFY== 2 ==", util.serialize_json({ module = "tsmconsole", result = msg["answer"]}), name)
+			if(name == "AT-ANSWER") then
+				local shell_command = string.format("echo '%s' > %s", util.serialize_json({
+					module = "tsmconsole",
+					AT_answer = msg["answer"]
+				}), tsmconsole.pipein_file)
+				sys.process.exec({"/bin/sh", "-c", shell_command }, true, true, false)
+			elseif(name == "SMS_send_result") then
+				local shell_command = string.format("echo '%s' > %s", util.serialize_json({
+					module = "tsmconsole",
+					SMS_send_result = msg["resp"]
+				}), tsmconsole.pipein_file)
+				sys.process.exec({"/bin/sh", "-c", shell_command }, true, true, false)
+			end
 		end
 	}
     tsmconsole.conn:subscribe("tsmodem.driver", sub)
