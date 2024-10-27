@@ -50,7 +50,7 @@ function ConfigureOutGPIO (id)
 end
 
 --Экспортирует ID GPIO для использования в качестве входного пина 
-function configureInGPIO (id)
+function ConfigureInGPIO (id)
 	if not file_exists('/sys/class/gpio/gpio'..id..'/direction') then
 		writeToFile('/sys/class/gpio/export',id)
 	end
@@ -118,6 +118,17 @@ end
 
 function sleep(n)
   os.execute("sleep " .. tonumber(n))
+end
+
+function AllGPIO_ToInput()
+  ConfigureInGPIO(IO0)
+  ConfigureInGPIO(IO1)
+  ConfigureInGPIO(IO2)
+  ConfigureInGPIO(IO3)
+  ConfigureInGPIO(IO4)
+  ConfigureInGPIO(IO5)
+  ConfigureInGPIO(IO6)
+  ConfigureInGPIO(IO7)
 end
 
 return cp2112_gpio
