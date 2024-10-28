@@ -22,27 +22,36 @@ end
 
 --Утилиты GPIO  
 --Записывает 'что' в 'куда'
-function writeToFile (where,what)
-	local fileToWrite=io.open(where, 'w')
-	fileToWrite:write(what)
-	fileToWrite:close()	
+local function writeToFile(where, what)
+    local fileToWrite, err = io.open(where, 'w')  -- Попытка открыть файл
+    if not fileToWrite then
+        print("Ошибка при открытии файла: " .. err)  -- Выводим сообщение об ошибке
+        os.exit(1)  -- Завершаем выполнение скрипта с кодом ошибки 1
+    end
+    fileToWrite:write(what)
+    fileToWrite:close()  
 end
+
 --Читает символ из файла 'где' и возвращает строку
-function readFromFile (where)
-	local fileToRead=io.open(where, 'r')
+local function readFromFile (where)
+	local fileToRead, err = io.open(where, 'r')
+  if not fileToRead then
+    print("Ошибка при открытии файла: " .. err)  -- Выводим сообщение об ошибке
+    os.exit(1)  -- Завершаем выполнение скрипта с кодом ошибки 1
+  end
 	fileStr = fileToRead:read(1)
 	fileToRead:close()	
 	return fileStr
 end
 
 --Возвращает true, если файл существует 
-function file_exists(name)
+local function file_exists(name)
    local f=io.open(name,"r")
    if f~=nil then io.close(f) return true else return false end
 end
 
 --Экспортирует ID GPIO для использования в качестве выходного пина
-function ConfigureOutGPIO (id)
+function cp2112_gpio:ConfigureOutGPIO (id)
 	if not file_exists('/sys/class/gpio/gpio'..id..'/direction') then
 		writeToFile('/sys/class/gpio/export',id)
 	end
@@ -50,7 +59,7 @@ function ConfigureOutGPIO (id)
 end
 
 --Экспортирует ID GPIO для использования в качестве входного пина 
-function ConfigureInGPIO (id)
+function cp2112_gpio:ConfigureInGPIO (id)
 	if not file_exists('/sys/class/gpio/gpio'..id..'/direction') then
 		writeToFile('/sys/class/gpio/export',id)
 	end
@@ -63,7 +72,7 @@ end
 -- "rising"  — включить прерывание по нисходящему фронту
 -- "falling" — включить прерывание по восодящему фронту
 -- "both"    — включить прерывание по обеим фронтам
-function ConfigureInGPIO_IRQ (id, edge)
+function cp2112_gpio:ConfigureInGPIO_IRQ (id, edge)
   if not file_exists('/sys/class/gpio/gpio'..id..'/direction') then
     writeToFile('/sys/class/gpio/export',id)
   end
@@ -86,14 +95,14 @@ end
 
 --Читает GPIO 'id' и возвращает его значение  
 --@Предварительное условие: GPIO 'id' должен быть экспортирован с помощью configureInGPIO  
-function ReadGPIO(id)
+function cp2112_gpio:ReadGPIO(id)
 	gpioVal = readFromFile('/sys/class/gpio/gpio'..id..'/value')
 	return gpioVal
 end
 
 -- Возвращает счетчик прерываний выбранного пина
 -- Прерывание срабатывает по условию(rising/falling/both)
-local function ReadGPIO_IRQ(id)
+function cp2112_gpio:ReadGPIO_IRQ(id)
   local IO = id - 408
   local counter_irq
   -- Выполняем bash-команду и перехватываем вывод
@@ -109,7 +118,7 @@ end
 
 --Записывает значение в GPIO 'id'  
 --@Предварительное условие: GPIO 'id' должен быть экспортирован с помощью configureOutGPIO
-function WriteGPIO(id, val)
+function cp2112_gpio:WriteGPIO(id, val)
 	-- Защита от некоректных аргументов
 	if val > 1 then val = 1 end
 	if val < 0 then val = 0 end
@@ -120,15 +129,15 @@ function sleep(n)
   os.execute("sleep " .. tonumber(n))
 end
 
-function AllGPIO_ToInput()
-  ConfigureInGPIO(IO0)
-  ConfigureInGPIO(IO1)
-  ConfigureInGPIO(IO2)
-  ConfigureInGPIO(IO3)
-  ConfigureInGPIO(IO4)
-  ConfigureInGPIO(IO5)
-  ConfigureInGPIO(IO6)
-  ConfigureInGPIO(IO7)
+function cp2112_gpio:AllGPIO_ToInput()
+  self:ConfigureInGPIO(self.IO0)
+  self:ConfigureInGPIO(self.IO1)
+  self:ConfigureInGPIO(self.IO2)
+  self:ConfigureInGPIO(self.IO3)
+  self:ConfigureInGPIO(self.IO4)
+  self:ConfigureInGPIO(self.IO5)
+  self:ConfigureInGPIO(self.IO6)
+  self:ConfigureInGPIO(self.IO7)
 end
 
 return cp2112_gpio

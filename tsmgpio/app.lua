@@ -1,11 +1,11 @@
 local ubus = require "ubus"
 local uloop = require "uloop"
 
-local cp2112_gpio = require "gpio"
+local cp2112 = require "gpio"
 
 local tsmgpio = {}
 tsmgpio.conn = nil
-tsmgpio.gpio = cp2112_gpio
+tsmgpio.device = cp2112
 tsmgpio.ubus_object = nil
 tsmgpio.gpio_params	= nil
 
@@ -14,7 +14,7 @@ function tsmgpio:init()
 	if not tsmgpio.conn then
 		error("Failed to connect to ubus")
 	end
-	tsmgpio.gpio:AllGPIO_ToInput()
+	tsmgpio.device:AllGPIO_ToInput()
 end
 
 function tsmgpio:make_ubus()
@@ -31,11 +31,11 @@ function tsmgpio:make_ubus()
 	}
 	-- Таблица всех параметров GPIO 
     local gpio_params = {
-        direction = "input",   
-        value = 1,             
-        action = "toggle",     
-        trigger = "button",     
-        debounce = 50           
+        direction = "",   
+        value = 0,             
+        action = "",     
+        trigger = "",     
+        debounce = 0           
     }
 
 	tsmgpio.ubus_object = ubus_objects
@@ -45,9 +45,15 @@ function tsmgpio:make_ubus()
 	tsmgpio.conn:add(tsmgpio.ubus_object)
 end
 
+local function GPIO_EventDetect(IO)
+	-- перебросить детект события в правило
+	-- возвращать количество событий по UBUS
+end 
+
 function tsmgpio:poll()
  	local timer
  	function t()
+ 		tsmgpio.gpio_params.value = tsmgpio.device:ReadGPIO(408)
 		ubus:publish(tsmgpio.ubus_object, tsmgpio.gpio_params)
 		timer:set(1000)
 	end
@@ -58,7 +64,7 @@ end
 
 
 tsmgpio:init()
-tsmgpio:poll()
 uloop.init()
 tsmgpio:make_ubus()
+tsmgpio:poll()
 uloop.run()
