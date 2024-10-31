@@ -17,26 +17,59 @@ function tsmgpio:init()
 	tsmgpio.device:AllGPIO_ToInput()
 end
 
+-- Функция для вывода таблицы для отладки
+local function printTable(t)
+    for key, value in pairs(t) do
+        print(string.format('"%s"="%s"', key, tostring(value)))
+    end
+end
+
+-- Проверяем поступившие параметры
+local function ValidateInputData(msg)
+	local direction_valid =(msg["direction"] == "in" 	or msg["direction"] == "out")
+	local trigger_valid = (msg["trigger"] == "none" 	or msg["trigger"] == "rising" or
+						msg["trigger"] == "falling" or msg["trigger"] == "both")
+    return direction_valid and trigger_valid
+end
+
+local function GPIO_DataUpdate(msg, io_number)
+	local resp = {}
+	if ValidateInputData(msg) then
+		tsmgpio.device:SetDirection(msg["direction"], io_number)
+		if msg["direction"] == "in" then
+			tsmgpio.device:SetEdge(msg["trigger"])
+			if not msg["trigger"] == "none" then
+				resp["irq_counter"] = tsmgpio.device:ReadGPIO_IRQ(io_number)
+			else
+				resp["value"] = tsmgpio.device:ReadGPIO(io_number)
+			end 
+		else
+			-- Устанавливаем состояние выхода
+			tsmgpio.device:SetValue(msg["value"])
+		end
+	else
+		resp["note"] = "Example: XXX"
+	end
+ 	tsmgpio.conn:reply(req, resp);
+end
+
 function tsmgpio:make_ubus()
+	-- Таблица всех параметров GPIO 
+    local gpio_params = {
+        direction = ubus.STRING,   
+        value = ubus.STRING,                 
+        trigger = ubus.STRING,            
+    }
 	-- Создание UBUS объекта
  	local ubus_objects = {
  		["tsmodem.gpio"] = {
- 			value = {
+ 			IO0 = {
  				function(req, msg)
- 					--conn:reply(req, {message="foo"});
- 					print("Call to function 'hello'")
-				end, {id = ubus.INT32, msg = ubus.STRING }
+ 					
+				end, gpio_params
 			},
 		}
 	}
-	-- Таблица всех параметров GPIO 
-    local gpio_params = {
-        direction = "",   
-        value = 0,             
-        action = "",     
-        trigger = "",     
-        debounce = 0           
-    }
 
 	tsmgpio.ubus_object = ubus_objects
 	tsmgpio.gpio_params = gpio_params
@@ -54,7 +87,7 @@ function tsmgpio:poll()
  	local timer
  	function t()
  		tsmgpio.gpio_params.value = tsmgpio.device:ReadGPIO(408)
-		ubus:publish(tsmgpio.ubus_object, tsmgpio.gpio_params)
+		--ubus:notify(tsmgpio.ubus_object, tsmgpio.gpio_params)
 		timer:set(1000)
 	end
 	timer = uloop.timer(t)

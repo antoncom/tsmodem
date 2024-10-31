@@ -50,6 +50,14 @@ local function file_exists(name)
    if f~=nil then io.close(f) return true else return false end
 end
 
+function cp2112_gpio:SetDirection(direction, id)
+  --
+end
+
+function cp2112_gpio:SetEdge(trigger, id)
+  --
+end
+
 --Экспортирует ID GPIO для использования в качестве выходного пина
 function cp2112_gpio:ConfigureOutGPIO (id)
 	if not file_exists('/sys/class/gpio/gpio'..id..'/direction') then
