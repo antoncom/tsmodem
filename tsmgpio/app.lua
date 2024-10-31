@@ -9,14 +9,6 @@ tsmgpio.device = cp2112
 tsmgpio.ubus_object = nil
 tsmgpio.gpio_params	= nil
 
-function tsmgpio:init()
-	tsmgpio.conn = ubus.connect()
-	if not tsmgpio.conn then
-		error("Failed to connect to ubus")
-	end
-	tsmgpio.device:AllGPIO_ToInput()
-end
-
 -- Функция для вывода таблицы для отладки
 local function printTable(t)
     for key, value in pairs(t) do
@@ -24,50 +16,128 @@ local function printTable(t)
     end
 end
 
+function tsmgpio:init()
+	tsmgpio.conn = ubus.connect()
+	if not tsmgpio.conn then
+		error("Failed to connect to ubus")
+	end
+	-- Все контакты переводим на вход для безопасности "железа".
+	tsmgpio.device:AllGPIO_ToInput()
+end
+
 -- Проверяем поступившие параметры
 local function ValidateInputData(msg)
-	local direction_valid =(msg["direction"] == "in" 	or msg["direction"] == "out")
-	local trigger_valid = (msg["trigger"] == "none" 	or msg["trigger"] == "rising" or
+	local direction_valid =(msg["direction"] == "in" or msg["direction"] == "out")
+	if msg["direction"] == "in" then
+		local trigger_valid = (msg["trigger"] == "none" or msg["trigger"] == "rising" or
 						msg["trigger"] == "falling" or msg["trigger"] == "both")
+	else
+		trigger_valid = true
+	end
     return direction_valid and trigger_valid
 end
 
-local function GPIO_DataUpdate(msg, io_number)
-	local resp = {}
+function GPIO_DataUpdate(msg, io_number)
+	local value
 	if ValidateInputData(msg) then
+		print("valide ok")
 		tsmgpio.device:SetDirection(msg["direction"], io_number)
 		if msg["direction"] == "in" then
 			tsmgpio.device:SetEdge(msg["trigger"])
 			if not msg["trigger"] == "none" then
-				resp["irq_counter"] = tsmgpio.device:ReadGPIO_IRQ(io_number)
+				-- Передаем счетчик срабатываний по событию триггера
+				value = tsmgpio.device:ReadGPIO_IRQ(io_number)
 			else
-				resp["value"] = tsmgpio.device:ReadGPIO(io_number)
+				-- Если триггер не установлен, передаем состояние порта
+				value = tsmgpio.device:ReadGPIO(io_number)
 			end 
 		else
 			-- Устанавливаем состояние выхода
-			tsmgpio.device:SetValue(msg["value"])
+			tsmgpio.device:WriteGPIO(tonumber(msg["value"]), io_number)
+			-- Считываем текущее состояние выхода
+			value = tsmgpio.device:ReadGPIO(io_number)
 		end
 	else
-		resp["note"] = "Example: XXX"
+		value = "The data entered is incorrect"
 	end
- 	tsmgpio.conn:reply(req, resp);
+ 	return value
 end
 
 function tsmgpio:make_ubus()
-	-- Таблица всех параметров GPIO 
+	-- Таблица параметров GPIO для драйвера
     local gpio_params = {
-        direction = ubus.STRING,   
-        value = ubus.STRING,                 
-        trigger = ubus.STRING,            
+        direction 	= ubus.STRING,   
+        value 		= ubus.STRING,                 
+        trigger 	= ubus.STRING,            
     }
+
+    local resp = {
+		["response"] = {
+			value = "",
+			direction = "",
+			trigger = "",
+		}
+	}
+
 	-- Создание UBUS объекта
  	local ubus_objects = {
  		["tsmodem.gpio"] = {
  			IO0 = {
  				function(req, msg)
- 					
+ 					resp["response"]["value"] = GPIO_DataUpdate(msg, tsmgpio.device.IO0)
+ 					tsmgpio.conn:reply(req, resp)
+ 					printTable(msg)
 				end, gpio_params
 			},
+ 			IO1 = {
+ 				function(req, msg)
+ 					resp["response"]["value"] = GPIO_DataUpdate(msg, tsmgpio.device.IO1)
+ 					tsmgpio.conn:reply(req, resp)
+ 					printTable(msg)
+				end, gpio_params
+			},
+ 			IO2 = {
+ 				function(req, msg)
+ 					resp["response"]["value"] = GPIO_DataUpdate(msg, tsmgpio.device.IO2)
+ 					tsmgpio.conn:reply(req, resp)
+ 					printTable(msg)
+				end, gpio_params
+			},
+ 			IO3 = {
+ 				function(req, msg)
+ 					resp["response"]["value"] = GPIO_DataUpdate(msg, tsmgpio.device.IO3)
+ 					tsmgpio.conn:reply(req, resp)
+ 					printTable(msg)
+				end, gpio_params
+			},
+ 			IO4 = {
+ 				function(req, msg)
+ 					resp["response"]["value"] = GPIO_DataUpdate(msg, tsmgpio.device.IO4)
+ 					tsmgpio.conn:reply(req, resp)
+ 					printTable(msg)
+				end, gpio_params
+			},
+ 			IO5 = {
+ 				function(req, msg)
+ 					resp["response"]["value"] = GPIO_DataUpdate(msg, tsmgpio.device.IO5)
+ 					tsmgpio.conn:reply(req, resp)
+ 					printTable(msg)
+				end, gpio_params
+			},
+ 			IO6 = {
+ 				function(req, msg)
+ 					resp["response"]["value"] = GPIO_DataUpdate(msg, tsmgpio.device.IO6)
+ 					tsmgpio.conn:reply(req, resp)
+ 					printTable(msg)
+				end, gpio_params
+			},
+ 			IO7 = {
+ 				function(req, msg)
+ 					resp["response"]["value"] = GPIO_DataUpdate(msg, tsmgpio.device.IO7)
+ 					tsmgpio.conn:reply(req, resp)
+ 					printTable(msg)
+				end, gpio_params
+			},						
 		}
 	}
 

@@ -51,27 +51,26 @@ local function file_exists(name)
 end
 
 function cp2112_gpio:SetDirection(direction, id)
-  --
+  -- Выполняется первым, поэтому проверка нужна.
+  if not file_exists('/sys/class/gpio/gpio'..id..'/direction') then
+    writeToFile('/sys/class/gpio/export',id)
+  end
+  writeToFile('/sys/class/gpio/gpio'..id..'/direction',direction)
 end
 
 function cp2112_gpio:SetEdge(trigger, id)
-  --
+  -- Выполняется всегда после direction, проверка не требуется.
+  writeToFile('/sys/class/gpio/gpio'..id..'/edge', trigger)
 end
 
 --Экспортирует ID GPIO для использования в качестве выходного пина
 function cp2112_gpio:ConfigureOutGPIO (id)
-	if not file_exists('/sys/class/gpio/gpio'..id..'/direction') then
-		writeToFile('/sys/class/gpio/export',id)
-	end
-	writeToFile('/sys/class/gpio/gpio'..id..'/direction','out')
+  self:SetDirection("out", id)
 end
 
 --Экспортирует ID GPIO для использования в качестве входного пина 
 function cp2112_gpio:ConfigureInGPIO (id)
-	if not file_exists('/sys/class/gpio/gpio'..id..'/direction') then
-		writeToFile('/sys/class/gpio/export',id)
-	end
-	writeToFile('/sys/class/gpio/gpio'..id..'/direction','in')
+  self:SetDirection("in", id)
 end
 
 --Экспортирует ID GPIO для использования в качестве входного пина 
@@ -81,24 +80,16 @@ end
 -- "falling" — включить прерывание по восодящему фронту
 -- "both"    — включить прерывание по обеим фронтам
 function cp2112_gpio:ConfigureInGPIO_IRQ (id, edge)
-  if not file_exists('/sys/class/gpio/gpio'..id..'/direction') then
-    writeToFile('/sys/class/gpio/export',id)
-  end
-  writeToFile('/sys/class/gpio/gpio'..id..'/direction','in')
-
+  local trigger
+  self:SetDirection("in", id)
   -- Проверка аргумента 'edge'
   if edge == nil or edge == 'none' or edge == 'rising' or edge == 'falling' or edge == 'both' then
-    if edge == 'rising' then
-      writeToFile('/sys/class/gpio/gpio'..id..'/edge', 'rising')
-    elseif edge == 'falling' then
-      writeToFile('/sys/class/gpio/gpio'..id..'/edge', 'falling')
-    elseif edge == 'both' then
-      writeToFile('/sys/class/gpio/gpio'..id..'/edge', 'both')
-    end
+    trigger = edge
   else
     -- Если аргумент задан неверно, устанавливаем режим по умолчанию 'none'
-    writeToFile('/sys/class/gpio/gpio'..id..'/edge', 'none')
+    trigger = 'none'
   end
+  self:SetEdge(trigger, id)
 end
 
 --Читает GPIO 'id' и возвращает его значение  
@@ -126,7 +117,7 @@ end
 
 --Записывает значение в GPIO 'id'  
 --@Предварительное условие: GPIO 'id' должен быть экспортирован с помощью configureOutGPIO
-function cp2112_gpio:WriteGPIO(id, val)
+function cp2112_gpio:WriteGPIO(val, id)
 	-- Защита от некоректных аргументов
 	if val > 1 then val = 1 end
 	if val < 0 then val = 0 end
