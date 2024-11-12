@@ -40,7 +40,6 @@ end
 function GPIO_DataUpdate(msg, io_number)
 	local value
 	if ValidateInputData(msg) then
-		print("valide ok")
 		tsmgpio.device:SetDirection(msg["direction"], io_number)
 		if msg["direction"] == "in" then
 			tsmgpio.device:SetEdge(msg["trigger"])
@@ -85,57 +84,65 @@ function tsmgpio:make_ubus()
  			IO0 = {
  				function(req, msg)
  					resp["response"]["value"] = GPIO_DataUpdate(msg, tsmgpio.device.IO0)
+ 					resp["response"]["direction"] = tsmgpio.device:GetDirection(tsmgpio.device.IO0)
+ 					resp["response"]["trigger"] = tsmgpio.device:GetEdge(tsmgpio.device.IO0)
  					tsmgpio.conn:reply(req, resp)
- 					printTable(msg)
 				end, gpio_params
 			},
  			IO1 = {
  				function(req, msg)
  					resp["response"]["value"] = GPIO_DataUpdate(msg, tsmgpio.device.IO1)
+ 					resp["response"]["direction"] = tsmgpio.device:GetDirection(tsmgpio.device.IO1)
+ 					resp["response"]["trigger"] = tsmgpio.device:GetEdge(tsmgpio.device.IO1)
  					tsmgpio.conn:reply(req, resp)
- 					printTable(msg)
 				end, gpio_params
 			},
  			IO2 = {
  				function(req, msg)
  					resp["response"]["value"] = GPIO_DataUpdate(msg, tsmgpio.device.IO2)
+ 					resp["response"]["direction"] = tsmgpio.device:GetDirection(tsmgpio.device.IO2)
+ 					resp["response"]["trigger"] = tsmgpio.device:GetEdge(tsmgpio.device.IO2)
  					tsmgpio.conn:reply(req, resp)
- 					printTable(msg)
 				end, gpio_params
 			},
  			IO3 = {
  				function(req, msg)
  					resp["response"]["value"] = GPIO_DataUpdate(msg, tsmgpio.device.IO3)
+ 					resp["response"]["direction"] = tsmgpio.device:GetDirection(tsmgpio.device.IO3)
+ 					resp["response"]["trigger"] = tsmgpio.device:GetEdge(tsmgpio.device.IO3)
  					tsmgpio.conn:reply(req, resp)
- 					printTable(msg)
 				end, gpio_params
 			},
  			IO4 = {
  				function(req, msg)
  					resp["response"]["value"] = GPIO_DataUpdate(msg, tsmgpio.device.IO4)
+ 					resp["response"]["direction"] = tsmgpio.device:GetDirection(tsmgpio.device.IO4)
+ 					resp["response"]["trigger"] = tsmgpio.device:GetEdge(tsmgpio.device.IO4)
  					tsmgpio.conn:reply(req, resp)
- 					printTable(msg)
 				end, gpio_params
 			},
  			IO5 = {
  				function(req, msg)
  					resp["response"]["value"] = GPIO_DataUpdate(msg, tsmgpio.device.IO5)
+ 					resp["response"]["direction"] = tsmgpio.device:GetDirection(tsmgpio.device.IO5)
+ 					resp["response"]["trigger"] = tsmgpio.device:GetEdge(tsmgpio.device.IO5)
  					tsmgpio.conn:reply(req, resp)
- 					printTable(msg)
 				end, gpio_params
 			},
  			IO6 = {
  				function(req, msg)
  					resp["response"]["value"] = GPIO_DataUpdate(msg, tsmgpio.device.IO6)
+ 					resp["response"]["direction"] = tsmgpio.device:GetDirection(tsmgpio.device.IO6)
+ 					resp["response"]["trigger"] = tsmgpio.device:GetEdge(tsmgpio.device.IO6)
  					tsmgpio.conn:reply(req, resp)
- 					printTable(msg)
 				end, gpio_params
 			},
  			IO7 = {
  				function(req, msg)
  					resp["response"]["value"] = GPIO_DataUpdate(msg, tsmgpio.device.IO7)
+ 					resp["response"]["direction"] = tsmgpio.device:GetDirection(tsmgpio.device.IO7)
+ 					resp["response"]["trigger"] = tsmgpio.device:GetEdge(tsmgpio.device.IO7)
  					tsmgpio.conn:reply(req, resp)
- 					printTable(msg)
 				end, gpio_params
 			},						
 		}
@@ -148,23 +155,35 @@ function tsmgpio:make_ubus()
 	tsmgpio.conn:add(tsmgpio.ubus_object)
 end
 
-local function GPIO_EventDetect(IO)
-	-- перебросить детект события в правило
-	-- возвращать количество событий по UBUS
-end 
+local function GPIO_Scan()
+  local gpio_scan_list = {}  -- Инициализируем таблицу для каждого GPIO
+  for i = 0, 7 do  -- Цикл от IO0 до IO7
+    local ioPin = "IO" .. i  -- Формируем название порта, например "IO0", "IO1" и т.д. 
+    gpio_scan_list[ioPin] = {}  -- Инициализируем таблицу для текущего GPIO
+    gpio_scan_list[ioPin]["direction"]  = tsmgpio.device:GetDirection(tsmgpio.device[ioPin])
+    gpio_scan_list[ioPin]["edge"]       = tsmgpio.device:GetEdge(tsmgpio.device[ioPin])
+    if gpio_scan_list[ioPin]["direction"] == "in" and not gpio_scan_list[ioPin]["edge"] == "none" then
+    	gpio_scan_list[ioPin]["value"] = tsmgpio.device:ReadGPIO_IRQ(tsmgpio.device[ioPin])
+    else
+    	gpio_scan_list[ioPin]["value"] = tsmgpio.device:ReadGPIO(tsmgpio.device[ioPin])
+    end
+
+  end
+  return gpio_scan_list
+end
 
 function tsmgpio:poll()
+	local gpio_scan_list_ubus
  	local timer
  	function t()
- 		tsmgpio.gpio_params.value = tsmgpio.device:ReadGPIO(408)
-		--ubus:notify(tsmgpio.ubus_object, tsmgpio.gpio_params)
+ 		gpio_scan_list_ubus = GPIO_Scan()
+ 		print("gpio scan")
+		ubus:notify(tsmgpio.ubus_object, gpio_scan_list_ubus)
 		timer:set(1000)
 	end
 	timer = uloop.timer(t)
 	timer:set(1000)
 end
-
-
 
 tsmgpio:init()
 uloop.init()

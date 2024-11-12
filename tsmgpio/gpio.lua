@@ -39,7 +39,7 @@ local function readFromFile (where)
     print("Ошибка при открытии файла: " .. err)  -- Выводим сообщение об ошибке
     os.exit(1)  -- Завершаем выполнение скрипта с кодом ошибки 1
   end
-	fileStr = fileToRead:read(1)
+	local fileStr = fileToRead:read("*l")
 	fileToRead:close()	
 	return fileStr
 end
@@ -58,9 +58,18 @@ function cp2112_gpio:SetDirection(direction, id)
   writeToFile('/sys/class/gpio/gpio'..id..'/direction',direction)
 end
 
+function cp2112_gpio:GetDirection(id)
+  local buf = readFromFile('/sys/class/gpio/gpio'..id..'/direction')
+  return buf
+end
+
 function cp2112_gpio:SetEdge(trigger, id)
   -- Выполняется всегда после direction, проверка не требуется.
   writeToFile('/sys/class/gpio/gpio'..id..'/edge', trigger)
+end
+
+function cp2112_gpio:GetEdge(id)
+  return readFromFile('/sys/class/gpio/gpio'..id..'/edge')
 end
 
 --Экспортирует ID GPIO для использования в качестве выходного пина
