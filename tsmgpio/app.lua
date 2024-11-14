@@ -7,12 +7,21 @@ local tsmgpio = {}
 tsmgpio.conn = nil
 tsmgpio.device = cp2112
 tsmgpio.ubus_object = nil
+tsmgpio.ubus_scan_object = nil
 tsmgpio.gpio_params	= nil
 
 -- Функция для вывода таблицы для отладки
-local function printTable(t)
+local function printTable(t, indent)
+    indent = indent or 0
+    local formatting = string.rep("  ", indent)  -- Форматирование отступов
+
     for key, value in pairs(t) do
-        print(string.format('"%s"="%s"', key, tostring(value)))
+        if type(value) == "table" then
+            print(formatting .. tostring(key) .. ":")
+            printTable(value, indent + 1)  -- Рекурсивный вызов для вложенной таблицы
+        else
+            print(formatting .. tostring(key) .. ": " .. tostring(value))
+        end
     end
 end
 
@@ -37,6 +46,7 @@ local function ValidateInputData(msg)
     return direction_valid and trigger_valid
 end
 
+-- Запись данных из UBUS в порты
 function GPIO_DataUpdate(msg, io_number)
 	local value
 	if ValidateInputData(msg) then
@@ -62,14 +72,45 @@ function GPIO_DataUpdate(msg, io_number)
  	return value
 end
 
+-- Чтение всех портов и запись данных в UBUS
+local function GPIO_Scan()
+    local gpio_scan_list = {}  
+    for i = 0, 7 do
+        local ioPin = "IO" .. i  
+        gpio_scan_list[ioPin] = {}  
+        
+        local direction = tsmgpio.device:GetDirection(tsmgpio.device[ioPin])
+        local edge = tsmgpio.device:GetEdge(tsmgpio.device[ioPin])
+
+        if direction then
+            gpio_scan_list[ioPin]["direction"] = direction
+        else
+            print("Warning: direction for " .. ioPin .. " is nil")
+        end
+        
+        if edge then
+            gpio_scan_list[ioPin]["edge"] = edge
+        else
+            print("Warning: edge for " .. ioPin .. " is nil")
+        end
+
+        if gpio_scan_list[ioPin]["direction"] == "in" and (gpio_scan_list[ioPin]["edge"] ~= "none") then
+            gpio_scan_list[ioPin]["value"] = tsmgpio.device:ReadGPIO_IRQ(tsmgpio.device[ioPin])
+        else
+            gpio_scan_list[ioPin]["value"] = tsmgpio.device:ReadGPIO(tsmgpio.device[ioPin])
+        end
+    end
+    return gpio_scan_list
+end
+
 function tsmgpio:make_ubus()
 	-- Таблица параметров GPIO для драйвера
+    -- TODO: надо как-то объеденить эти таблицы в одну
     local gpio_params = {
         direction 	= ubus.STRING,   
         value 		= ubus.STRING,                 
         trigger 	= ubus.STRING,            
     }
-
     local resp = {
 		["response"] = {
 			value = "",
@@ -78,7 +119,8 @@ function tsmgpio:make_ubus()
 		}
 	}
 
-	-- Создание UBUS объекта
+	-- Создание UBUS объекта для управления портами
+	-- TODO: Придумать, как сгенерировать объект в цикле на N число портов.
  	local ubus_objects = {
  		["tsmodem.gpio"] = {
  			IO0 = {
@@ -150,36 +192,37 @@ function tsmgpio:make_ubus()
 
 	tsmgpio.ubus_object = ubus_objects
 	tsmgpio.gpio_params = gpio_params
-
 	-- Регистрация объекта в UBUS
 	tsmgpio.conn:add(tsmgpio.ubus_object)
+
+	-- Создание UBUS объекта для сканирования всех портов(Notify)
+	local ubus_scan_objects = {
+    	["tsmodem.gpio.scan"] = {}
+	}
+	-- Получаем результаты сканирования GPIO
+	local gpio_scan_resault = GPIO_Scan()
+	-- Добавляем результаты в UBUS объект
+	for pin, data in pairs(gpio_scan_resault) do
+    	if data then  -- Проверка на nil перед добавлением в ubus_scan_objects
+        	ubus_scan_objects["tsmodem.gpio.scan"][pin] = data
+    	else
+        	print("Warning: data for " .. pin .. " is nil")
+    	end
+	end
+
+	tsmgpio.ubus_scan_object = ubus_scan_objects
+	-- Регистрация объекта в UBUS
+	tsmgpio.conn:add(tsmgpio.ubus_scan_object)
 end
 
-local function GPIO_Scan()
-  local gpio_scan_list = {}  -- Инициализируем таблицу для каждого GPIO
-  for i = 0, 7 do  -- Цикл от IO0 до IO7
-    local ioPin = "IO" .. i  -- Формируем название порта, например "IO0", "IO1" и т.д. 
-    gpio_scan_list[ioPin] = {}  -- Инициализируем таблицу для текущего GPIO
-    gpio_scan_list[ioPin]["direction"]  = tsmgpio.device:GetDirection(tsmgpio.device[ioPin])
-    gpio_scan_list[ioPin]["edge"]       = tsmgpio.device:GetEdge(tsmgpio.device[ioPin])
-    if gpio_scan_list[ioPin]["direction"] == "in" and not gpio_scan_list[ioPin]["edge"] == "none" then
-    	gpio_scan_list[ioPin]["value"] = tsmgpio.device:ReadGPIO_IRQ(tsmgpio.device[ioPin])
-    else
-    	gpio_scan_list[ioPin]["value"] = tsmgpio.device:ReadGPIO(tsmgpio.device[ioPin])
-    end
 
-  end
-  return gpio_scan_list
-end
 
 function tsmgpio:poll()
-	local gpio_scan_list_ubus
  	local timer
  	function t()
- 		gpio_scan_list_ubus = GPIO_Scan()
- 		print("gpio scan")
-		ubus:notify(tsmgpio.ubus_object, gpio_scan_list_ubus)
-		timer:set(1000)
+ 		--printTable(tsmgpio.ubus_scan_object)
+		tsmgpio.conn:notify(tsmgpio.ubus_scan_object.__ubusobj, tsmgpio.ubus_scan_object["tsmodem.gpio.scan"])
+		timer:set(5000)
 	end
 	timer = uloop.timer(t)
 	timer:set(1000)
