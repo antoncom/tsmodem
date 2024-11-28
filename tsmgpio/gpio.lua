@@ -110,6 +110,7 @@ end
 
 -- Возвращает счетчик прерываний выбранного пина
 -- Прерывание срабатывает по условию(rising/falling/both)
+-- TODO: Работает только с IO5. Исправить парсер!
 function cp2112_gpio:ReadGPIO_IRQ(id)
   local IO = id - 408
   local counter_irq
