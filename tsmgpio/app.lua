@@ -7,7 +7,6 @@ local tsmgpio = {}
 tsmgpio.conn = nil
 tsmgpio.device = cp2112
 tsmgpio.ubus_object = nil
-tsmgpio.ubus_scan_object = nil
 tsmgpio.gpio_params	= nil
 
 -- Функция для вывода таблицы для отладки
@@ -194,25 +193,6 @@ function tsmgpio:make_ubus()
 	tsmgpio.gpio_params = gpio_params
 	-- Регистрация объекта в UBUS
 	tsmgpio.conn:add(tsmgpio.ubus_object)
-
-	-- Создание UBUS объекта для сканирования всех портов(Notify)
-	local ubus_scan_objects = {
-    	["tsmodem.gpio.scan"] = {}
-	}
-	-- Получаем результаты сканирования GPIO
-	local gpio_scan_resault = GPIO_Scan()
-	-- Добавляем результаты в UBUS объект
-	for pin, data in pairs(gpio_scan_resault) do
-    	if data then  -- Проверка на nil перед добавлением в ubus_scan_objects
-        	ubus_scan_objects["tsmodem.gpio.scan"][pin] = data
-    	else
-        	print("Warning: data for " .. pin .. " is nil")
-    	end
-	end
-
-	tsmgpio.ubus_scan_object = ubus_scan_objects
-	-- Регистрация объекта в UBUS
-	tsmgpio.conn:add(tsmgpio.ubus_scan_object)
 end
 
 
@@ -220,9 +200,11 @@ end
 function tsmgpio:poll()
  	local timer
  	function t()
- 		--printTable(tsmgpio.ubus_scan_object)
-		tsmgpio.conn:notify(tsmgpio.ubus_scan_object.__ubusobj, tsmgpio.ubus_scan_object["tsmodem.gpio.scan"])
-		timer:set(5000)
+ 		-- Получаем результаты сканирования GPIO
+		local gpio_scan_resault = GPIO_Scan()
+		-- Отправка данных подписчикам
+		tsmgpio.conn:notify(tsmgpio.ubus_object["tsmodem.gpio"].__ubusobj, "tsmodem.gpio", gpio_scan_resault)
+		timer:set(2000)
 	end
 	timer = uloop.timer(t)
 	timer:set(1000)
