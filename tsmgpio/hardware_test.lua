@@ -1,4 +1,5 @@
 local cp2112 = require "gpio"
+local parser_gpio = require("utils.parser_gpio")
 
 print("**** CP2112 Hardware test RUN ****")
 print("-----------------------------------")
@@ -19,11 +20,7 @@ print("IO5 Dir:" .. cp2112:GetDirection(413) .. ", Trg: " .. cp2112:GetEdge(413)
 print("IO6 Dir:" .. cp2112:GetDirection(414) .. ", Trg: " .. cp2112:GetEdge(414))
 print("IO7 Dir:" .. cp2112:GetDirection(415) .. ", Trg: " .. cp2112:GetEdge(415))
 
---os.execute("sleep 3")
-
---while true do
-	print("-----------------------------------")
-    print("IO5 IRQ Counter: " .. cp2112:ReadGPIO_IRQ(413))
-    --print("IO6 IRQ Counter: " .. cp2112:ReadGPIO_IRQ(414))
-    --os.execute("sleep 2")  -- Для Windows используйте os.execute("timeout /t 5")
---end
+print("-----------------------------------")
+print("IO5 IRQ Counter: " .. parser_gpio:ParserGPIO_IRQ(5))
+print("IO6 IRQ Counter: " .. parser_gpio:ParserGPIO_IRQ(6))
+print("IO7 IRQ Counter: " .. parser_gpio:ParserGPIO_IRQ(7))
