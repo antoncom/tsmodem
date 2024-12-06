@@ -134,8 +134,12 @@ function cp2112_gpio:WriteGPIO(val, id)
 	gpioVal = writeToFile('/sys/class/gpio/gpio'..id..'/value', val)
 end
 
-function sleep(n)
-  os.execute("sleep " .. tonumber(n))
+function cp2112_gpio:SetGPIO(id)
+  self:WriteGPIO(1, id)
+end
+
+function cp2112_gpio:ResetGPIO(id)
+  self:WriteGPIO(0, id)
 end
 
 function cp2112_gpio:AllGPIO_ToInput()

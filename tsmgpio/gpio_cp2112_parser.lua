@@ -1,8 +1,7 @@
--- parser_gpio.lua
-
 local ParserGPIO = {}
 
-function ParserGPIO:ParserGPIO_IRQ(num_gpio)
+function ParserGPIO:ReadGPIO_IRQ(id)
+    local IO = id - 408
     local IO_IRQ
     -- Выполняем команду и открываем поток для чтения
     local handle = io.popen("cat /proc/interrupts | grep cp2112-gpio")
@@ -10,10 +9,10 @@ function ParserGPIO:ParserGPIO_IRQ(num_gpio)
     handle:close()  -- Закрываем поток
     -- Парсим вывод
     for line in result:gmatch("[^\n]+") do
-        -- Проверяем, содержит ли строка номер num_gpio
-        if line:find(num_gpio .. "%s+%sgpiolib") then
+        -- Проверяем, содержит ли строка номер IO
+        if line:find(IO .. "%s+%sgpiolib") then
             -- Извлекаем количество прерываний (число перед "cp2112-gpio")
-            local irq_count = line:match("(%d+)%s+cp2112%-gpio%s+" .. num_gpio)
+            local irq_count = line:match("(%d+)%s+cp2112%-gpio%s+" .. IO)
             if irq_count then
                 IO_IRQ = tonumber(irq_count)
                 --print("IO_IRQ найден:", IO_IRQ)  -- Отладочный вывод
