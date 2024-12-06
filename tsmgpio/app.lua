@@ -1,11 +1,13 @@
 local ubus = require "ubus"
 local uloop = require "uloop"
 
-local cp2112 = require "gpio"
+local cp2112 = require "gpio_cp2112_driver"
+local cp2112_IRQ = require"gpio_cp2112_parser"
 
 local tsmgpio = {}
 tsmgpio.conn = nil
 tsmgpio.device = cp2112
+tsmgpio.device_special = cp2112_IRQ
 tsmgpio.ubus_object = nil
 tsmgpio.gpio_params	= nil
 
@@ -54,7 +56,7 @@ function GPIO_DataUpdate(msg, io_number)
 			tsmgpio.device:SetEdge(msg["trigger"])
 			if not msg["trigger"] == "none" then
 				-- Передаем счетчик срабатываний по событию триггера
-				value = tsmgpio.device:ReadGPIO_IRQ(io_number)
+				value = tsmgpio.device_special:ReadGPIO_IRQ(io_number)
 			else
 				-- Если триггер не установлен, передаем состояние порта
 				value = tsmgpio.device:ReadGPIO(io_number)
@@ -94,7 +96,7 @@ local function GPIO_Scan()
         end
 
         if gpio_scan_list[ioPin]["direction"] == "in" and (gpio_scan_list[ioPin]["edge"] ~= "none") then
-            gpio_scan_list[ioPin]["value"] = tsmgpio.device:ReadGPIO_IRQ(tsmgpio.device[ioPin])
+            gpio_scan_list[ioPin]["value"] = tsmgpio.device_special:ReadGPIO_IRQ(tsmgpio.device[ioPin])
         else
             gpio_scan_list[ioPin]["value"] = tsmgpio.device:ReadGPIO(tsmgpio.device[ioPin])
         end

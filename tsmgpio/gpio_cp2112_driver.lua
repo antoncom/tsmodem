@@ -108,23 +108,6 @@ function cp2112_gpio:ReadGPIO(id)
 	return gpioVal
 end
 
--- Возвращает счетчик прерываний выбранного пина
--- Прерывание срабатывает по условию(rising/falling/both)
--- TODO: Работает только с IO5. Исправить парсер!
-function cp2112_gpio:ReadGPIO_IRQ(id)
-  local IO = id - 408
-  local counter_irq
-  -- Выполняем bash-команду и перехватываем вывод
-  local command_sh = "cat /proc/interrupts  | grep cp2112-gpio | grep "
-  -- Фильтр для выбранного номера пина
-  command_sh = command_sh .. tostring(IO)
-  local handle = io.popen(command_sh)
-  local output_sh = handle:read("*a")
-  handle:close()
-  counter_irq = tonumber(string.match(output_sh, ": +(%d+)"))
-  return counter_irq
-end
-
 --Записывает значение в GPIO 'id'  
 --@Предварительное условие: GPIO 'id' должен быть экспортирован с помощью configureOutGPIO
 function cp2112_gpio:WriteGPIO(val, id)

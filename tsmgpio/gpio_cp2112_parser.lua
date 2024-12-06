@@ -1,5 +1,7 @@
 local ParserGPIO = {}
 
+-- Считывает данные о колличестве прерываний GPIO из
+-- файла "/proc/interrupts"
 function ParserGPIO:ReadGPIO_IRQ(id)
     local IO = id - 408
     local IO_IRQ
