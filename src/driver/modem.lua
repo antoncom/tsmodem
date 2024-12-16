@@ -64,7 +64,7 @@ function modem:init()
 			modem.state:update("usb", "disconnected", modem.device .. " close")
 			modem.state:update("reg", "7", "AT+CREG?")
 			modem.state:update("signal", "", "AT+CSQ")
-			modem.state:update("cpin","", "","")
+			--modem.state:update("cpin","", "","")
 		end
 
 		local fds, err, errnum = F.open(modem.device, bit.bor(F.O_RDWR, F.O_NONBLOCK))
@@ -97,8 +97,8 @@ function modem:init()
 			modem.state:update("usb", "connected", modem.device .. " open", "")
 			modem.state:update("reg", "7", "AT+CREG?", "")
 			modem.state:update("signal", "", "AT+CSQ", "")
-			modem.state:update("switching","false", "","")
-			modem.state:update("cpin","", "","")
+			--modem.state:update("switching","false", "","")
+			--modem.state:update("cpin","", "","")
 
 		end
 	end
@@ -154,7 +154,7 @@ function modem:poll()
 			local message_from_browser, message_to_browser = "", ""
 			local chunk, err, errcode = U.read(modem.fds, 1024)
 
-			if_debug(modem.debug_type, "POLL", err, chunk, "[modem.lua]: " .. string.format("tsmodem: U.read(modem.fds, 1024) ERROR CODE: %s", tostring(errcode)))
+			--if_debug(modem.debug_type, "POLL", err, chunk, "[modem.lua]: " .. string.format("tsmodem: U.read(modem.fds, 1024) ERROR CODE: %s", tostring(errcode)))
 
 			if not err then
 				spec_V300_ch3:parse_AT(modem, chunk)

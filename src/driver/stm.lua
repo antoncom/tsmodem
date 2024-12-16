@@ -26,8 +26,10 @@ end
 
 function stm:init_mk()
     local status, sim_id = stm:command("~0:SIM.SEL=?")
-    if (status == "OK") then
+    if (status == "OK" and (sim_id == "0" or sim_id == "1")) then
         stm.state:update("sim", tostring(sim_id), "~0:SIM.SEL=?")
+    else
+    	util.perror("[tsmodem.driver.stm.lua] init_mk() ERROR")
     end
 
     -- Включить индикацию на 3 светодиоде: питание/подогрев CPU

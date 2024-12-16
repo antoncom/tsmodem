@@ -106,7 +106,6 @@ function v300_ch4:balance_parsing_and_update(modem, chunk)
 				return ""
 			end
 		end
-
 	else
 		util.perror('driver.lua : ' .. err)
 	end

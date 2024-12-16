@@ -269,18 +269,22 @@ local ubus_methods = {
                     comment = ""
                 }
 
-                state:update("balance", CREG_STATE["SWITCHING"], "", "")
-
                 if (state.modem.debug) then
                     print("-----------------------------------------------")
                     print(string.format('|  DO_SWITCH form [%s]', tostring(msg["rule"])))
                     print("-----------------------------------------------")
                 end
 
-                local switch_already_started = state:get("switching", "value")
+                local _,_, switch_already_started = state:get("switching", "value")
                 if (switch_already_started == "true") then
                     resp.value = "false"
                 else
+                    local _,_,simid = state:get("sim","value")
+                    local newsimid = (simid == "0") and "2" or "1"
+                    state:update("switching", "true", "Activate SIM-" .. newsimid, msg["rule"])
+                    if_debug("switching", "UBUS", "ASK", msg["rule"], "Note: msg['rule']")
+                    state:update("reg", CREG_STATE["SWITCHING"], "", "")
+
                     state.timer.SWITCH_1:set(state.timer.switch_delay["1_MDM_UNPOLL"])
                     resp.value = "true"
                 end
@@ -338,9 +342,9 @@ local ubus_methods = {
                 if msg["command"] then
                     if(state.modem:is_connected(state.modem.fds)) then
                         if (msg["what-to-update"] == "balance") then
-                            state:update("balance", "*", msg["command"], "")
+                            --state:update("balance", "*", msg["command"], "")
                             state.timer.BAL_TIMEOUT:set(state.timer.timeout["balance"]) -- clear balance state after timeout
-                            if_debug("balance", "AT", "ASK", msg, "Note: sends AT command to get balance and clear balance state if no AT-answer during " .. tostring(state.timer.timeout["balance"]/60000) .. " min.")
+                            if_debug("send_at", "AT", "ASK", msg, "Note: sends AT command to get balance and clear balance state if no AT-answer during " .. tostring(state.timer.timeout["balance"]/60000) .. " min.")
                         end
 
                         if(string.find(state.last_at_command, "AT%+CMGS") and string.find(state.last_at_command, "AT%+CMGS") > 0) then
@@ -385,10 +389,27 @@ local ubus_methods = {
                 state:update("balance", "", "", "")
                 state:update("provider_name", "", "", "")
                 state:update("netmode", "", "", "")
-                state:update("cpin", "", "", "")
+                --state:update("cpin", "", "", "")
                 state:update("ping", "", "", "")
 
                 if_debug("clear_state", "UBUS", "ANSWER", resp, "")
+
+                state.conn:reply(req, resp);
+
+            end, {id = ubus.INT32, msg = ubus.STRING }
+        },
+
+        -- [[ Clear log ]]
+        -- [[ e.g. when a user pressed "Clear log" button in the SIM cards page"]]
+        clear_log = {
+            function(req, msg)
+                if_debug("clear_log", "UBUS", "ASK", msg, "Note: Clear log, e.g. when a user pressed 'Clear log' button in the SIM cards page")
+                os.execute("/usr/sbin/tsmjournal clear")
+                local resp = { res = "/usr/sbin/tsmjournal clear" }
+                if_debug("clear_log", "UBUS", "ANSWER", resp, "")
+
+                --[[ Put "Clear journal event" to the Journal ]]
+
 
                 state.conn:reply(req, resp);
 
@@ -521,7 +542,7 @@ function state:update_queue(param, value, command, comment)
                 table.remove(state[param], 1)
             end
         --[[ Update last time of succesful registration state ]]
-    elseif (param == "reg" and (newval == CREG_STATE["REGISTERED"] or newval == CREG_STATE["SWITCHING"])) then
+        elseif (param == "reg" and (newval == CREG_STATE["REGISTERED"] or newval == CREG_STATE["SWITCHING"])) then
             state["reg"][n].time = tostring(os.time())
         --[[ Update time of last balance ussd request if balance's value is not changed ]]
         elseif (param == "balance") then
@@ -552,6 +573,7 @@ function state:update(param, value, command, comment)
         else
             local _,_,oldval =state:get(param, "value")
             local _,_,oldcomm = state:get(param, "command")
+
             if(oldval ~= newval or oldcomm ~= command) then
                 local item = {
                     ["command"] = command,
@@ -576,7 +598,7 @@ function state:update(param, value, command, comment)
             elseif (param == "ping") and value == "1" then
                 state["ping"][1].time = tostring(os.time())
             --[[ Update time of last successful cpin ]]
-            elseif (param == "cpin") and value == "true" then
+            elseif (param == "cpin") then
                 state["cpin"][1].time = tostring(os.time())
             --[[ Update SMS command received in any case, even if it was the same like previous one ]]
             elseif (param == "remote_control") then
