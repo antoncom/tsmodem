@@ -37,40 +37,47 @@ end
 
 -- Проверяем поступившие параметры
 local function ValidateInputData(msg)
-	local direction_valid =(msg["direction"] == "in" or msg["direction"] == "out")
+	local direction_valid = (msg["direction"] == "in" or msg["direction"] == "out")
+	local trigger_valid = true  -- Инициализируем переменную trigger_valid по умолчанию
+	-- Проверка режимов прерывания
 	if msg["direction"] == "in" then
-		local trigger_valid = (msg["trigger"] == "none" or msg["trigger"] == "rising" or
-						msg["trigger"] == "falling" or msg["trigger"] == "both")
-	else
-		trigger_valid = true
+		trigger_valid = (msg["trigger"] == "none" or msg["trigger"] == "rising" or
+                     msg["trigger"] == "falling" or msg["trigger"] == "both")
 	end
-    return direction_valid and trigger_valid
+
+  return direction_valid and trigger_valid
 end
 
--- Запись данных из UBUS в порты
+-- Запись проверка корректности данных и запись их из UBUS в GPIO
 function GPIO_DataUpdate(msg, io_number)
+	if not ValidateInputData(msg) then
+		return "The data entered is incorrect"
+	end
+
+	tsmgpio.device:SetDirection(msg["direction"], io_number)
+
 	local value
-	if ValidateInputData(msg) then
-		tsmgpio.device:SetDirection(msg["direction"], io_number)
-		if msg["direction"] == "in" then
-			tsmgpio.device:SetEdge(msg["trigger"])
-			if not msg["trigger"] == "none" then
-				-- Передаем счетчик срабатываний по событию триггера
-				value = tsmgpio.device_special:ReadGPIO_IRQ(io_number)
-			else
-				-- Если триггер не установлен, передаем состояние порта
-				value = tsmgpio.device:ReadGPIO(io_number)
-			end 
+	if msg["direction"] == "in" then
+		tsmgpio.device:SetEdge(msg["trigger"], io_number)
+		if msg["trigger"] ~= "none" then
+			-- Передаем счетчик срабатываний по событию триггера
+			value = tsmgpio.device_special:ReadGPIO_IRQ(io_number)
+		else
+			value = tsmgpio.device:ReadGPIO(io_number)
+		end
+	end
+	if msg["direction"] == "out" then
+		-- Если поле "value" некорректное - принудительно
+		--  устанавливаем порт в режим "in" для безопасности железа
+		if msg["value"] ~= "0" and msg["value"] ~= "1" then
+			tsmgpio.device:SetDirection("in", io_number)
 		else
 			-- Устанавливаем состояние выхода
 			tsmgpio.device:WriteGPIO(tonumber(msg["value"]), io_number)
-			-- Считываем текущее состояние выхода
-			value = tsmgpio.device:ReadGPIO(io_number)
 		end
-	else
-		value = "The data entered is incorrect"
+		value = tsmgpio.device:ReadGPIO(io_number)
 	end
- 	return value
+	return value
 end
 
 -- Чтение всех портов и запись данных в UBUS
