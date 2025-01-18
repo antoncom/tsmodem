@@ -1,0 +1,22 @@
+config gpio 'general'
+	option debug '0'
+	option isActive '0'
+
+config gpio 'IO_0'
+	option status 'disable'
+	option direction 'in'
+	option value '0'
+	option trigger 'none'
+	option debounce_ms '100'
+	option action_command 'echo "IO0 detected"'
+	option driver_info 'cp2112'
+	
+config gpio 'IO_1'
+	option status 'disable'
+	option direction 'in'
+	option value '0'
+	option trigger 'none'
+	option debounce_ms '100'
+	option action_command 'echo "IO1 detected"'
+	option driver_info 'cp2112'
+
