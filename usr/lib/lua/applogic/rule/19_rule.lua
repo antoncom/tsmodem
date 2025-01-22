@@ -5,11 +5,11 @@ local log = require "applogic.util.log"
 local rule = {}
 local rule_setting = {
 	title = {
-		input = "Правило периодического опроса GPIO",
+		input = "Правило GPIO линия 0. Конфиг:/etc/config/tsmgpio",
 	},
 
-	IO0_config = {
-		note = "Конфигурация GPIO из /etc/config/tsmgpio",
+	cfg_status = {
+		note = "Конфигурация. Линия: задействована/незадействована",
 		input = "",
         source = {
             type = "ubus",
@@ -18,25 +18,137 @@ local rule_setting = {
             params = {
                 config = "tsmgpio",
                 section = "IO_0",
-                --option = "direction"
+                option = "status"
             },
         },
+        modifier = {
+			["1_bash"] = [[ jsonfilter  -e $.value ]]
+		}
 	},
 
-	IO0 = {
-		note = [[ Идентификатор GPIO линия 0 ]],
+	cfg_direction = {
+		note = "Конфигурация. Направление: вход/выход",
+		input = "",
+        source = {
+            type = "ubus",
+            object = "uci",
+            method = "get",
+            params = {
+                config = "tsmgpio",
+                section = "IO_0",
+                option = "direction"
+            },
+        },
+        modifier = {
+			["1_bash"] = [[ jsonfilter  -e $.value ]]
+		}
+	},	
+
+	cfg_trigger = {
+		note = "Конфигурация. Активация захвата события по: фронту/спаду/любое",
+		input = "",
+        source = {
+            type = "ubus",
+            object = "uci",
+            method = "get",
+            params = {
+                config = "tsmgpio",
+                section = "IO_0",
+                option = "trigger"
+            },
+        },
+        modifier = {
+			["1_bash"] = [[ jsonfilter  -e $.value ]]
+		}
+	},
+
+	cfg_value = {
+		note = "Конфигурация. Состояние линии: 0 - LOW / 1 - HI",
+		input = "",
+        source = {
+            type = "ubus",
+            object = "uci",
+            method = "get",
+            params = {
+                config = "tsmgpio",
+                section = "IO_0",
+                option = "value"
+            },
+        },
+        modifier = {
+			["1_bash"] = [[ jsonfilter  -e $.value ]]
+		}
+	},		
+
+	cfg_debounce_ms = {
+		note = "Конфигурация. Фильтрация дребезга контактов в мсек.",
+		input = "",
+        source = {
+            type = "ubus",
+            object = "uci",
+            method = "get",
+            params = {
+                config = "tsmgpio",
+                section = "IO_0",
+                option = "debounce_ms"
+            },
+        },
+        modifier = {
+			["1_bash"] = [[ jsonfilter  -e $.value ]]
+		}
+	},
+
+	cfg_action_command = {
+		note = "Конфигурация. Реакция на событие: Запуск Bash-команды.",
+		input = "",
+        source = {
+            type = "ubus",
+            object = "uci",
+            method = "get",
+            params = {
+                config = "tsmgpio",
+                section = "IO_0",
+                option = "action_command"
+            },
+        },
+        modifier = {
+			["1_bash"] = [[ jsonfilter  -e $.value ]]
+		}
+	},
+
+	cfg_hw_info = {
+		note = "Конфигурация. Информация об аппапатной реализации GPIO.",
+		input = "",
+        source = {
+            type = "ubus",
+            object = "uci",
+            method = "get",
+            params = {
+                config = "tsmgpio",
+                section = "IO_0",
+                option = "hw_info"
+            },
+        },
+        modifier = {
+			["1_bash"] = [[ jsonfilter  -e $.value ]]
+		}
+	},	
+
+	direction = {
+		note = [[ Направление: вход/выход ]],
 		source = {
 			type = "ubus",
 			object = "tsmodem.gpio",
 			method = "IO0",
             params = {
                 value = "0",
-                direction = "in",
-                trigger = "none"
+                direction = "",
+                trigger = ""
             },
 		},
 		modifier = {
-			--["1_bash"] = [[ jsonfilter -e '$.response.value' ]]
+			["1_skip"] = [[ return ($cfg_status == "disable") ]],
+			["2_bash"] = [[ jsonfilter -e '$.response.direction' ]]
 		}
 	},
 }
@@ -59,8 +171,14 @@ function rule:make()
 	}
 
 	self:load("title"):modify():debug()
-	self:load("IO0_config"):modify():debug()
-	self:load("IO0"):modify():debug()
+	self:load("cfg_status"):modify():debug()
+	self:load("cfg_direction"):modify():debug()
+	self:load("cfg_trigger"):modify():debug()
+	self:load("cfg_value"):modify():debug()
+	self:load("cfg_debounce_ms"):modify():debug()
+	self:load("cfg_action_command"):modify():debug()
+	self:load("cfg_hw_info"):modify():debug()
+	self:load("direction"):modify():debug()
 
 end
 
