@@ -26,6 +26,24 @@ local rule_setting = {
 		}
 	},
 
+	cfg_default_value_out = {
+		note = "Конфигурация. Линия в начальном состоянии в режиме выход",
+		input = "",
+        source = {
+            type = "ubus",
+            object = "uci",
+            method = "get",
+            params = {
+                config = "tsmgpio",
+                section = "IO_0",
+                option = "default_value_out"
+            },
+        },
+        modifier = {
+			["1_bash"] = [[ jsonfilter  -e $.value ]]
+		}
+	},
+
 	cfg_direction = {
 		note = "Конфигурация. Направление: вход/выход",
 		input = "",
@@ -40,7 +58,30 @@ local rule_setting = {
             },
         },
         modifier = {
-			["1_bash"] = [[ jsonfilter  -e $.value ]]
+        	["1_skip"] = [[ return ($cfg_status == "disable") ]],
+			["2_bash"] = [[ jsonfilter  -e $.value ]],
+			["3_func"] = [[
+				local JUST_STARTED = true
+				local def_value = $cfg_default_value_out
+				local def_direction = $cfg_direction
+				local def_trigger = ''
+				-- В режиме вход требуется только такое сочетание параметров
+				if (def_direction == 'in') then
+					def_value = ''
+					def_trigger = 'none'
+				end
+				command = "ubus call tsmodem.gpio IO0 '{\"value\":\"" .. def_value .. 
+											"\",\"direction\":\"" .. def_direction .. 
+											"\",\"trigger\":\"" .. def_trigger .. "\"}'"
+				-- Инициализация направления из конфига при первом запуске
+				if (JUST_STARTED) then
+					local handle = io.popen(command)
+					local result = handle:read("*a")  -- перенаправление ответа
+					handle:close()
+					JUST_STARTED = false
+				end
+				return def_direction
+			]]
 		}
 	},	
 
@@ -172,13 +213,14 @@ function rule:make()
 
 	self:load("title"):modify():debug()
 	self:load("cfg_status"):modify():debug()
+	self:load("cfg_default_value_out"):modify():debug()
 	self:load("cfg_direction"):modify():debug()
 	self:load("cfg_trigger"):modify():debug()
 	self:load("cfg_value"):modify():debug()
-	self:load("cfg_debounce_ms"):modify():debug()
+	--self:load("cfg_debounce_ms"):modify():debug()
 	self:load("cfg_action_command"):modify():debug()
 	self:load("cfg_hw_info"):modify():debug()
-	self:load("direction"):modify():debug()
+	--self:load("direction"):modify():debug()
 
 end
 
