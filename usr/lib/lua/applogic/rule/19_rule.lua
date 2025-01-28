@@ -44,6 +44,25 @@ local rule_setting = {
 		}
 	},
 
+	cfg_trigger = {
+		note = "Конфигурация. Активация захвата события по: фронту/спаду/любое",
+		input = "",
+        source = {
+            type = "ubus",
+            object = "uci",
+            method = "get",
+            params = {
+                config = "tsmgpio",
+                section = "IO_0",
+                option = "trigger"
+            },
+        },
+        modifier = {
+			["1_skip"] = [[ return ($cfg_status == "disable")]],
+			["2_bash"] = [[ jsonfilter  -e $.value ]],		
+		}
+	},
+
 	cfg_direction = {
 		note = "Конфигурация. Направление: вход/выход",
 		input = "",
@@ -62,19 +81,23 @@ local rule_setting = {
 			["2_bash"] = [[ jsonfilter  -e $.value ]],
 			["3_func"] = [[
 				local JUST_STARTED = true
-				local def_value = $cfg_default_value_out
+				local def_value = $cfg_value
 				local def_direction = $cfg_direction
-				local def_trigger = ''
-				-- В режиме вход требуется только такое сочетание параметров
-				if (def_direction == 'in') then
-					def_value = ''
-					def_trigger = 'none'
-				end
-				command = "ubus call tsmodem.gpio IO0 '{\"value\":\"" .. def_value .. 
-											"\",\"direction\":\"" .. def_direction .. 
-											"\",\"trigger\":\"" .. def_trigger .. "\"}'"
+				local def_trigger = $cfg_trigger
 				-- Инициализация направления из конфига при первом запуске
 				if (JUST_STARTED) then
+					-- В режиме вход требуется только такое сочетание параметров
+					if (def_direction == 'in') then
+						def_value = ''
+					end
+					-- В режиме выход устанавливается безопасное состояние линии
+					if (def_direction == 'out') then
+						def_value = $cfg_default_value_out
+						def_trigger = ''
+					end					
+					local command = "ubus call tsmodem.gpio IO0 '{\"value\":\"" .. def_value .. 
+											"\",\"direction\":\"" .. def_direction .. 
+											"\",\"trigger\":\"" .. def_trigger .. "\"}'"
 					local handle = io.popen(command)
 					local result = handle:read("*a")  -- перенаправление ответа
 					handle:close()
@@ -85,26 +108,8 @@ local rule_setting = {
 		}
 	},	
 
-	cfg_trigger = {
-		note = "Конфигурация. Активация захвата события по: фронту/спаду/любое",
-		input = "",
-        source = {
-            type = "ubus",
-            object = "uci",
-            method = "get",
-            params = {
-                config = "tsmgpio",
-                section = "IO_0",
-                option = "trigger"
-            },
-        },
-        modifier = {
-			["1_bash"] = [[ jsonfilter  -e $.value ]]
-		}
-	},
-
-	cfg_value = {
-		note = "Конфигурация. Состояние линии: 0 - LOW / 1 - HI",
+	cfg_value_out = {
+		note = "Конфигурация. Для режима выход. Запись данных в линию.",
 		input = "",
         source = {
             type = "ubus",
@@ -117,9 +122,21 @@ local rule_setting = {
             },
         },
         modifier = {
-			["1_bash"] = [[ jsonfilter  -e $.value ]]
+        	["1_skip"] = [[ return ($cfg_status == "disable") or ($cfg_direction == "in")]],
+			["2_bash"] = [[ jsonfilter  -e $.value ]],
+			["3_func"] = [[
+				local def_value = $cfg_value_out
+				local def_direction = "out"
+				local def_trigger = ""
+				local command = "ubus call tsmodem.gpio IO0 '{\"value\":\"" .. def_value .. 
+											"\",\"direction\":\"" .. def_direction .. 
+											"\",\"trigger\":\"" .. def_trigger .. "\"}'"
+				local handle = io.popen(command)
+				local result = handle:read("*a")  -- перенаправление ответа
+				handle:close()
+			]]
 		}
-	},		
+	},			
 
 	cfg_debounce_ms = {
 		note = "Конфигурация. Фильтрация дребезга контактов в мсек.",
@@ -136,6 +153,27 @@ local rule_setting = {
         },
         modifier = {
 			["1_bash"] = [[ jsonfilter  -e $.value ]]
+		}
+	},
+
+	value_in = {
+		note = "Чтение состояния линии",
+		input = "",
+        source = {
+            type = "ubus",
+            object = "tsmodem.gpio",
+            method = "IO0",
+            params = {
+            	-- TODO: подправить драйвер UBUS для работы с таким сочетанием
+            	-- параметров. Протестировать на железе!
+                value = "",
+                direction = "",
+                trigger = ""
+            },
+        },
+        modifier = {
+        	["1_skip"] = [[ return ($cfg_status == "disable") ]],
+			["2_bash"] = [[ jsonfilter -e '$.response.value' ]],
 		}
 	},
 
