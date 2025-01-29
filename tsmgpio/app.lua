@@ -51,7 +51,7 @@ end
 -- Запись проверка корректности данных и запись их из UBUS в GPIO
 function GPIO_DataUpdate(msg, io_number)
 	if not ValidateInputData(msg) then
-		return "The data entered is incorrect"
+		return tsmgpio.device:ReadGPIO(io_number)
 	end
 
 	tsmgpio.device:SetDirection(msg["direction"], io_number)

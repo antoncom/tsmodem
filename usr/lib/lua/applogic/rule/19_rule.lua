@@ -22,12 +22,27 @@ local rule_setting = {
             },
         },
         modifier = {
-			["1_bash"] = [[ jsonfilter  -e $.value ]]
+			["1_bash"] = [[ jsonfilter  -e $.value ]],
+			["2_func"] = [[
+				-- Перевод в безопасный режим - вход.
+				if ($cfg_status == "disable") then
+					local def_value = ""
+					local def_direction = "in"
+					local def_trigger = "none"
+					local command = "ubus call tsmodem.gpio IO0 '{\"value\":\"" .. def_value .. 
+											"\",\"direction\":\"" .. def_direction .. 
+											"\",\"trigger\":\"" .. def_trigger .. "\"}'"
+					local handle = io.popen(command)
+					local result = handle:read("*a")  -- перенаправление ответа
+					handle:close()
+				end
+				return $cfg_status
+			]]
 		}
 	},
 
-	cfg_default_value_out = {
-		note = "Конфигурация. Линия в начальном состоянии в режиме выход",
+	cfg_value = {
+		note = "Конфигурация. Запись состояния из конфига в линию",
 		input = "",
         source = {
             type = "ubus",
@@ -36,7 +51,7 @@ local rule_setting = {
             params = {
                 config = "tsmgpio",
                 section = "IO_0",
-                option = "default_value_out"
+                option = "value"
             },
         },
         modifier = {
@@ -80,63 +95,28 @@ local rule_setting = {
         	["1_skip"] = [[ return ($cfg_status == "disable") ]],
 			["2_bash"] = [[ jsonfilter  -e $.value ]],
 			["3_func"] = [[
-				local JUST_STARTED = true
-				local def_value = $cfg_value
+				local def_value
 				local def_direction = $cfg_direction
 				local def_trigger = $cfg_trigger
-				-- Инициализация направления из конфига при первом запуске
-				if (JUST_STARTED) then
-					-- В режиме вход требуется только такое сочетание параметров
-					if (def_direction == 'in') then
-						def_value = ''
-					end
-					-- В режиме выход устанавливается безопасное состояние линии
-					if (def_direction == 'out') then
-						def_value = $cfg_default_value_out
-						def_trigger = ''
-					end					
-					local command = "ubus call tsmodem.gpio IO0 '{\"value\":\"" .. def_value .. 
-											"\",\"direction\":\"" .. def_direction .. 
-											"\",\"trigger\":\"" .. def_trigger .. "\"}'"
-					local handle = io.popen(command)
-					local result = handle:read("*a")  -- перенаправление ответа
-					handle:close()
-					JUST_STARTED = false
+				-- В режиме вход требуется только такое сочетание параметров
+				if (def_direction == 'in') then
+					def_value = ''
 				end
-				return def_direction
-			]]
-		}
-	},	
-
-	cfg_value_out = {
-		note = "Конфигурация. Для режима выход. Запись данных в линию.",
-		input = "",
-        source = {
-            type = "ubus",
-            object = "uci",
-            method = "get",
-            params = {
-                config = "tsmgpio",
-                section = "IO_0",
-                option = "value"
-            },
-        },
-        modifier = {
-        	["1_skip"] = [[ return ($cfg_status == "disable") or ($cfg_direction == "in")]],
-			["2_bash"] = [[ jsonfilter  -e $.value ]],
-			["3_func"] = [[
-				local def_value = $cfg_value_out
-				local def_direction = "out"
-				local def_trigger = ""
+				-- В режиме выход устанавливается состояние линии из конфига
+				if (def_direction == 'out') then
+					def_value = $cfg_value
+					def_trigger = ''
+				end					
 				local command = "ubus call tsmodem.gpio IO0 '{\"value\":\"" .. def_value .. 
 											"\",\"direction\":\"" .. def_direction .. 
 											"\",\"trigger\":\"" .. def_trigger .. "\"}'"
 				local handle = io.popen(command)
 				local result = handle:read("*a")  -- перенаправление ответа
 				handle:close()
+				return $cfg_direction
 			]]
 		}
-	},			
+	},				
 
 	cfg_debounce_ms = {
 		note = "Конфигурация. Фильтрация дребезга контактов в мсек.",
@@ -156,16 +136,14 @@ local rule_setting = {
 		}
 	},
 
-	value_in = {
-		note = "Чтение состояния линии",
+	value_status = {
+		note = "Текущее состояние линии.",
 		input = "",
         source = {
             type = "ubus",
             object = "tsmodem.gpio",
             method = "IO0",
             params = {
-            	-- TODO: подправить драйвер UBUS для работы с таким сочетанием
-            	-- параметров. Протестировать на железе!
                 value = "",
                 direction = "",
                 trigger = ""
@@ -196,7 +174,7 @@ local rule_setting = {
 	},
 
 	cfg_hw_info = {
-		note = "Конфигурация. Информация об аппапатной реализации GPIO.",
+		note = "Информация об аппапатной реализации GPIO.",
 		input = "",
         source = {
             type = "ubus",
@@ -212,24 +190,6 @@ local rule_setting = {
 			["1_bash"] = [[ jsonfilter  -e $.value ]]
 		}
 	},	
-
-	direction = {
-		note = [[ Направление: вход/выход ]],
-		source = {
-			type = "ubus",
-			object = "tsmodem.gpio",
-			method = "IO0",
-            params = {
-                value = "0",
-                direction = "",
-                trigger = ""
-            },
-		},
-		modifier = {
-			["1_skip"] = [[ return ($cfg_status == "disable") ]],
-			["2_bash"] = [[ jsonfilter -e '$.response.direction' ]]
-		}
-	},
 }
 
 function rule:make()
@@ -251,14 +211,13 @@ function rule:make()
 
 	self:load("title"):modify():debug()
 	self:load("cfg_status"):modify():debug()
-	self:load("cfg_default_value_out"):modify():debug()
-	self:load("cfg_direction"):modify():debug()
-	self:load("cfg_trigger"):modify():debug()
 	self:load("cfg_value"):modify():debug()
+	self:load("cfg_trigger"):modify():debug()
+	self:load("cfg_direction"):modify():debug()
+	self:load("value_status"):modify():debug()
 	--self:load("cfg_debounce_ms"):modify():debug()
 	self:load("cfg_action_command"):modify():debug()
 	self:load("cfg_hw_info"):modify():debug()
-	--self:load("direction"):modify():debug()
 
 end
 
