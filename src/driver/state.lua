@@ -342,7 +342,6 @@ local ubus_methods = {
                 if msg["command"] then
                     if(state.modem:is_connected(state.modem.fds)) then
                         if (msg["what-to-update"] == "balance") then
-                            --state:update("balance", "*", msg["command"], "")
                             state.timer.BAL_TIMEOUT:set(state.timer.timeout["balance"]) -- clear balance state after timeout
                             if_debug("send_at", "AT", "ASK", msg, "Note: sends AT command to get balance and clear balance state if no AT-answer during " .. tostring(state.timer.timeout["balance"]/60000) .. " min.")
                         end
@@ -386,10 +385,10 @@ local ubus_methods = {
                 local resp = { res = "OK" }
                 state:update("reg", "7", "", "")
                 state:update("signal", "", "", "")
-                state:update("balance", "", "", "")
+                -- state:update("balance", "", "", "")
                 state:update("provider_name", "", "", "")
                 state:update("netmode", "", "", "")
-                --state:update("cpin", "", "", "")
+                -- state:update("cpin", "", "", "")
                 state:update("ping", "", "", "")
 
                 if_debug("clear_state", "UBUS", "ANSWER", resp, "")
