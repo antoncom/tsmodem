@@ -5,7 +5,7 @@ local log = require "applogic.util.log"
 local rule = {}
 local rule_setting = {
 	title = {
-		input = "Правило GPIO линия 0. Конфиг:/etc/config/tsmgpio",
+		input = "Правило GPIO линия 7. Конфиг:/etc/config/tsmgpio",
 	},
 
 	cfg_status = {
@@ -17,7 +17,7 @@ local rule_setting = {
             method = "get",
             params = {
                 config = "tsmgpio",
-                section = "IO_0",
+                section = "IO_7",
                 option = "status"
             },
         },
@@ -29,7 +29,7 @@ local rule_setting = {
 					local def_value = ""
 					local def_direction = "in"
 					local def_trigger = "none"
-					local command = "ubus call tsmodem.gpio IO0 '{\"value\":\"" .. def_value .. 
+					local command = "ubus call tsmodem.gpio IO7 '{\"value\":\"" .. def_value .. 
 											"\",\"direction\":\"" .. def_direction .. 
 											"\",\"trigger\":\"" .. def_trigger .. "\"}'"
 					local handle = io.popen(command)
@@ -50,7 +50,7 @@ local rule_setting = {
             method = "get",
             params = {
                 config = "tsmgpio",
-                section = "IO_0",
+                section = "IO_7",
                 option = "value"
             },
         },
@@ -68,7 +68,7 @@ local rule_setting = {
             method = "get",
             params = {
                 config = "tsmgpio",
-                section = "IO_0",
+                section = "IO_7",
                 option = "trigger"
             },
         },
@@ -87,7 +87,7 @@ local rule_setting = {
             method = "get",
             params = {
                 config = "tsmgpio",
-                section = "IO_0",
+                section = "IO_7",
                 option = "direction"
             },
         },
@@ -107,7 +107,7 @@ local rule_setting = {
 					def_value = $cfg_value
 					def_trigger = ''
 				end					
-				local command = "ubus call tsmodem.gpio IO0 '{\"value\":\"" .. def_value .. 
+				local command = "ubus call tsmodem.gpio IO7 '{\"value\":\"" .. def_value .. 
 											"\",\"direction\":\"" .. def_direction .. 
 											"\",\"trigger\":\"" .. def_trigger .. "\"}'"
 				local handle = io.popen(command)
@@ -127,7 +127,7 @@ local rule_setting = {
             method = "get",
             params = {
                 config = "tsmgpio",
-                section = "IO_0",
+                section = "IO_7",
                 option = "debounce_ms"
             },
         },
@@ -142,17 +142,27 @@ local rule_setting = {
         source = {
             type = "ubus",
             object = "tsmodem.gpio",
-            method = "IO0",
+            method = "IO7",
             params = {
                 value = "",
-                direction = "",
-                trigger = ""
+                direction = "$cfg_direction",
+                trigger = "$cfg_trigger"
             },
         },
         modifier = {
         	["1_skip"] = [[ return ($cfg_status == "disable") ]],
 			["2_bash"] = [[ jsonfilter -e '$.response.value' ]],
 		}
+	},
+
+	last_value = {
+		input = "",
+		modifier = {
+        	["1_skip"] = [[ return ($last_value == $value_status) ]],
+			["2_func"] = [[
+				return $value_status
+			]]
+        }
 	},
 
 	cfg_action_command = {
@@ -164,12 +174,30 @@ local rule_setting = {
             method = "get",
             params = {
                 config = "tsmgpio",
-                section = "IO_0",
+                section = "IO_7",
                 option = "action_command"
             },
         },
         modifier = {
-			["1_bash"] = [[ jsonfilter  -e $.value ]]
+        	["1_skip"] = [[ return ($cfg_status == "disable") or ($cfg_direction == "out") ]],
+			["2_bash"] = [[ jsonfilter  -e $.value ]],
+			["3_func"] = [[
+				-- Проверка, сколько раз срабатывает блок:
+				if ($last_value ~= $value_status) then
+					-- Начальное значение N
+					local N = 0
+					local last_value = "some_value" -- Замените на ваше значение
+					local value_status = "new_value" -- Замените на ваше значение
+					-- Функция для создания файла
+    				N = N + 1
+    				local filename = string.format("/var/rules/19_rule_Action_%d.txt", N) -- Создаем имя файла
+    				local file = io.open(filename, "w") -- Открываем файл для записи
+					if file then
+        				file:write("This is file number " .. N) -- Записываем в файл
+        				file:close() -- Закрываем файл
+					end
+				end
+			]]
 		}
 	},
 
@@ -182,7 +210,7 @@ local rule_setting = {
             method = "get",
             params = {
                 config = "tsmgpio",
-                section = "IO_0",
+                section = "IO_7",
                 option = "hw_info"
             },
         },
@@ -215,6 +243,7 @@ function rule:make()
 	self:load("cfg_trigger"):modify():debug()
 	self:load("cfg_direction"):modify():debug()
 	self:load("value_status"):modify():debug()
+	self:load("last_value"):modify():debug()
 	--self:load("cfg_debounce_ms"):modify():debug()
 	self:load("cfg_action_command"):modify():debug()
 	self:load("cfg_hw_info"):modify():debug()
