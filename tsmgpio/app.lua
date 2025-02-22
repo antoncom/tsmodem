@@ -65,6 +65,9 @@ function GPIO_DataUpdate(msg, io_number)
 		else
 			value = tsmgpio.device:ReadGPIO(io_number)
 		end
+	else
+		-- Принудительный сброс триггера.
+		tsmgpio.device:SetEdge("none", io_number)
 	end
 	if msg["direction"] == "out" then
 		-- Если поле "value" некорректное - принудительно
@@ -222,5 +225,5 @@ end
 tsmgpio:init()
 uloop.init()
 tsmgpio:make_ubus()
-tsmgpio:poll()
+--tsmgpio:poll()
 uloop.run()
