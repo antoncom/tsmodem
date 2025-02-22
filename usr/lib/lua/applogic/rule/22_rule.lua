@@ -5,7 +5,7 @@ local log = require "applogic.util.log"
 local rule = {}
 local rule_setting = {
 	title = {
-		input = "Правило GPIO линия 7. Конфиг:/etc/config/tsmgpio",
+		input = "Правило GPIO линия 0. Конфиг:/etc/config/tsmgpio",
 	},
 
 	cfg_status = {
@@ -17,7 +17,7 @@ local rule_setting = {
             method = "get",
             params = {
                 config = "tsmgpio",
-                section = "IO_7",
+                section = "IO_0",
                 option = "status"
             },
         },
@@ -32,7 +32,7 @@ local rule_setting = {
 		source = {
 			type = "ubus",
             object = "tsmodem.gpio",
-            method = "IO7",
+            method = "IO0",
             params = {
                 value = "",
                 direction = "in",
@@ -53,7 +53,7 @@ local rule_setting = {
             method = "get",
             params = {
                 config = "tsmgpio",
-                section = "IO_7",
+                section = "IO_0",
                 option = "value"
             },
         },
@@ -71,7 +71,7 @@ local rule_setting = {
             method = "get",
             params = {
                 config = "tsmgpio",
-                section = "IO_7",
+                section = "IO_0",
                 option = "trigger"
             },
         },
@@ -90,7 +90,7 @@ local rule_setting = {
             method = "get",
             params = {
                 config = "tsmgpio",
-                section = "IO_7",
+                section = "IO_0",
                 option = "direction"
             },
         },
@@ -106,11 +106,11 @@ local rule_setting = {
         source = {
 			type = "ubus",
             object = "tsmodem.gpio",
-            method = "IO7",
+            method = "IO0",
             params = {
                 value = "",
                 direction = "in",
-                trigger = "none"
+                trigger = "$cfg_trigger"
             },
         },
         modifier = {
@@ -124,7 +124,7 @@ local rule_setting = {
         source = {
 			type = "ubus",
             object = "tsmodem.gpio",
-            method = "IO7",
+            method = "IO0",
             params = {
                 value = "$cfg_value",
                 direction = "out",
@@ -132,7 +132,7 @@ local rule_setting = {
             },
         },
         modifier = {
-        	["1_skip"] = [[ return ($cfg_direction == "disable") ]],
+        	["1_skip"] = [[ return ($cfg_direction ~= "out") ]],
         }
 	},
 
@@ -145,7 +145,7 @@ local rule_setting = {
             method = "get",
             params = {
                 config = "tsmgpio",
-                section = "IO_7",
+                section = "IO_0",
                 option = "debounce_ms"
             },
         },
@@ -160,7 +160,7 @@ local rule_setting = {
         source = {
             type = "ubus",
             object = "tsmodem.gpio",
-            method = "IO7",
+            method = "IO0",
             params = {
                 value = "",
                 direction = "$cfg_direction",
@@ -192,7 +192,7 @@ local rule_setting = {
             method = "get",
             params = {
                 config = "tsmgpio",
-                section = "IO_7",
+                section = "IO_0",
                 option = "action_command"
             },
         },
@@ -228,7 +228,7 @@ local rule_setting = {
             method = "get",
             params = {
                 config = "tsmgpio",
-                section = "IO_7",
+                section = "IO_0",
                 option = "hw_info"
             },
         },
@@ -260,13 +260,13 @@ function rule:make()
 	self:load("cfg_value"):modify():debug()
 	self:load("cfg_trigger"):modify():debug()
 	self:load("cfg_direction"):modify():debug()
-	self:load("set_line_to_hw_save_mod"):modify():debug()
+	--self:load("set_line_to_hw_save_mod"):modify():debug()
 	self:load("set_direction_in"):modify():debug()
 	self:load("set_direction_out"):modify():debug()
-	self:load("value_status"):modify():debug()
-	self:load("last_value"):modify():debug()
+	--self:load("value_status"):modify():debug()
+	--self:load("last_value"):modify():debug()
 	--self:load("cfg_debounce_ms"):modify():debug()
-	self:load("cfg_action_command"):modify():debug()
+	--self:load("cfg_action_command"):modify():debug()
 	self:load("cfg_hw_info"):modify():debug()
 
 end
