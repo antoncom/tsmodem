@@ -83,35 +83,53 @@ function GPIO_DataUpdate(msg, io_number)
 	return value
 end
 
+
+local previous_gpio_states = {}  -- Хранит предыдущее состояние портов
 -- Чтение всех портов и запись данных в UBUS
 local function GPIO_Scan()
-    local gpio_scan_list = {}  
+	local gpio_scan_list = {}  -- Список для хранения текущего состояния GPIO портов
+	local has_changes = false   -- Логическая переменная для отслеживания изменений
+    -- Проходим по всем портам от 0 до 7
     for i = 0, 7 do
-        local ioPin = "IO" .. i  
-        gpio_scan_list[ioPin] = {}  
-        
-        local direction = tsmgpio.device:GetDirection(tsmgpio.device[ioPin])
-        local edge = tsmgpio.device:GetEdge(tsmgpio.device[ioPin])
-
-        if direction then
-            gpio_scan_list[ioPin]["direction"] = direction
-        else
-            print("Warning: direction for " .. ioPin .. " is nil")
-        end
-        
-        if edge then
-            gpio_scan_list[ioPin]["edge"] = edge
-        else
-            print("Warning: edge for " .. ioPin .. " is nil")
-        end
-
-        if gpio_scan_list[ioPin]["direction"] == "in" and (gpio_scan_list[ioPin]["edge"] ~= "none") then
-            gpio_scan_list[ioPin]["value"] = tsmgpio.device_special:ReadGPIO_IRQ(tsmgpio.device[ioPin])
-        else
-            gpio_scan_list[ioPin]["value"] = tsmgpio.device:ReadGPIO(tsmgpio.device[ioPin])
-        end
-    end
-    return gpio_scan_list
+    	local ioPin = "IO" .. i  -- Формируем имя порта, например IO0, IO1 и т.д.
+    	gpio_scan_list[ioPin] = {}  -- Инициализируем новый элемент в списке для текущего порта
+    	-- Получаем направление и триггер
+    	local direction = tsmgpio.device:GetDirection(tsmgpio.device[ioPin])
+    	local edge = tsmgpio.device:GetEdge(tsmgpio.device[ioPin])
+    	-- Проверяем и записываем направление
+    	if direction then
+    		gpio_scan_list[ioPin]["direction"] = direction
+    	else
+    		print("Warning: direction for " .. ioPin .. " is nil")
+    	end     
+    	-- Проверяем и записываем триггер
+    	if edge then
+    		gpio_scan_list[ioPin]["edge"] = edge
+    	else
+    		print("Warning: edge for " .. ioPin .. " is nil")
+    	end
+    	-- Читаем значение порта в зависимости от его направления и триггера
+    	if gpio_scan_list[ioPin]["direction"] == "in" and (gpio_scan_list[ioPin]["edge"] ~= "none") then
+    		gpio_scan_list[ioPin]["value"] = tsmgpio.device_special:ReadGPIO_IRQ(tsmgpio.device[ioPin])
+    	else
+    		gpio_scan_list[ioPin]["value"] = tsmgpio.device:ReadGPIO(tsmgpio.device[ioPin])
+    	end
+    	-- Проверяем, изменилось ли состояние порта по сравнению с предыдущим
+    	if not previous_gpio_states[ioPin] or 
+    			previous_gpio_states[ioPin]["value"] ~= gpio_scan_list[ioPin]["value"] or 
+    			previous_gpio_states[ioPin]["direction"] ~= gpio_scan_list[ioPin]["direction"] or 
+    			previous_gpio_states[ioPin]["edge"] ~= gpio_scan_list[ioPin]["edge"] then
+    		-- Если состояние изменилось, сохраняем текущее состояние
+    		previous_gpio_states[ioPin] = {
+    			value = gpio_scan_list[ioPin]["value"],
+    			direction = gpio_scan_list[ioPin]["direction"],
+    			edge = gpio_scan_list[ioPin]["edge"]
+    		}
+    		has_changes = true  -- Устанавливаем флаг изменений
+    	end
+    end    
+    -- Возвращаем все порты и логическую переменную has_changes
+    return gpio_scan_list, has_changes  
 end
 
 function tsmgpio:make_ubus()
@@ -207,23 +225,26 @@ function tsmgpio:make_ubus()
 	tsmgpio.conn:add(tsmgpio.ubus_object)
 end
 
-
-
 function tsmgpio:poll()
  	local timer
  	function t()
- 		-- Получаем результаты сканирования GPIO
-		local gpio_scan_resault = GPIO_Scan()
-		-- Отправка данных подписчикам
-		tsmgpio.conn:notify(tsmgpio.ubus_object["tsmodem.gpio"].__ubusobj, "tsmodem.gpio", gpio_scan_resault)
+		-- Получаем результаты сканирования GPIO
+		local gpio_scan_result, has_changes = GPIO_Scan()
+		--print("*************Таймер 2 сек*****************")
+		if has_changes then
+			tsmgpio.conn:notify(tsmgpio.ubus_object["tsmodem.gpio"].__ubusobj, "tsmodem.gpio", gpio_scan_result)
+			has_changes = false
+			print("Данные по GPIO обновлены: notify()")
+		end
+		--printTable(gpio_scan_result)
 		timer:set(2000)
 	end
 	timer = uloop.timer(t)
-	timer:set(1000)
+	timer:set(2000)
 end
 
 tsmgpio:init()
 uloop.init()
 tsmgpio:make_ubus()
---tsmgpio:poll()
+tsmgpio:poll()
 uloop.run()
