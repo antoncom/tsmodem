@@ -173,15 +173,20 @@ local rule_setting = {
 		}
 	},
 
-	last_value = {
-		input = "",
-		modifier = {
-        	["1_skip"] = [[ return ($last_value == $value_status) ]],
-			["2_func"] = [[
-				return $value_status
-			]]
+    value_status_sub = {
+        note = "Подписка на tsmodem.gpio",
+        input = "",
+        source = {
+            type = "subscribe",
+            ubus = "tsmodem.gpio",
+            evname = "tsmodem.gpio.update",
+            match = {IO0=""}
+        },
+        modifier = {
+            --["1_bash"] = [[ jsonfilter  -e $.direction ]],
+            --["1_func"] = [[ return "io test" ]]
         }
-	},
+    },
 
 	cfg_action_command = {
 		note = "Конфигурация. Реакция на событие: Запуск Bash-команды.",
@@ -260,9 +265,10 @@ function rule:make()
 	self:load("cfg_value"):modify():debug()
 	self:load("cfg_trigger"):modify():debug()
 	self:load("cfg_direction"):modify():debug()
+    self:load("value_status_sub"):modify():debug()
 	--self:load("set_line_to_hw_save_mod"):modify():debug()
-	self:load("set_direction_in"):modify():debug()
-	self:load("set_direction_out"):modify():debug()
+	--self:load("set_direction_in"):modify():debug()
+	--self:load("set_direction_out"):modify():debug()
 	--self:load("value_status"):modify():debug()
 	--self:load("last_value"):modify():debug()
 	--self:load("cfg_debounce_ms"):modify():debug()
