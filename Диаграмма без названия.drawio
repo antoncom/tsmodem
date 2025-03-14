@@ -4,29 +4,41 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="b48PwgZMMegUpPWSYEnt-96" value="modem.lua" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
-          <mxGeometry y="90" width="120" height="60" as="geometry" />
+        <mxCell id="b48PwgZMMegUpPWSYEnt-96" value="modem.lua" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry y="220" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="b48PwgZMMegUpPWSYEnt-97" value="state.lua" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
-          <mxGeometry y="230" width="120" height="60" as="geometry" />
-        </mxCell>
-        <mxCell id="b48PwgZMMegUpPWSYEnt-98" value="" style="endArrow=classic;startArrow=classic;html=1;rounded=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="b48PwgZMMegUpPWSYEnt-97" target="b48PwgZMMegUpPWSYEnt-96">
-          <mxGeometry width="50" height="50" relative="1" as="geometry">
-            <mxPoint x="390" y="420" as="sourcePoint" />
-            <mxPoint x="440" y="370" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="b48PwgZMMegUpPWSYEnt-99" value="timer.lua" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+        <mxCell id="b48PwgZMMegUpPWSYEnt-97" value="state.lua" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry y="360" width="120" height="60" as="geometry" />
         </mxCell>
+        <mxCell id="b48PwgZMMegUpPWSYEnt-98" value="" style="endArrow=classic;startArrow=classic;html=1;rounded=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="1" source="b48PwgZMMegUpPWSYEnt-97" target="b48PwgZMMegUpPWSYEnt-96" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="390" y="550" as="sourcePoint" />
+            <mxPoint x="440" y="500" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="b48PwgZMMegUpPWSYEnt-99" value="timer.lua" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry y="490" width="120" height="60" as="geometry" />
+        </mxCell>
         <object label="" id="b48PwgZMMegUpPWSYEnt-100">
-          <mxCell style="endArrow=classic;startArrow=classic;html=1;rounded=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="b48PwgZMMegUpPWSYEnt-99" target="b48PwgZMMegUpPWSYEnt-97">
+          <mxCell style="endArrow=classic;startArrow=classic;html=1;rounded=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="1" source="b48PwgZMMegUpPWSYEnt-99" target="b48PwgZMMegUpPWSYEnt-97" edge="1">
             <mxGeometry width="50" height="50" relative="1" as="geometry">
-              <mxPoint x="390" y="420" as="sourcePoint" />
-              <mxPoint x="60" y="300" as="targetPoint" />
+              <mxPoint x="390" y="550" as="sourcePoint" />
+              <mxPoint x="60" y="430" as="targetPoint" />
             </mxGeometry>
           </mxCell>
         </object>
+        <mxCell id="-1dEd06hQiOITnlcgeJr-1" value="modem.state.&amp;lt;attribute or value&amp;gt;&lt;div&gt;state.modem.&amp;lt;attribute or value&amp;gt;&lt;br&gt;&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="90" y="300" width="180" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="-1dEd06hQiOITnlcgeJr-2" value="" style="endArrow=none;dashed=1;html=1;dashPattern=1 3;strokeWidth=2;rounded=0;" edge="1" parent="1" target="-1dEd06hQiOITnlcgeJr-1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="60" y="320" as="sourcePoint" />
+            <mxPoint x="80" y="320" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="-1dEd06hQiOITnlcgeJr-3" value="&lt;h1 style=&quot;margin-top: 0px;&quot;&gt;Сервис Tsmodem&lt;/h1&gt;&lt;p&gt;Application Level Driver for 4G/LTE modem&lt;br&gt;Сервис отвечает за опрос 4G-модема при помощи AT-команд,&lt;br&gt;а также для хранения состояния GSM-сети.&lt;br&gt;Tsmodem предоставляет данные состояния, а также методы управления посредством шины UBUS.&lt;/p&gt;" style="text;html=1;whiteSpace=wrap;overflow=hidden;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="10" y="20" width="380" height="120" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
