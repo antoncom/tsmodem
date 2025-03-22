@@ -1,8 +1,8 @@
 local ubus = require "ubus"
 local uloop = require "uloop"
 
-local cp2112 = require "gpio_cp2112_driver"
-local cp2112_IRQ = require"gpio_cp2112_parser"
+local cp2112 = require "tsmgpio.driver.gpio_cp2112_driver"
+local cp2112_IRQ = require"tsmgpio.parser.gpio_cp2112_parser"
 
 local state = {}
 state.conn = nil
@@ -61,17 +61,19 @@ function GPIO_DataUpdate(msg, io_number)
 end
 -- *******************************************************************************
 
-function state:init()
+state.init = function(tsmgpio, notifier, configurator)
+    state.tsmgpio = tsmgpio
+    state.notifier = notifier
+    state.timer = configurator
+    print("state.init() OK")
+    return state
+end
+
+function state:make_ubus()
 	state.conn = ubus.connect()
 	if not state.conn then
 		-- TODO: Дебаг-сообщение об ошибке UBUS
 	end
-	-- TODO: перебросить в модуль "config"
-	-- Все контакты переводим на вход для безопасности "железа".
-	--state.device:AllGPIO_ToInput()
-end
-
-function state:make_ubus()
 	-- Таблица параметров GPIO для драйвера
     -- TODO: надо как-то объеденить эти таблицы в одну
     local gpio_params = {

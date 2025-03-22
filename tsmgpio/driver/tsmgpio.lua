@@ -19,21 +19,12 @@ local function printTable(t, indent)
 end
 
 function tsmgpio:init()
--- Инициализация всех модулей
+	print("tsmgpio:init() OK")
 end
 
 function tsmgpio:poll()
  	local timer
  	function t()
-		-- Получаем результаты сканирования GPIO
-		local gpio_scan_result, has_changes = GPIO_Scan()
-		--print("*************Таймер 2 сек*****************")
-		if has_changes then
-			--tsmgpio.conn:notify(tsmgpio.ubus_object["tsmodem.gpio"].__ubusobj, "tsmodem.gpio.update", gpio_scan_result)
-			has_changes = false
-			print("Данные по GPIO обновлены: notify()")
-		end
-		--printTable(gpio_scan_result)
 		timer:set(2000)
 	end
 	timer = uloop.timer(t)
@@ -44,15 +35,18 @@ end
 -- [[ Initialize ]]
 local metatable = {
 	__call = function(state, notifier, configurator)
-	tsmgpio.state = state
-	tsmgpio.notifier = notifier
-	tsmgpio.configurator = configurator
+		tsmgpio.state = state
+		tsmgpio.notifier = notifier
+		tsmgpio.configurator = configurator
 
-	--tsmgpio:init()
-	--uloop.init()
-	--tsmgpio:make_ubus()
-	--tsmgpio:poll()
-	--uloop.run()v
+		tsmgpio.state:init(tsmgpio, notifier, configurator)
+		tsmgpio.notifier:init(tsmgpio, state, configurator)
+		tsmgpio.configurator:init(tsmgpio, state, notifier)
+	
+		--uloop.init()
+		--uloop.run()
+		return tsmgpio
+	end
 }
 
 setmetatable(tsmgpio, metatable)

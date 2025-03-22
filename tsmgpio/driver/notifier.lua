@@ -1,7 +1,18 @@
+local cp2112 = require "tsmgpio.driver.gpio_cp2112_driver"
+local cp2112_IRQ = require"tsmgpio.parser.gpio_cp2112_parser"
+
 local notifier = {}
 
-function notifier:init()
+notifier.tsmgpio = nil
+notifier.state = nil
+notifier.configurator = nil
 
+notifier.init = function(tsmgpio, state, configurator)
+    notifier.tsmgpio = tsmgpio
+    notifier.state = state
+    notifier.configurator = configurator
+    print("notifier.init() OK")
+    return notifier
 end
 
 
