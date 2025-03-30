@@ -1,6 +1,5 @@
-local tsmgpio = require "tsmgpio.driver.tsmgpio"
-local state = require "tsmgpio.driver.state"
-local notifier = require "tsmgpio.driver.notifier"
-local configurator = require "tsmgpio.driver.configurator"
+local gpio = require "driver.gpio"
+local confgpio = require "driver.confgpio"
+local state = require "driver.state"
 
-tsmgpio(state, notifier, configurator)
+gpio(confgpio, state)
