@@ -139,13 +139,13 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="-3ySeaFSukxudk1ZRvm_-42" value="" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;" vertex="1" parent="1">
-          <mxGeometry x="920" y="160" width="160" height="140" as="geometry" />
+        <mxCell id="-3ySeaFSukxudk1ZRvm_-42" value="- poll&lt;div&gt;- subscribe&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="830" y="163" width="130" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="-3ySeaFSukxudk1ZRvm_-41" value="" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;" vertex="1" parent="1">
+        <mxCell id="-3ySeaFSukxudk1ZRvm_-41" value="- bash&lt;div&gt;- func&lt;/div&gt;&lt;div&gt;- skip&lt;/div&gt;&lt;div&gt;- frozen&lt;/div&gt;&lt;div&gt;- ui_update&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;" vertex="1" parent="1">
           <mxGeometry x="600" y="360" width="160" height="140" as="geometry" />
         </mxCell>
-        <mxCell id="-3ySeaFSukxudk1ZRvm_-40" value="" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;" vertex="1" parent="1">
+        <mxCell id="-3ySeaFSukxudk1ZRvm_-40" value="- ubus&lt;div&gt;- config files&lt;/div&gt;&lt;div&gt;- hardware I/O&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;" vertex="1" parent="1">
           <mxGeometry x="600" y="160" width="160" height="140" as="geometry" />
         </mxCell>
         <mxCell id="-3ySeaFSukxudk1ZRvm_-15" value="" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=none;" vertex="1" parent="1">
@@ -266,8 +266,8 @@
         <mxCell id="-3ySeaFSukxudk1ZRvm_-38" value="types of modifiers" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;" vertex="1" parent="1">
           <mxGeometry x="600" y="360" width="160" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="-3ySeaFSukxudk1ZRvm_-39" value="subscribe" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;" vertex="1" parent="1">
-          <mxGeometry x="920" y="160" width="160" height="20" as="geometry" />
+        <mxCell id="-3ySeaFSukxudk1ZRvm_-39" value="source methods" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="830" y="160" width="130" height="20" as="geometry" />
         </mxCell>
         <mxCell id="-3ySeaFSukxudk1ZRvm_-43" value="" style="endArrow=none;dashed=1;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="-3ySeaFSukxudk1ZRvm_-10" target="-3ySeaFSukxudk1ZRvm_-37">
           <mxGeometry width="50" height="50" relative="1" as="geometry">
@@ -293,14 +293,17 @@
             <mxPoint x="600" y="468" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="-3ySeaFSukxudk1ZRvm_-47" value="ubus" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
-          <mxGeometry x="610" y="200" width="140" height="20" as="geometry" />
+        <mxCell id="-3ySeaFSukxudk1ZRvm_-50" value="" style="endArrow=none;dashed=1;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" target="-3ySeaFSukxudk1ZRvm_-39">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="700" y="213" as="sourcePoint" />
+            <mxPoint x="820" y="130" as="targetPoint" />
+          </mxGeometry>
         </mxCell>
-        <mxCell id="-3ySeaFSukxudk1ZRvm_-48" value="subscribe" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
-          <mxGeometry x="610" y="230" width="160" height="20" as="geometry" />
-        </mxCell>
-        <mxCell id="-3ySeaFSukxudk1ZRvm_-49" value="rule" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
-          <mxGeometry x="610" y="260" width="140" height="20" as="geometry" />
+        <mxCell id="-3ySeaFSukxudk1ZRvm_-51" value="" style="endArrow=none;dashed=1;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" target="-3ySeaFSukxudk1ZRvm_-42">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="700" y="213" as="sourcePoint" />
+            <mxPoint x="840" y="303" as="targetPoint" />
+          </mxGeometry>
         </mxCell>
       </root>
     </mxGraphModel>
