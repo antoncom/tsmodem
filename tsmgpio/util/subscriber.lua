@@ -39,6 +39,6 @@ local sub = {
 	end,
 }
 
-conn:subscribe( "tsm_gpio", sub )
+conn:subscribe( "tsmodem.gpio", sub )
 
 uloop.run()

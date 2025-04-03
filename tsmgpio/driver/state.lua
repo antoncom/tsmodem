@@ -9,10 +9,10 @@ state.conn = nil
 state.ubus_object = nil
 state.gpio_params = nil
 
-function state:init(gpio, confgpio)
+function state:init(gpio, confgpio, notifier)
 	state.gpio = gpio
 	state.confgpio = confgpio
-	uloop.init()
+	state.notifier = notifier
 	--  Попытка установить соединение с ubus
     state.conn = ubus.connect()
 	if not state.conn then

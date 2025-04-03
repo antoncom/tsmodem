@@ -12,14 +12,20 @@ function gpio:init()
 end
 
 local metatable = {
-	__call = function(gpio, confgpio, state)
+	__call = function(gpio, confgpio, state, notifier)
 		gpio.confgpio = confgpio
 		gpio.state = state
+		gpio.notifier = notifier
+
+		uloop.init()
 		
 		gpio:init()
-		gpio.state:init(gpio, confgpio)
+		gpio.state:init(gpio, confgpio, notifier)
+		gpio.confgpio:init(gpio, state, notifier)
+		gpio.notifier:init(gpio, state, confgpio)
 
 		gpio.state:make_ubus()
+		gpio.notifier:run()
 
 		uloop.run()
 

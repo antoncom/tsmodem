@@ -39,9 +39,10 @@ local function set_gpio_config(gpio, config)
     end
 end
 
-function confgpio:init(gpio, state)
+function confgpio:init(gpio, state, notifier)
     confgpio.gpio = gpio
     confgpio.state = state
+    confgpio.notifier = notifier
     -- Чтение конфигурации GPIO
 	local gpio_config = get_gpio_config()
 	-- Применение конфигурации
