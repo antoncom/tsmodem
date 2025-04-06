@@ -6,25 +6,24 @@ local confgpio = {}
 
 confgpio.gpio = nil
 confgpio.state = nil
+confgpio.gpio_config_cache = {}
 
 -- Функция для чтения всех конфигураций GPIO в таблицу
-local function get_gpio_config()
-    local gpio_config_cache = {}
+local function GetGPIOconfig()
     -- Получаем все секции с именем 'gpio'
     uci:foreach(config_file, section_type, function(section)
         local section_name = section[".name"]
-        gpio_config_cache[section_name] = {}
+        confgpio.gpio_config_cache[section_name] = {}
         -- Копируем все параметры секции в таблицу
         for key, value in pairs(section) do
             if not key:match("^%.") then -- Игнорируем служебные поля (начинающиеся с точки)
-                gpio_config_cache[section_name][key] = value
+                confgpio.gpio_config_cache[section_name][key] = value
             end
         end
     end)
-    return gpio_config_cache
 end
 
-local function set_gpio_config(gpio, config)
+local function SetGPIOconfig(gpio, config)
     for section_name, section_data in pairs(config) do
         -- Обрабатываем только секции вида "IO_*" с status == "enable"
         if section_name:match("^IO") and section_data.status == "enable" then
@@ -44,10 +43,10 @@ function confgpio:init(gpio, state, notifier)
     confgpio.state = state
     confgpio.notifier = notifier
     -- Чтение конфигурации GPIO
-	local gpio_config = get_gpio_config()
+    GetGPIOconfig()
 	-- Применение конфигурации
-	if gpio_config["general"]["isActive"] == "true" then
-		set_gpio_config(confgpio.gpio, gpio_config)
+	if confgpio.gpio_config_cache["general"]["isActive"] == "true" then
+		SetGPIOconfig(confgpio.gpio, confgpio.gpio_config_cache)
 	end
     
     print("confgpio.init() OK")

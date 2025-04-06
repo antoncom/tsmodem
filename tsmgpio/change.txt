@@ -1,0 +1,177 @@
+diff --git a/tsmgpio/app.lua b/tsmgpio/app.lua
+index ead9cf3..34264ce 100644
+--- a/tsmgpio/app.lua
++++ b/tsmgpio/app.lua
+@@ -2,5 +2,6 @@ local gpio = require "driver.gpio"
+ local confgpio = require "driver.confgpio"
+ local state = require "driver.state"
+ local notifier = require "driver.notifier"
++local timer = require "driver.timer"
+ 
+-gpio(confgpio, state, notifier)
+\ No newline at end of file
++gpio(confgpio, state, notifier, timer)
+\ No newline at end of file
+diff --git a/tsmgpio/driver/confgpio.lua b/tsmgpio/driver/confgpio.lua
+index e4548bc..7abb9cc 100644
+--- a/tsmgpio/driver/confgpio.lua
++++ b/tsmgpio/driver/confgpio.lua
+@@ -6,25 +6,24 @@ local confgpio = {}
+ 
+ confgpio.gpio = nil
+ confgpio.state = nil
++confgpio.gpio_config_cache = {}
+ 
+ -- Функция для чтения всех конфигураций GPIO в таблицу
+-local function get_gpio_config()
+-    local gpio_config_cache = {}
++local function GetGPIOconfig()
+     -- Получаем все секции с именем 'gpio'
+     uci:foreach(config_file, section_type, function(section)
+         local section_name = section[".name"]
+-        gpio_config_cache[section_name] = {}
++        confgpio.gpio_config_cache[section_name] = {}
+         -- Копируем все параметры секции в таблицу
+         for key, value in pairs(section) do
+             if not key:match("^%.") then -- Игнорируем служебные поля (начинающиеся с точки)
+-                gpio_config_cache[section_name][key] = value
++                confgpio.gpio_config_cache[section_name][key] = value
+             end
+         end
+     end)
+-    return gpio_config_cache
+ end
+ 
+-local function set_gpio_config(gpio, config)
++local function SetGPIOconfig(gpio, config)
+     for section_name, section_data in pairs(config) do
+         -- Обрабатываем только секции вида "IO_*" с status == "enable"
+         if section_name:match("^IO") and section_data.status == "enable" then
+@@ -44,10 +43,10 @@ function confgpio:init(gpio, state, notifier)
+     confgpio.state = state
+     confgpio.notifier = notifier
+     -- Чтение конфигурации GPIO
+-	local gpio_config = get_gpio_config()
++    GetGPIOconfig()
+ 	-- Применение конфигурации
+-	if gpio_config["general"]["isActive"] == "true" then
+-		set_gpio_config(confgpio.gpio, gpio_config)
++	if confgpio.gpio_config_cache["general"]["isActive"] == "true" then
++		SetGPIOconfig(confgpio.gpio, confgpio.gpio_config_cache)
+ 	end
+     
+     print("confgpio.init() OK")
+diff --git a/tsmgpio/driver/gpio.lua b/tsmgpio/driver/gpio.lua
+index c8b40ac..b288e6c 100644
+--- a/tsmgpio/driver/gpio.lua
++++ b/tsmgpio/driver/gpio.lua
+@@ -8,24 +8,32 @@ gpio.device_special = cp2112_IRQ
+ 
+ function gpio:init()
+ 	gpio.device:AllGPIO_ToInput()
+-	print("gpio:init() OK")
++end
++
++function gpio:ActionOnEvent()
++	if(gpio.notifier.gpio_change_detected) then
++		print("GPIO Event detected")
++		gpio.notifier.gpio_change_detected = false
++	end
+ end
+ 
+ local metatable = {
+-	__call = function(gpio, confgpio, state, notifier)
++	__call = function(gpio, confgpio, state, notifier, timer)
+ 		gpio.confgpio = confgpio
+ 		gpio.state = state
+ 		gpio.notifier = notifier
++		gpio.timer = timer
+ 
+ 		uloop.init()
+ 		
+ 		gpio:init()
+-		gpio.state:init(gpio, confgpio, notifier)
+-		gpio.confgpio:init(gpio, state, notifier)
+-		gpio.notifier:init(gpio, state, confgpio)
++		gpio.state:init(gpio, confgpio, notifier, timer)
++		gpio.confgpio:init(gpio, state, notifier, timer)
++		gpio.notifier:init(gpio, state, confgpio, timer)
++		gpio.timer:init(gpio, state, confgpio, notifier)
+ 
+ 		gpio.state:make_ubus()
+-		gpio.notifier:run()
++		gpio.notifier:Run()
+ 
+ 		uloop.run()
+ 
+diff --git a/tsmgpio/driver/notifier.lua b/tsmgpio/driver/notifier.lua
+index 4ee0157..40cd2ed 100644
+--- a/tsmgpio/driver/notifier.lua
++++ b/tsmgpio/driver/notifier.lua
+@@ -3,6 +3,7 @@ local notifier = {}
+ notifier.gpio = nil
+ notifier.state = nil
+ notifier.confgpio = nil
++notifier.gpio_change_detected = false
+ 
+ function notifier:init(gpio, state, confgpio)
+ 	notifier.gpio = gpio
+@@ -65,7 +66,7 @@ local function GPIO_Scan()
+     return changed_gpio_list, has_changes  
+ end
+ 
+-function notifier:run()
++function notifier:Run()
+ 	local timer
+ 	local function t()
+ 		-- Получаем результаты сканирования GPIO
+@@ -73,8 +74,9 @@ function notifier:run()
+ 		if has_changes then
+ 			notifier.state.conn:notify(notifier.state.ubus_object["tsmodem.gpio"].__ubusobj, 
+ 				"tsmodem.gpio_update", gpio_scan_result) -- TODO: убрать здесь "tsmodem.gpio"
+-			has_changes = false
+-			print("Данные по GPIO обновлены: notify()")
++			notifier.gpio_change_detected = has_changes -- Передаем событие в другой модуль
++            has_changes = false
++			--print("Данные по GPIO обновлены: notify()")
+ 		end
+ 		timer:set(2000)
+ 	end
+diff --git a/tsmgpio/driver/timer.lua b/tsmgpio/driver/timer.lua
+index e69de29..fb4fe42 100644
+--- a/tsmgpio/driver/timer.lua
++++ b/tsmgpio/driver/timer.lua
+@@ -0,0 +1,32 @@
++local uloop = require "uloop"
++
++local timer = {}
++
++timer.interval_ms = {
++	notify_ubus = 2000,
++	check_gpio_event = 1000
++}
++
++function TimerNotifyUbus()
++	timer.notify_ubus:set(timer.interval_ms.notify_ubus)
++	print("timer notifier")
++end
++timer.notify_ubus = uloop.timer(TimerNotifyUbus)
++
++function TimerCheckGPIO_Event()
++	timer.check_gpio_event:set(timer.interval_ms.check_gpio_event)
++	print("timer gpio_event")
++end
++timer.check_gpio_event = uloop.timer(TimerCheckGPIO_Event)
++
++function timer:init(gpio, state, confgpio, notifier)
++	timer.gpio = gpio
++	timer.state = state
++	timer.confgpio = confgpio
++	timer.notifier = notifier
++	print("timer init OK")
++	TimerNotifyUbus()
++	TimerCheckGPIO_Event()
++end
++
++return timer
+\ No newline at end of file
