@@ -9,7 +9,7 @@ confgpio.state = nil
 confgpio.gpio_config_cache = {}
 
 -- Функция для чтения всех конфигураций GPIO в таблицу
-local function GetGPIOconfig()
+function confgpio:GetGPIOconfig()
     -- Получаем все секции с именем 'gpio'
     uci:foreach(config_file, section_type, function(section)
         local section_name = section[".name"]
@@ -43,7 +43,7 @@ function confgpio:init(gpio, state, notifier)
     confgpio.state = state
     confgpio.notifier = notifier
     -- Чтение конфигурации GPIO
-    GetGPIOconfig()
+    confgpio:GetGPIOconfig()
 	-- Применение конфигурации
 	if confgpio.gpio_config_cache["general"]["isActive"] == "true" then
 		SetGPIOconfig(confgpio.gpio, confgpio.gpio_config_cache)

@@ -8,14 +8,14 @@ timer.interval_ms = {
 }
 
 function TimerNotifyUbus()
+	timer.notifier:Run()
 	timer.notify_ubus:set(timer.interval_ms.notify_ubus)
-	print("timer notifier")
 end
 timer.notify_ubus = uloop.timer(TimerNotifyUbus)
 
 function TimerCheckGPIO_Event()
+	timer.gpio:ActionOnEvent()
 	timer.check_gpio_event:set(timer.interval_ms.check_gpio_event)
-	print("timer gpio_event")
 end
 timer.check_gpio_event = uloop.timer(TimerCheckGPIO_Event)
 

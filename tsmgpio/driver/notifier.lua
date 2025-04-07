@@ -3,6 +3,7 @@ local notifier = {}
 notifier.gpio = nil
 notifier.state = nil
 notifier.confgpio = nil
+notifier.gpio_scan_result = nil
 notifier.gpio_change_detected = false
 
 function notifier:init(gpio, state, confgpio)
@@ -67,21 +68,17 @@ local function GPIO_Scan()
 end
 
 function notifier:Run()
-	local timer
-	local function t()
-		-- Получаем результаты сканирования GPIO
-		local gpio_scan_result, has_changes = GPIO_Scan()
-		if has_changes then
-			notifier.state.conn:notify(notifier.state.ubus_object["tsmodem.gpio"].__ubusobj, 
-				"tsmodem.gpio_update", gpio_scan_result) -- TODO: убрать здесь "tsmodem.gpio"
-			notifier.gpio_change_detected = has_changes -- Передаем событие в другой модуль
-            has_changes = false
-			--print("Данные по GPIO обновлены: notify()")
-		end
-		timer:set(2000)
+    -- Получаем результаты сканирования GPIO
+    local has_changes
+	notifier.gpio_scan_result, has_changes = GPIO_Scan()
+	if has_changes then
+		notifier.state.conn:notify(notifier.state.ubus_object["tsmodem.gpio"].__ubusobj, 
+			"tsmodem.gpio_update", notifier.gpio_scan_result) 
+		notifier.gpio_change_detected = has_changes -- Передаем событие в другой модуль
+        has_changes = false
+		print("Данные по GPIO обновлены: notify()")
 	end
-	timer = uloop.timer(t)
-	timer:set(2000)
 end
+
 
 return notifier

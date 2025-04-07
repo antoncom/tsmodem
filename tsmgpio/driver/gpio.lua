@@ -1,6 +1,7 @@
 local cp2112 = require "driver.gpio_cp2112_driver"
-local cp2112_IRQ = require"parser.gpio_cp2112_parser"
+local cp2112_IRQ = require "parser.gpio_cp2112_parser"
 
+local util = require "luci.util"
 local gpio = {}
 
 gpio.device = cp2112
@@ -12,7 +13,12 @@ end
 
 function gpio:ActionOnEvent()
 	if(gpio.notifier.gpio_change_detected) then
-		print("GPIO Event detected")
+		-- Обновление данных по конфигурации
+		-- TODO: выполнять чтение только если MD5sum 
+		-- конфига отличается
+		gpio.confgpio:GetGPIOconfig()
+		print("***********GPIO Event detected**********")
+		util.dumptable(gpio.notifier.gpio_scan_result)
 		gpio.notifier.gpio_change_detected = false
 	end
 end
@@ -28,11 +34,11 @@ local metatable = {
 		
 		gpio:init()
 		gpio.state:init(gpio, confgpio, notifier, timer)
+		gpio.state:make_ubus()
 		gpio.confgpio:init(gpio, state, notifier, timer)
 		gpio.notifier:init(gpio, state, confgpio, timer)
 		gpio.timer:init(gpio, state, confgpio, notifier)
 
-		gpio.state:make_ubus()
 		gpio.notifier:Run()
 
 		uloop.run()

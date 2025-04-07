@@ -1,5 +1,5 @@
-local cp2112 = require "gpio_cp2112_driver"
-local parser_gpio = require"gpio_cp2112_parser"
+local cp2112 = require "tsmgpio.driver.gpio_cp2112_driver"
+local parser_gpio = require "tsmgpio.parser.gpio_cp2112_parser"
 
 print("**** CP2112 Hardware test RUN ****")
 print("--------------------------------------------------------")
