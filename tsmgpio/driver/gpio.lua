@@ -12,6 +12,14 @@ function gpio:init()
 end
 
 function gpio:ActionOnEvent()
+    -- Добавляем флаг первого запуска
+    -- Фильтрация от ложных срабатываний
+    if not self._initialized then
+        self._initialized = true
+        -- Сброс ложного события во время первого включения
+        gpio.notifier.gpio_change_detected = false
+        return
+    end
     if gpio.notifier.gpio_change_detected then
         -- Обновление данных по конфигурации
         gpio.confgpio:GetGPIOconfig()
@@ -28,11 +36,11 @@ function gpio:ActionOnEvent()
                     print("Action command for " .. io_name .. ": " .. (action_cmd or "not set"))                  
                     -- Если команда задана - выполняем
                     if action_cmd and action_cmd ~= "" then
-                        print("Executing: " .. action_cmd)
+                        --print("Executing: " .. action_cmd)
                         os.execute(action_cmd)
                     end
                 else
-                    print("No config found for " .. section_name .. " or GPIO disabled")
+                    --print("No config found for " .. section_name .. " or GPIO disabled")
                 end
             end
         end

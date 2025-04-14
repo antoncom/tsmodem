@@ -76,7 +76,7 @@ function notifier:Run()
 			"tsmodem.gpio_update", notifier.gpio_scan_result) 
 		notifier.gpio_change_detected = has_changes -- Передаем событие в другой модуль
         has_changes = false
-		print("Данные по GPIO обновлены: notify()")
+		--print("Данные по GPIO обновлены: notify()")
 	end
 end
 

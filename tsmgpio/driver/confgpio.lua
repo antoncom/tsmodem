@@ -1,5 +1,8 @@
 local uci = require "luci.model.uci".cursor()
+local nixio = require "nixio"
+-- TODO: Вынести это в отдельный модуль
 local config_file = "tsmgpio"
+local config_path = "/etc/config/" .. config_file
 local section_type = "gpio"
 
 local confgpio = {}
@@ -8,19 +11,39 @@ confgpio.gpio = nil
 confgpio.state = nil
 confgpio.gpio_config_cache = {}
 
+local fs = nixio.fs
+
+function CheckConfigUpdate()
+    local file_stat = fs.stat(config_path)
+    if not file_stat then
+        return false  -- Файл не существует (или ошибка доступа)
+    end
+    local current_mtime = file_stat.mtime
+    if current_mtime ~= last_mtime then
+        last_mtime = current_mtime  -- Обновляем состояние
+        return true  -- Файл изменён
+    end
+    return false  -- Изменений нет
+end
+
 -- Функция для чтения всех конфигураций GPIO в таблицу
 function confgpio:GetGPIOconfig()
-    -- Получаем все секции с именем 'gpio'
-    uci:foreach(config_file, section_type, function(section)
-        local section_name = section[".name"]
-        confgpio.gpio_config_cache[section_name] = {}
-        -- Копируем все параметры секции в таблицу
-        for key, value in pairs(section) do
-            if not key:match("^%.") then -- Игнорируем служебные поля (начинающиеся с точки)
-                confgpio.gpio_config_cache[section_name][key] = value
+    if CheckConfigUpdate() then
+        --print("Конфиг изменился! Читаем файл...")
+        -- Получаем все секции с именем 'gpio'
+        uci:foreach(config_file, section_type, function(section)
+            local section_name = section[".name"]
+            confgpio.gpio_config_cache[section_name] = {}
+            -- Копируем все параметры секции в таблицу
+            for key, value in pairs(section) do
+                if not key:match("^%.") then -- Игнорируем служебные поля (начинающиеся с точки)
+                    confgpio.gpio_config_cache[section_name][key] = value
+                end
             end
-        end
-    end)
+        end)
+    else
+        --print("Конфиг не менялся.")
+    end 
 end
 
 local function SetGPIOconfig(gpio, config)

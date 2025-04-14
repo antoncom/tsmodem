@@ -4,7 +4,7 @@ local timer = {}
 
 timer.interval_ms = {
 	notify_ubus = 2000,
-	check_gpio_event = 1000
+	check_gpio_event = 100
 }
 
 function TimerNotifyUbus()
