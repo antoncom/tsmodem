@@ -178,9 +178,9 @@ local rule_setting = {
         input = "",
         source = {
             type = "subscribe",
-            ubus = "tsm_gpio",
-            evname = "",
-            match = {gpio="io0"}
+            ubus = "tsmodem.gpio",
+            evname = "tsmodem.gpio_update",
+            match = {gpio_port="IO5"}
         },
         modifier = {
             ["1_bash"] = [[ jsonfilter  -e $.value ]],

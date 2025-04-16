@@ -55,6 +55,7 @@ local function GPIO_Scan()
                 edge = current_state["edge"]
             }
             -- Добавляем только измененный порт в результирующую таблицу
+            changed_gpio_list["gpio_port"] = ioPin
             changed_gpio_list[ioPin] = {
                 value = current_state["value"],
                 direction = current_state["direction"],
@@ -70,13 +71,14 @@ end
 function notifier:Run()
     -- Получаем результаты сканирования GPIO
     local has_changes
+    local evname = "tsmodem.gpio_update"
 	notifier.gpio_scan_result, has_changes = GPIO_Scan()
 	if has_changes then
-		notifier.state.conn:notify(notifier.state.ubus_object["tsmodem.gpio"].__ubusobj, 
-			"tsmodem.gpio_update", notifier.gpio_scan_result) 
+		notifier.state.conn:notify(notifier.state.ubus_object["tsmodem.gpio"].__ubusobj, evname, notifier.gpio_scan_result) 
 		notifier.gpio_change_detected = has_changes -- Передаем событие в другой модуль
         has_changes = false
-		--print("Данные по GPIO обновлены: notify()")
+		print("Данные по GPIO обновлены: notify()")
+        print("evname: " .. evname)
 	end
 end
 
