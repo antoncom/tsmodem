@@ -32,10 +32,11 @@ if not conn then
 end
 
 local sub = {
-	notify = function( msg )
+	notify = function(msg, name)
 		--printTable(msg)
         --printTableKeys(msg)
         util.dumptable(msg)
+        util.perror("msg name: " .. name)
 	end,
 }
 
