@@ -5,12 +5,12 @@ local log = require "applogic.util.log"
 local rule = {}
 local rule_setting = {
 	title = {
-		input = "Правило GPIO линия 0. Конфиг:/etc/config/tsmgpio",
+		input = "Правило для GPIO: IO0..IO7. Конфиг:/etc/config/tsmgpio",
 	},
 
-	cfg_status = {
-		note = "Конфигурация. Линия: задействована/незадействована",
-		input = "",
+    cfg_status = {
+        note = "Конфигурация. Линии: задействованы/незадействованы",
+        input = "",
         source = {
             type = "ubus",
             object = "uci",
@@ -22,145 +22,182 @@ local rule_setting = {
             },
         },
         modifier = {
-			["1_bash"] = [[ jsonfilter  -e $.value ]],
-		}
-	},
-
-	set_line_to_hw_save_mod = {
-		note = "Переводит линию в безопасный режим: вход",
-		input = "",
-		source = {
-			type = "ubus",
-            object = "tsmodem.gpio",
-            method = "IO0",
-            params = {
-                value = "",
-                direction = "in",
-                trigger = "none"
-            },
-        },
-        modifier = {
-        	["1_skip"] = [[ return ($cfg_status ~= "disable")]],
+            ["1_bash"] = [[ jsonfilter  -e $.value ]],
         }
-	},
+    },    			
 
-	cfg_value = {
-		note = "Конфигурация. Запись состояния из конфига в линию",
-		input = "",
+    io0_current_state = {
+        note = "Текущее состояние IO0.",
+        input = "",
         source = {
             type = "ubus",
-            object = "uci",
-            method = "get",
-            params = {
-                config = "tsmgpio",
-                section = "IO_0",
-                option = "value"
-            },
-        },
-        modifier = {
-			["1_bash"] = [[ jsonfilter  -e $.value ]]
-		}
-	},
-
-	cfg_trigger = {
-		note = "Конфигурация. Активация захвата события по: фронту/спаду/любое",
-		input = "",
-        source = {
-            type = "ubus",
-            object = "uci",
-            method = "get",
-            params = {
-                config = "tsmgpio",
-                section = "IO_0",
-                option = "trigger"
-            },
-        },
-        modifier = {
-			["1_skip"] = [[ return ($cfg_status == "disable")]],
-			["2_bash"] = [[ jsonfilter  -e $.value ]],		
-		}
-	},
-
-	cfg_direction = {
-		note = "Конфигурация. Направление: вход/выход",
-		input = "",
-        source = {
-            type = "ubus",
-            object = "uci",
-            method = "get",
-            params = {
-                config = "tsmgpio",
-                section = "IO_0",
-                option = "direction"
-            },
-        },
-        modifier = {
-        	["1_skip"] = [[ return ($cfg_status == "disable") ]],
-			["2_bash"] = [[ jsonfilter  -e $.value ]],
-		}
-	},				
-
-	set_direction_in = {
-		note = "Установка направления линии на вход.",
-		input = "",
-        source = {
-			type = "ubus",
             object = "tsmodem.gpio",
             method = "IO0",
             params = {
                 value = "",
-                direction = "in",
+                direction = "$cfg_direction",
                 trigger = "$cfg_trigger"
             },
         },
         modifier = {
-        	["1_skip"] = [[ return ($cfg_direction ~= "in") ]],
+            ["1_skip"] = [[ return ($cfg_status == "disable") ]],
+            ["2_bash"] = [[ jsonfilter -e '$.response.value' ]],
         }
-	},
+    },
 
-	set_direction_out = {
-		note = "Установка направления линии на выход.",
-		input = "",
+    io0_event_counter = {
+        note = "Счетчик активации триггера IO0",
+        input = "",
         source = {
-			type = "ubus",
-            object = "tsmodem.gpio",
-            method = "IO0",
-            params = {
-                value = "$cfg_value",
-                direction = "out",
-                trigger = ""
-            },
+            type = "subscribe",
+            ubus = "tsmodem.gpio",
+            evname = "tsmodem.gpio_update",
+            match = {gpio_port="IO0"}
         },
         modifier = {
-        	["1_skip"] = [[ return ($cfg_direction ~= "out") ]],
+            ["1_bash"] = [[ jsonfilter  -e $.IO0.value ]],
         }
-	},
+    },
 
-	cfg_debounce_ms = {
-		note = "Конфигурация. Фильтрация дребезга контактов в мсек.",
-		input = "",
-        source = {
-            type = "ubus",
-            object = "uci",
-            method = "get",
-            params = {
-                config = "tsmgpio",
-                section = "IO_0",
-                option = "debounce_ms"
-            },
-        },
-        modifier = {
-			["1_bash"] = [[ jsonfilter  -e $.value ]]
-		}
-	},
-
-	value_status = {
-		note = "Текущее состояние линии.",
-		input = "",
+    io1_current_state = {
+        note = "Текущее состояние IO1.",
+        input = "",
         source = {
             type = "ubus",
             object = "tsmodem.gpio",
-            method = "IO0",
+            method = "IO1",
+            params = {
+                value = "",
+                direction = "$cfg_direction",
+                trigger = "$cfg_trigger"
+            },
+        },
+        modifier = {
+            ["1_skip"] = [[ return ($cfg_status == "disable") ]],
+            ["2_bash"] = [[ jsonfilter -e '$.response.value' ]],
+        }
+    },
+
+    io1_event_counter = {
+        note = "Счетчик активации триггера IO1",
+        input = "",
+        source = {
+            type = "subscribe",
+            ubus = "tsmodem.gpio",
+            evname = "tsmodem.gpio_update",
+            match = {gpio_port="IO1"}
+        },
+        modifier = {
+            ["1_bash"] = [[ jsonfilter  -e $.IO1.value ]],
+        }
+    },    
+
+    io2_current_state = {
+        note = "Текущее состояние IO2.",
+        input = "",
+        source = {
+            type = "ubus",
+            object = "tsmodem.gpio",
+            method = "IO2",
+            params = {
+                value = "",
+                direction = "$cfg_direction",
+                trigger = "$cfg_trigger"
+            },
+        },
+        modifier = {
+            ["1_skip"] = [[ return ($cfg_status == "disable") ]],
+            ["2_bash"] = [[ jsonfilter -e '$.response.value' ]],
+        }
+    },
+
+    io2_event_counter = {
+        note = "Счетчик активации триггера IO2",
+        input = "",
+        source = {
+            type = "subscribe",
+            ubus = "tsmodem.gpio",
+            evname = "tsmodem.gpio_update",
+            match = {gpio_port="IO2"}
+        },
+        modifier = {
+            ["1_bash"] = [[ jsonfilter  -e $.IO2.value ]],
+        }
+    },
+
+    io3_current_state = {
+        note = "Текущее состояние IO3.",
+        input = "",
+        source = {
+            type = "ubus",
+            object = "tsmodem.gpio",
+            method = "IO3",
+            params = {
+                value = "",
+                direction = "$cfg_direction",
+                trigger = "$cfg_trigger"
+            },
+        },
+        modifier = {
+            ["1_skip"] = [[ return ($cfg_status == "disable") ]],
+            ["2_bash"] = [[ jsonfilter -e '$.response.value' ]],
+        }
+    },
+
+    io3_event_counter = {
+        note = "Счетчик активации триггера IO3",
+        input = "",
+        source = {
+            type = "subscribe",
+            ubus = "tsmodem.gpio",
+            evname = "tsmodem.gpio_update",
+            match = {gpio_port="IO3"}
+        },
+        modifier = {
+            ["1_bash"] = [[ jsonfilter  -e $.IO3.value ]],
+        }
+    },
+
+    io4_current_state = {
+        note = "Текущее состояние IO4.",
+        input = "",
+        source = {
+            type = "ubus",
+            object = "tsmodem.gpio",
+            method = "IO4",
+            params = {
+                value = "",
+                direction = "$cfg_direction",
+                trigger = "$cfg_trigger"
+            },
+        },
+        modifier = {
+            ["1_skip"] = [[ return ($cfg_status == "disable") ]],
+            ["2_bash"] = [[ jsonfilter -e '$.response.value' ]],
+        }
+    },
+
+    io4_event_counter = {
+        note = "Счетчик активации триггера IO4",
+        input = "",
+        source = {
+            type = "subscribe",
+            ubus = "tsmodem.gpio",
+            evname = "tsmodem.gpio_update",
+            match = {gpio_port="IO4"}
+        },
+        modifier = {
+            ["1_bash"] = [[ jsonfilter  -e $.IO4.value ]],
+        }
+    },
+
+	io5_current_state = {
+		note = "Текущее состояние IO5.",
+		input = "",
+        source = {
+            type = "ubus",
+            object = "tsmodem.gpio",
+            method = "IO5",
             params = {
                 value = "",
                 direction = "$cfg_direction",
@@ -173,8 +210,8 @@ local rule_setting = {
 		}
 	},
 
-    value_status_sub = {
-        note = "Подписка на tsmodem.gpio",
+    io5_event_counter = {
+        note = "Счетчик активации триггера IO5",
         input = "",
         source = {
             type = "subscribe",
@@ -183,45 +220,75 @@ local rule_setting = {
             match = {gpio_port="IO5"}
         },
         modifier = {
-            ["1_bash"] = [[ jsonfilter  -e $.value ]],
+            ["1_bash"] = [[ jsonfilter  -e $.IO5.value ]],
         }
     },
 
-	cfg_action_command = {
-		note = "Конфигурация. Реакция на событие: Запуск Bash-команды.",
-		input = "",
+    io6_current_state = {
+        note = "Текущее состояние IO6.",
+        input = "",
         source = {
             type = "ubus",
-            object = "uci",
-            method = "get",
+            object = "tsmodem.gpio",
+            method = "IO6",
             params = {
-                config = "tsmgpio",
-                section = "IO_0",
-                option = "action_command"
+                value = "",
+                direction = "$cfg_direction",
+                trigger = "$cfg_trigger"
             },
         },
         modifier = {
-        	["1_skip"] = [[ return ($cfg_status == "disable") or ($cfg_direction == "out") ]],
-			["2_bash"] = [[ jsonfilter  -e $.value ]],
-			["3_func"] = [[
-				-- Проверка, сколько раз срабатывает блок:
-				if ($last_value ~= $value_status) then
-					-- Начальное значение N
-					local N = 0
-					local last_value = "some_value" -- Замените на ваше значение
-					local value_status = "new_value" -- Замените на ваше значение
-					-- Функция для создания файла
-    				N = N + 1
-    				local filename = string.format("/var/rules/19_rule_Action_%d.txt", N) -- Создаем имя файла
-    				local file = io.open(filename, "w") -- Открываем файл для записи
-					if file then
-        				file:write("This is file number " .. N) -- Записываем в файл
-        				file:close() -- Закрываем файл
-					end
-				end
-			]]
-		}
-	},
+            ["1_skip"] = [[ return ($cfg_status == "disable") ]],
+            ["2_bash"] = [[ jsonfilter -e '$.response.value' ]],
+        }
+    },
+
+    io6_event_counter = {
+        note = "Счетчик активации триггера IO6",
+        input = "",
+        source = {
+            type = "subscribe",
+            ubus = "tsmodem.gpio",
+            evname = "tsmodem.gpio_update",
+            match = {gpio_port="IO6"}
+        },
+        modifier = {
+            ["1_bash"] = [[ jsonfilter  -e $.IO6.value ]],
+        }
+    },
+
+    io7_current_state = {
+        note = "Текущее состояние IO7.",
+        input = "",
+        source = {
+            type = "ubus",
+            object = "tsmodem.gpio",
+            method = "IO7",
+            params = {
+                value = "",
+                direction = "$cfg_direction",
+                trigger = "$cfg_trigger"
+            },
+        },
+        modifier = {
+            ["1_skip"] = [[ return ($cfg_status == "disable") ]],
+            ["2_bash"] = [[ jsonfilter -e '$.response.value' ]],
+        }
+    },
+
+    io7_event_counter = {
+        note = "Счетчик активации триггера IO7",
+        input = "",
+        source = {
+            type = "subscribe",
+            ubus = "tsmodem.gpio",
+            evname = "tsmodem.gpio_update",
+            match = {gpio_port="IO7"}
+        },
+        modifier = {
+            ["1_bash"] = [[ jsonfilter  -e $.IO7.value ]],
+        }
+    },    
 
 	cfg_hw_info = {
 		note = "Информация об аппапатной реализации GPIO.",
@@ -260,18 +327,23 @@ function rule:make()
 	}
 
 	self:load("title"):modify():debug()
-	--self:load("cfg_status"):modify():debug()
-	--self:load("cfg_value"):modify():debug()
-	--self:load("cfg_trigger"):modify():debug()
-	--self:load("cfg_direction"):modify():debug()
-    self:load("value_status_sub"):modify():debug()
-	--self:load("set_line_to_hw_save_mod"):modify():debug()
-	--self:load("set_direction_in"):modify():debug()
-	--self:load("set_direction_out"):modify():debug()
-	--self:load("value_status"):modify():debug()
-	--self:load("last_value"):modify():debug()
-	--self:load("cfg_debounce_ms"):modify():debug()
-	--self:load("cfg_action_command"):modify():debug()
+	self:load("cfg_status"):modify():debug()
+    self:load("io0_current_state"):modify():debug()
+    self:load("io0_event_counter"):modify():debug()
+    self:load("io1_current_state"):modify():debug()
+    self:load("io1_event_counter"):modify():debug()
+    self:load("io2_current_state"):modify():debug()
+    self:load("io2_event_counter"):modify():debug()
+    self:load("io3_current_state"):modify():debug()
+    self:load("io3_event_counter"):modify():debug()
+    self:load("io4_current_state"):modify():debug()
+    self:load("io4_event_counter"):modify():debug()                
+    self:load("io5_current_state"):modify():debug()
+	self:load("io5_event_counter"):modify():debug()
+    self:load("io6_current_state"):modify():debug()
+    self:load("io6_event_counter"):modify():debug()
+    self:load("io7_current_state"):modify():debug()
+    self:load("io7_event_counter"):modify():debug()    
 	self:load("cfg_hw_info"):modify():debug()
 
 end
