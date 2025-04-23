@@ -17,8 +17,8 @@ local rule_setting = {
             method = "get",
             params = {
                 config = "tsmgpio",
-                section = "IO_0",
-                option = "status"
+                section = "general",
+                option = "isActive"
             },
         },
         modifier = {
@@ -210,6 +210,25 @@ local rule_setting = {
 		}
 	},
 
+    io5_cfg_action_command = {
+        note = "Конфигурация. Реакция на событие: Запуск Bash-команды.",
+        input = "",
+        source = {
+            type = "ubus",
+            object = "uci",
+            method = "get",
+            params = {
+                config = "tsmgpio",
+                section = "IO5",
+                option = "action_command"
+            },
+        },
+        modifier = {
+            ["1_skip"] = [[ return ($cfg_status == "disable") ]],
+            ["2_bash"] = [[ jsonfilter  -e $.value ]],
+        }
+    },
+
     io5_event_counter = {
         note = "Счетчик активации триггера IO5",
         input = "",
@@ -223,6 +242,16 @@ local rule_setting = {
             ["1_bash"] = [[ jsonfilter  -e $.IO5.value ]],
         }
     },
+
+    io5_action_command_run = {
+        note = [[ Запуск скрипта, привязанного к 5 линии ]],
+        input = 0,
+        modifier = {
+            ["1_skip"] = [[ return ($io5_event_counter == "") ]],
+            ["2_bash"] = [[ $io5_cfg_action_command ]],
+        }
+    },
+
 
     io6_current_state = {
         note = "Текущее состояние IO6.",
@@ -328,22 +357,25 @@ function rule:make()
 
 	self:load("title"):modify():debug()
 	self:load("cfg_status"):modify():debug()
-    self:load("io0_current_state"):modify():debug()
-    self:load("io0_event_counter"):modify():debug()
-    self:load("io1_current_state"):modify():debug()
-    self:load("io1_event_counter"):modify():debug()
-    self:load("io2_current_state"):modify():debug()
-    self:load("io2_event_counter"):modify():debug()
-    self:load("io3_current_state"):modify():debug()
-    self:load("io3_event_counter"):modify():debug()
-    self:load("io4_current_state"):modify():debug()
-    self:load("io4_event_counter"):modify():debug()                
+    --self:load("io0_current_state"):modify():debug()
+    --self:load("io0_cfg_action_command"):modify():debug()
+    --self:load("io0_event_counter"):modify():debug()
+    --self:load("io1_current_state"):modify():debug()
+    --self:load("io1_event_counter"):modify():debug()
+    --self:load("io2_current_state"):modify():debug()
+    --self:load("io2_event_counter"):modify():debug()
+    --self:load("io3_current_state"):modify():debug()
+    --self:load("io3_event_counter"):modify():debug()
+    --self:load("io4_current_state"):modify():debug()
+    --self:load("io4_event_counter"):modify():debug()                
     self:load("io5_current_state"):modify():debug()
+    self:load("io5_cfg_action_command"):modify():debug()
 	self:load("io5_event_counter"):modify():debug()
-    self:load("io6_current_state"):modify():debug()
-    self:load("io6_event_counter"):modify():debug()
-    self:load("io7_current_state"):modify():debug()
-    self:load("io7_event_counter"):modify():debug()    
+    self:load("io5_action_command_run"):modify():debug()
+    --self:load("io6_current_state"):modify():debug()
+    --self:load("io6_event_counter"):modify():debug()
+    --self:load("io7_current_state"):modify():debug()
+    --self:load("io7_event_counter"):modify():debug()    
 	self:load("cfg_hw_info"):modify():debug()
 
 end

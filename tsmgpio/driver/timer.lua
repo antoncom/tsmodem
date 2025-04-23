@@ -26,7 +26,7 @@ function timer:init(gpio, state, confgpio, notifier)
 	timer.notifier = notifier
 	print("timer init OK")
 	TimerNotifyUbus()
-	TimerCheckGPIO_Event()
+	--TimerCheckGPIO_Event()
 end
 
 return timer
