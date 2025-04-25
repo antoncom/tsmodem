@@ -248,7 +248,10 @@ local rule_setting = {
         input = 0,
         modifier = {
             ["1_skip"] = [[ return ($io5_event_counter == "") ]],
-            ["2_bash"] = [[ $io5_cfg_action_command ]],
+            --["2_bash"] = [[ $io5_cfg_action_command ]],
+            ["2_func"] = [[
+                os.execute($io5_cfg_action_command)
+            ]],
         }
     },
 
