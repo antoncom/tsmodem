@@ -43,17 +43,47 @@ function confgpio:GetGPIOconfig()
         end
     end)
 end
-
 local function SetGPIOconfig(gpio, config)
     for section_name, section_data in pairs(config) do
-        -- Обрабатываем только секции вида "IO_*" с status == "enable"
+        -- Обрабатываем только секции вида "IO*" с status == "enable"
         if section_name:match("^IO") and section_data.status == "enable" then
-        	-- Применяем настройки из файла к линиям ввода вывода
-        	gpio.device:SetDirection(section_data.direction, gpio.device[section_name])
-        	if section_data.direction == "out" then
-        		gpio.device:WriteGPIO(tonumber(section_data.value), gpio.device[section_name])
-        	else
-        		gpio.device:SetEdge(section_data.trigger, gpio.device[section_name])
+            -- TODO: перенести эти преобразования в драйвер "driver.gpio_cp2112_driver"
+            -- Преобразование формата конфига к формату драйвера(IN->in...)
+            local direction
+            if section_data.direction then
+                direction = section_data.direction:lower()
+            end            
+            -- Применяем настройки направления
+            gpio.device:SetDirection(direction, gpio.device[section_name])        
+            if direction == "out" then
+                -- Значение для вывода (по умолчанию 0)
+                local value
+                if section_data.value then
+                    if section_data.value == "HI" then
+                        value = 1
+                    elseif section_data.value == "LOW" then
+                        value = 0
+                    else
+                        -- Если значение не "HI" и не "LOW", попробуем преобразовать в число
+                        value = tonumber(section_data.value) or 0
+                    end
+                end
+                gpio.device:WriteGPIO(value, gpio.device[section_name])
+                -- Тип триггера (по умолчанию 'none' - отключено)
+                local trigger
+                if section_data.trigger then
+                    trigger = section_data.trigger:lower()  -- приводим к нижнему регистру
+                    -- Конвертируем сокращенные формы и проверяем допустимые значения
+                    if trigger == 'rise' then
+                        trigger = 'rising'
+                    elseif trigger == 'fall' then
+                        trigger = 'falling'
+                    elseif trigger ~= 'none' and trigger ~= 'rising' and trigger ~= 'falling' and trigger ~= 'both' then
+                        -- Если значение недопустимое, используем 'none'
+                        trigger = 'none'
+                    end
+                end
+                gpio.device:SetEdge(trigger, gpio.device[section_name])
             end
         end
     end
