@@ -349,7 +349,7 @@ local ubus_methods = {
                         if(string.find(state.last_at_command, "AT%+CMGS") and string.find(state.last_at_command, "AT%+CMGS") > 0) then
                             local chunk, err, errcode = U.write(state.modem.fds, msg["command"] .. "\26")
                             state.last_at_command = ""
-                            if_debug("send_at", "UBUS", "ASK",state.last_at_command, msg["command"] .. "\26", "SMS was sent")
+                            if_debug("send_at", "UBUS", "ASK", msg["command"] .. "\26", "SMS was sent")
                         else
                             local chunk, err, errcode = U.write(state.modem.fds, msg["command"] .. "\r\n")
                             state.last_at_command = msg["command"]
