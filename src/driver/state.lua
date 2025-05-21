@@ -417,6 +417,7 @@ local ubus_methods = {
 
         automation = {
             function(req, msg)
+                local resp = {}
                 local occupied = ""
                 if_debug("automation", "UBUS", "ASK", msg, "Note: Run or Stop Driver automation")
                 if msg and msg["mode"] and msg["mode"] == "run" then
