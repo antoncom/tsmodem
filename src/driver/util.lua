@@ -17,7 +17,7 @@ end
 	comment 				- подсказка
 ]]
 function if_debug(ubus_method, protocol, request_or_response, value, comment)
-	local is_debug = (uci:get("tsmodem", "debug", "enable") == "1") and true
+	local is_debug = (uci:get("tsmodem", "debug", "enable") == "1")
 	local debug_type =uci:get("tsmodem", "debug", "type")
 	local val = ""
 
