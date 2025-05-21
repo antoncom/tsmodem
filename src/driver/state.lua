@@ -150,20 +150,20 @@ local ubus_methods = {
             function(req, msg)
                 local resp = makeResponse("cpin")
                 state.conn:reply(req, resp);
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, {}
         },
         reg = {
             function(req, msg)
                 local resp = makeResponse("reg")
                 state.conn:reply(req, resp);
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, {}
         },
 
         sim = {
             function(req, msg)
                 local resp = makeResponse("sim")
                 state.conn:reply(req, resp);
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, {}
         },
 
         signal = {
@@ -171,7 +171,7 @@ local ubus_methods = {
                 local resp = makeResponse("signal")
                 state.conn:reply(req, resp);
 
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, {}
         },
 
         balance = {
@@ -179,7 +179,7 @@ local ubus_methods = {
                 local resp = makeResponse("balance")
                 state.conn:reply(req, resp);
 
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, {}
         },
 
         do_request_ussd_balance = {
@@ -217,14 +217,14 @@ local ubus_methods = {
 
                 state.conn:reply(req, resp);
 
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, { sim_id = ubus.STRING, NOTE_todo_update__do_request_ussd_balance__code = ubus.STRING }
         },
 
         usb = {
             function(req, msg)
                 local resp = makeResponse("usb")
                 state.conn:reply(req, resp);
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, {}
         },
 
         stm32 = {
@@ -232,7 +232,7 @@ local ubus_methods = {
                 local resp = makeResponse("stm32")
                 state.conn:reply(req, resp);
 
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, {}
         },
 
         netmode = {
@@ -240,7 +240,7 @@ local ubus_methods = {
                 local resp = makeResponse("netmode")
                 state.conn:reply(req, resp);
 
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, {}
         },
 
         provider_name = {
@@ -248,7 +248,7 @@ local ubus_methods = {
                 local resp = makeResponse("provider_name")
                 state.conn:reply(req, resp);
 
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, {}
         },
 
         ping = {
@@ -256,7 +256,7 @@ local ubus_methods = {
                 local resp = makeResponse("ping")
                 state.conn:reply(req, resp);
 
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, {}
         },
 
         do_switch = {
@@ -290,7 +290,7 @@ local ubus_methods = {
                 end
                 state.conn:reply(req, resp);
 
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, { rule = ubus.STRING }
         },
 
         ping_update = {
@@ -323,7 +323,7 @@ local ubus_methods = {
                 if_debug("ping", "UBUS", "ANSWER", resp, "Response from ubus ping_update method")
 
                 state.conn:reply(req, resp);
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, { host = ubus.STRING, sim_id = ubus.STRING, value = ubus.STRING }
         },
 
         switching = {
@@ -331,7 +331,7 @@ local ubus_methods = {
                 local resp = makeResponse("switching")
                 state.conn:reply(req, resp);
 
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, {}
         },
 
 
@@ -373,7 +373,7 @@ local ubus_methods = {
                 end
                 resp["value"] = "true"
                 state.conn:reply(req, resp);
-            end, {command = ubus.STRING, ["what-to-update"] = ubus.STRING }
+            end, { command = ubus.STRING, ["what-to-update"] = ubus.STRING }
         },
 
         -- [[ Clear all states ]]
@@ -395,7 +395,7 @@ local ubus_methods = {
 
                 state.conn:reply(req, resp);
 
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, {}
         },
 
         -- [[ Clear log ]]
@@ -412,7 +412,7 @@ local ubus_methods = {
 
                 state.conn:reply(req, resp);
 
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, {}
         },
 
         automation = {
@@ -431,7 +431,7 @@ local ubus_methods = {
                 end
                 if_debug("automation", "UBUS", "ANSWER", resp, "")
                 state.conn:reply(req, resp);
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, { mode = ubus.STRING, occupied = ubus.STRING }
         },
         -- Дистанционное управление по СМС. Удалить, т.к. не нужно.
         remote_control = {
@@ -439,7 +439,7 @@ local ubus_methods = {
                 local resp = makeResponse("remote_control")
                 state.conn:reply(req, resp);
 
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, {}
         },
 
         -- Отправка смс:
@@ -458,7 +458,7 @@ local ubus_methods = {
                 end
                 --state.modem:run_automation()
                 state.conn:reply(req, resp);
-            end, {id = ubus.INT32, msg = ubus.STRING }
+            end, { command = ubus.STRING, value = ubus.STRING }
         },
     }
 }
