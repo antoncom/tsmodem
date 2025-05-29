@@ -64,7 +64,7 @@ function modem:init()
 			modem.state:update("usb", "disconnected", modem.device .. " close")
 			modem.state:update("reg", "7", "AT+CREG?")
 			modem.state:update("signal", "", "AT+CSQ")
-			--modem.state:update("cpin","", "","")
+			modem.state:update("cpin","", "","")
 		end
 
 		local fds, err, errnum = F.open(modem.device, bit.bor(F.O_RDWR, F.O_NONBLOCK))
@@ -97,8 +97,8 @@ function modem:init()
 			modem.state:update("usb", "connected", modem.device .. " open", "")
 			modem.state:update("reg", "7", "AT+CREG?", "")
 			modem.state:update("signal", "", "AT+CSQ", "")
-			--modem.state:update("switching","false", "","")
-			--modem.state:update("cpin","", "","")
+			modem.state:update("switching","false", "","")
+			modem.state:update("cpin","", "","")
 
 		end
 	end
@@ -148,13 +148,16 @@ end
 
 function modem:poll()
 	if (modem.fds_ev == nil) and modem:is_connected(modem.fds) then
+		print("--- MODEM POLL ---")
 
 		modem.fds_ev = uloop.fd_add(modem.fds, function(ufd, events)
 
 			local message_from_browser, message_to_browser = "", ""
 			local chunk, err, errcode = U.read(modem.fds, 1024)
 
-			--if_debug(modem.debug_type, "POLL", err, chunk, "[modem.lua]: " .. string.format("tsmodem: U.read(modem.fds, 1024) ERROR CODE: %s", tostring(errcode)))
+			if (err) then
+				if_debug(modem.debug_type, "POLL", err, chunk, "[modem.lua]: " .. string.format("tsmodem: U.read(modem.fds, 1024) ERROR CODE: %s", tostring(errcode)))
+			end
 
 			if not err then
 				spec_V300_ch3:parse_AT(modem, chunk)
@@ -186,15 +189,15 @@ function modem:unpoll()
 	if(modem.fds_ev) then
 		modem.fds_ev:delete()
 		modem.fds_ev = nil
+		if (modem.debug) then print("MODEM UNPOLLED") end
 	end
-	if (modem.debug) then print("MODEM UNPOLL") end
 end
 
 function modem:close()
 	if(modem.fds) then
 		U.close(modem.fds)
+		if (modem.debug) then print("MODEM FD CLOSED") end
 	end
-	if (modem.debug) then print("MODEM FD CLOSED") end
 end
 
 --[[

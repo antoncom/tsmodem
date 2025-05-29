@@ -57,6 +57,15 @@ timer.switch_delay = {
     ["7_MDM_END_SWITCHING"] = 1000,
 }
 
+--[[ Step-by-step delays of resetting USB-modem ]]
+timer.reset_delay = {
+    ["1_MDM_UNPOLL"] = 100,     -- Stop modem polling since ubus call tsmodem.driver do_switch runs
+    ["2_STM_SIM_EN_0"] = 2000,
+    ["3_STM_SIM_EN_1"] = 2000,
+    ["4_STM_SIM_PWR_0"] = 2000,
+    ["5_MDM_REPEAT_POLL"] = 2000,
+}
+
 timer.init = function(modem, state, stm, notifier)
     timer.modem = modem
     timer.state = state
@@ -393,6 +402,95 @@ function t_BAL_TIMEOUT()
     end
 end
 timer.BAL_TIMEOUT = uloop.timer(t_BAL_TIMEOUT)
+
+--[[ RESETTING MODEM TO FIND A SIM-CARD]]
+
+
+--[[ Switch Sim: Unpoll modem ]]
+function t_RESET_1()
+    if timer.modem.automation == "run" then
+        if (timer.modem.debug) then print("----------- t_RESET_1_START ----------" .. os.date()) end
+        timer.state:update("resetting", "true", "", "")
+
+
+        if timer.modem.fds then
+            timer.modem.unpoll()
+            U.close(timer.modem.fds)
+        end
+
+        timer.RESET_2:set(timer.reset_delay["2_STM_SIM_EN_0"])
+    end
+end
+timer.RESET_1 = uloop.timer(t_RESET_1)
+
+--[[ Switch Sim: EN=0 ]]
+function t_RESET_2()
+    if (timer.modem.debug) then print("----------- t_RESET_2 ----------" .. os.date()) end
+
+    local res, val = timer.stm:command("~0:SIM.EN=0")
+    if "OK" == res then
+        timer.state:update("stm32", "OK", "~0:SIM.EN=0", "")
+        if_debug("", "STM", "ANSWER", "OK", "[timer.lua]: t_RESET_2() ~0:SIM.EN=0")
+
+        timer.RESET_3:set(timer.reset_delay["3_STM_SIM_EN_1"])
+    else
+        timer.state:update("stm32", "ERROR", "~0:SIM.EN=0", "")
+        if_debug("", "STM", "ANSWER", "ERROR", "[timer.lua]: t_RESET_2() ~0:SIM.EN=0. BREAK RESETTING")
+    end
+
+end
+timer.RESET_2 = uloop.timer(t_RESET_2)
+
+--[[ Switch Sim: EN=1 ]]
+function t_RESET_3()
+    if (timer.modem.debug) then print("----------- t_RESET_3 ----------" .. os.date()) end
+
+    local res, val = timer.stm:command("~0:SIM.EN=1")
+    if "OK" == res then
+        timer.state:update("stm32", "OK", "~0:SIM.EN=1", "")
+        if_debug("", "STM", "ANSWER", "OK", "[timer.lua]: t_RESET_3() ~0:SIM.EN=1")
+
+        timer.RESET_4:set(timer.reset_delay["4_STM_SIM_PWR_0"])
+    else
+        timer.state:update("stm32", "ERROR", "~0:SIM.EN=0", "")
+        if_debug("", "STM", "ANSWER", "ERROR", "[timer.lua]: t_RESET_3() ~0:SIM.EN=1. BREAK RESETTING")
+    end
+
+end
+timer.RESET_3 = uloop.timer(t_RESET_3)
+
+
+--[[ Switch Sim: PWR=0 ]]
+function t_RESET_4()
+    if (timer.modem.debug) then print("----------- t_RESET_4 ----------" .. os.date()) end
+
+    local res, val = timer.stm:command("~0:SIM.PWR=0")
+    if "OK" == res then
+        timer.state:update("stm32", "OK", "~0:SIM.PWR=0", "")
+        if_debug("", "STM", "ANSWER", "OK", "[timer.lua]: t_RESET_4() ~0:SIM.PWR=0")
+
+        timer.RESET_5:set(timer.reset_delay["5_MDM_REPEAT_POLL"])
+    else
+        timer.state:update("stm32", "ERROR", "~0:SIM.PWR=0", "")
+        if_debug("", "STM", "ANSWER", "ERROR", "[timer.lua]: t_RESET_4() ~0:SIM.PWR=0. BREAK RESETTING")
+    end
+
+end
+timer.RESET_4 = uloop.timer(t_RESET_4)
+
+
+--[[ Switch Sim: delay before repeat modem polling ]]
+function t_RESET_5()
+    if (timer.modem.debug) then print("----------- t_RESET_5 ----------" .. os.date()) end
+    timer.modem:init()
+
+    if_debug("", "FILE", "POLL", "", "[timer.lua]: t_RESET_5() modem:init()")
+
+    timer.state:update("resetting", "false", "", "")
+    if (timer.modem.debug) then print("----------- RESET_5_END ---------- " .. os.date()) end
+
+end
+timer.RESET_5 = uloop.timer(t_RESET_5)
 
 
 return timer

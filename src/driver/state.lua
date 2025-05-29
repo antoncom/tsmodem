@@ -126,6 +126,14 @@ state.switching[1] = {
     unread = ""
 }
 
+state.resetting = {}
+state.resetting[1] = {
+    command = "",
+    value = "",          -- true or false
+    time = "",
+    unread = ""
+}
+
 state.remote_control = {}
 state.remote_control[1] = {
     command = "",
@@ -269,28 +277,55 @@ local ubus_methods = {
                     comment = ""
                 }
 
-                if (state.modem.debug) then
-                    print("-----------------------------------------------")
-                    print(string.format('|  DO_SWITCH form [%s]', tostring(msg["rule"])))
-                    print("-----------------------------------------------")
-                end
+                state:update("balance", CREG_STATE["SWITCHING"], "", "")
 
-                local _,_, switch_already_started = state:get("switching", "value")
-                if (switch_already_started == "true") then
+                local switch_already_started = state:get("switching", "value")
+                local resetting_started = state:get("resetting", "value")
+
+                if (switch_already_started == "true" or resetting_started == "true") then
                     resp.value = "false"
                 else
-                    local _,_,simid = state:get("sim","value")
-                    local newsimid = (simid == "0") and "2" or "1"
-                    state:update("switching", "true", "Activate SIM-" .. newsimid, msg["rule"])
-                    if_debug("switching", "UBUS", "ASK", msg["rule"], "Note: msg['rule']")
-                    state:update("reg", CREG_STATE["SWITCHING"], "", "")
-
+                    if (state.modem.debug) then
+                        print("-----------------------------------------------")
+                        print(string.format('|  DO_SWITCH form [%s]', tostring(msg["rule"])))
+                        print("-----------------------------------------------")
+                    end
                     state.timer.SWITCH_1:set(state.timer.switch_delay["1_MDM_UNPOLL"])
                     resp.value = "true"
                 end
                 state.conn:reply(req, resp);
 
-            end, { rule = ubus.STRING }
+            end, {rule = ubus.STRING}
+        },
+
+        do_reset = {
+            function(req, msg)
+                local resp = {
+                    command = "do_reset",
+                    value = "false",
+                    time = "",
+                    unread = "",
+                    comment = ""
+                }
+
+
+                local switch_already_started = state:get("resetting", "value")
+                local resetting_started = state:get("resetting", "value")
+
+                if (switch_already_started == "true" or resetting_started == "true") then
+                    resp.value = "false"
+                else
+                    if (state.modem.debug) then
+                        print("-----------------------------------------------")
+                        print(string.format('|  DO_RESET form [%s]', tostring(msg["rule"])))
+                        print("-----------------------------------------------")
+                    end
+                    state.timer.RESET_1:set(state.timer.reset_delay["1_MDM_UNPOLL"])
+                    resp.value = "true"
+                end
+                state.conn:reply(req, resp);
+
+            end, {id = ubus.INT32, msg = ubus.STRING }
         },
 
         ping_update = {
@@ -334,6 +369,14 @@ local ubus_methods = {
             end, {}
         },
 
+        resetting = {
+            function(req, msg)
+                local resp = makeResponse("resetting")
+                state.conn:reply(req, resp);
+
+            end, {}
+        },
+
 
         send_at = {
             function(req, msg)
@@ -342,6 +385,7 @@ local ubus_methods = {
                 if msg["command"] then
                     if(state.modem:is_connected(state.modem.fds)) then
                         if (msg["what-to-update"] == "balance") then
+                            state:update("balance", "*", msg["command"], "")
                             state.timer.BAL_TIMEOUT:set(state.timer.timeout["balance"]) -- clear balance state after timeout
                             if_debug("send_at", "AT", "ASK", msg, "Note: sends AT command to get balance and clear balance state if no AT-answer during " .. tostring(state.timer.timeout["balance"]/60000) .. " min.")
                         end
@@ -349,7 +393,7 @@ local ubus_methods = {
                         if(string.find(state.last_at_command, "AT%+CMGS") and string.find(state.last_at_command, "AT%+CMGS") > 0) then
                             local chunk, err, errcode = U.write(state.modem.fds, msg["command"] .. "\26")
                             state.last_at_command = ""
-                            if_debug("send_at", "UBUS", "ASK", msg["command"] .. "\26", "SMS was sent")
+                            if_debug("send_at", "UBUS", "ASK",state.last_at_command, msg["command"] .. "\26", "SMS was sent")
                         else
                             local chunk, err, errcode = U.write(state.modem.fds, msg["command"] .. "\r\n")
                             state.last_at_command = msg["command"]
@@ -373,7 +417,7 @@ local ubus_methods = {
                 end
                 resp["value"] = "true"
                 state.conn:reply(req, resp);
-            end, { command = ubus.STRING, ["what-to-update"] = ubus.STRING }
+            end, {command = ubus.STRING, ["what-to-update"] = ubus.STRING }
         },
 
         -- [[ Clear all states ]]
@@ -385,10 +429,11 @@ local ubus_methods = {
                 local resp = { res = "OK" }
                 state:update("reg", "7", "", "")
                 state:update("signal", "", "", "")
-                -- state:update("balance", "", "", "")
+                -- We souldn't clear balance as its value provided rarely
+                --[[ state:update("balance", "", "", "") ]]
                 state:update("provider_name", "", "", "")
                 state:update("netmode", "", "", "")
-                -- state:update("cpin", "", "", "")
+                state:update("cpin", "", "", "")
                 state:update("ping", "", "", "")
 
                 if_debug("clear_state", "UBUS", "ANSWER", resp, "")
@@ -414,6 +459,7 @@ local ubus_methods = {
 
             end, {}
         },
+
 
         automation = {
             function(req, msg)
@@ -542,7 +588,7 @@ function state:update_queue(param, value, command, comment)
                 table.remove(state[param], 1)
             end
         --[[ Update last time of succesful registration state ]]
-        elseif (param == "reg" and (newval == CREG_STATE["REGISTERED"] or newval == CREG_STATE["SWITCHING"])) then
+    elseif (param == "reg" and (newval == CREG_STATE["REGISTERED"] or newval == CREG_STATE["SWITCHING"])) then
             state["reg"][n].time = tostring(os.time())
         --[[ Update time of last balance ussd request if balance's value is not changed ]]
         elseif (param == "balance") then
@@ -573,7 +619,6 @@ function state:update(param, value, command, comment)
         else
             local _,_,oldval =state:get(param, "value")
             local _,_,oldcomm = state:get(param, "command")
-
             if(oldval ~= newval or oldcomm ~= command) then
                 local item = {
                     ["command"] = command,
@@ -598,7 +643,7 @@ function state:update(param, value, command, comment)
             elseif (param == "ping") and value == "1" then
                 state["ping"][1].time = tostring(os.time())
             --[[ Update time of last successful cpin ]]
-            elseif (param == "cpin") then
+            elseif (param == "cpin") and value == "true" then
                 state["cpin"][1].time = tostring(os.time())
             --[[ Update SMS command received in any case, even if it was the same like previous one ]]
             elseif (param == "remote_control") then
