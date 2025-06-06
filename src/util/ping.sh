@@ -2,6 +2,7 @@
 
 ping_host() {
     host=$1
+    #host=mmm.com
     sim_id=$2
     result=$(ping $host -c1 -A -w3 -W3 -q 2>/dev/null | awk -v HOST="$host" '{
         if(NF>6) {

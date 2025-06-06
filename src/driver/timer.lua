@@ -33,7 +33,7 @@ timer.interval = {
     netmode = 5000,     -- 4G/3G mode state (checking interval)
     provider = 6000,    -- GSM provider name (autodetection checking interval)
     ping = 4000,        -- Ping GSM network (checking interval)
-    --whatslot = 3000     -- Get what slot is active. It runs only if active slot was not detected by some reason
+    sim = 3000,         -- Get what slot is active. It runs only if active slot was not detected by some reason
 
     last_balance_request_time = os.time(),  -- Helper. Need to avoid doing USSD requests too often.
     balance_repeated_request_delay = 125,   -- If GSM opeator doen't send back the balance USSD-response
@@ -371,25 +371,26 @@ end
 timer.SWITCH_7 = uloop.timer(t_SWITCH_7)
 
 -- --[[ Get active slot periodically ]]
--- function t_WHAT_SLOT()
---     --if timer.modem.automation_mode.normal == true then
---     if timer.modem.automation == "run" then
---         local switch_started = state:get("switching", "value")
+function t_WHAT_SLOT()
+    --if timer.modem.automation_mode.normal == true then
+    if timer.modem.automation == "run" then
+        local _,errmsg,switch_started = (timer.state:get("switching", "value") ~= "false")
+        if_debug("sim", "switch_started", "switching", "[timer.lua]: t_WHAT_SLOT() switch_started: " .. tostring(switch_started), "")
 
---         if not switch_started then
---             local resp, n = {}, 0
---             local res, sim_id = timer.stm:command("~0:SIM.SEL=?")
---             if (res == "OK" and tonumber(sim_id)) then
---                 timer.state:update("sim", tostring(sim_id), "~0:SIM.SEL=?")
---                 if_debug("", "STM", "ANSWER", "OK", "[timer.lua]: t_SWITCH_1() slot ID: " .. tostring(sim_id))
---             else
---                 if_debug("", "STM", "ANSWER", "ERROR", "[timer.lua]: t_SWITCH_1() ~0:SIM.SEL=?")
---                 timer.WHAT_SLOT:set(timer.interval.whatslot)
---             end
---         end
---     end
--- end
--- timer.WHAT_SLOT = uloop.timer(t_WHAT_SLOT)
+        if (not switch_started) then
+            local resp, n = {}, 0
+            local res, sim_id = timer.stm:command("~0:SIM.SEL=?")
+            if (res == "OK" and tonumber(sim_id)) then
+                timer.state:update("sim", tostring(sim_id), "~0:SIM.SEL=?")
+                if_debug("sim", "STM", "ANSWER", "OK", "[timer.lua]: t_SWITCH_1() slot ID: " .. tostring(sim_id))
+            else
+                if_debug("sim", "STM", "ANSWER", "ERROR", "[timer.lua]: t_SWITCH_1() ~0:SIM.SEL=?")
+            end
+        end
+    end
+    timer.WHAT_SLOT:set(timer.interval.sim)
+end
+timer.WHAT_SLOT = uloop.timer(t_WHAT_SLOT)
 
 --[[ Balance request timeout ]]
 function t_BAL_TIMEOUT()
