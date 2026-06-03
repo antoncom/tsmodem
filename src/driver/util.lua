@@ -1,3 +1,5 @@
+-- Вспомогательные функции
+
 local uci = require "luci.model.uci".cursor()
 local util = require "luci.util"
 
@@ -14,9 +16,10 @@ end
 	protocol 				- UBUS, AT, PING, FILE, STM
 	request_or_response 	- "ASK", "ANSWER", "NOTIFY" or "POLL"
 	value 					- значение
-	comment 				- подсказка
+	comment 				- подсказка,
+	bottomline			- линия-разделитель (true/false)
 ]]
-function if_debug(ubus_method, protocol, request_or_response, value, comment)
+function if_debug(ubus_method, protocol, request_or_response, value, comment, ...)
 	local is_debug = (uci:get("tsmodem", "debug", "enable") == "1")
 	local debug_type =uci:get("tsmodem", "debug", "type")
 	local val = ""
@@ -30,6 +33,11 @@ function if_debug(ubus_method, protocol, request_or_response, value, comment)
 			val = value
 		end
 		print(protocol .. ":" .. ubus_method, request_or_response,"", val,"","", comment)
+		local bottomline = {...}
+		if (#bottomline > 0 and bottomline[1] == true) then
+			print("------------------------------------------------")
+		end
+
 	end
 end
 

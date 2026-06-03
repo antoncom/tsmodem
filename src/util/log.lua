@@ -1,3 +1,6 @@
+
+-- Помогает выводить табличные данные при отладке
+
 local util = require "luci.util"
 
 function log(title, obj)

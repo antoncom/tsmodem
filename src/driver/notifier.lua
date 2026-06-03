@@ -1,3 +1,6 @@
+-- Модуль поднимает события на шине UBUS.
+-- Связан с другими модулями сервиса - см. .init()
+
 local uci = require "luci.model.uci".cursor()
 local util = require "luci.util"
 local log = require "tsmodem.util.log"

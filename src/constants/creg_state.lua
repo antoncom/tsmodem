@@ -1,3 +1,6 @@
+-- Справочная информация
+-- Нигде в backend активно не используется
+
 local CREG_STATE = {
   ["SIM_NOT_INSERTED"] = "-1",
   ["NOT_REGISTERED"] = "0",

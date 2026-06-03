@@ -1,3 +1,5 @@
+-- Формирует человекочитаемый JSON (в столбик с отступами)
+
 -- https://github.com/bungle/lua-resty-prettycjson
 
 local ok, cjson = pcall(require, "cjson.safe")

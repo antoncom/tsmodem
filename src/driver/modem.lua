@@ -1,3 +1,8 @@
+-- Главный модуль сервиса Tsmodem.
+-- Инициализирует (связывает) модули сервиса (tsmodem.state, tsmodem.timer, tsmodem.notifier).
+-- Опрашивает GSM-модем на логическом порту метолом poll, в ходе чего
+-- запускает парсеры AT-ответов модема согласно спецификации /src/spec/*
+
 
 local socket = require "socket"
 local bit = require "bit"
@@ -29,8 +34,6 @@ local def_events = require "tsmodem.constants.def_events"
 
 local lock = require "tsmodem.driver.lock"
 
---local check_host = require 'tsmodem.parser.hostip'
-
 local modem = {}
 modem.debug = (uci:get("tsmodem", "debug", "enable") == "1") and true
 modem.debug_type = uci:get("tsmodem", "debug", "type")
@@ -51,6 +54,9 @@ modem.config_gsm = "tsmodem_adapter_provider"
 modem.section = "sim"
 
 
+-- Функция начальной инициализации сервиса.
+-- Запускается периодически по таймеру (см. в модуле timer.general)
+-- Выполняется только при условии, что модем не подключен к файловому дескриптору.
 function modem:init()
 	if not self:is_connected(modem.fds) then
 
@@ -105,6 +111,13 @@ end
 function modem:is_connected(fd)
 	return fd and U.isatty(fd)
 end
+
+-- Функция запускает опрос модема (ожидает данные а файловом дескрипторе).
+-- Выполняетя по таймеру (см. в модуле timer.general).
+-- Если модем нештатно отключился от логического порта, то вначале выполняется .init() - см. выше
+-- а затем проверяется был ли запущен опрос (polling). Если нет - запускает polling.
+
+-- В процессе ожидания АТ-ответов от модема данная функция запускает парсинг.
 
 function modem:poll()
 	if (modem.fds_ev == nil) and modem:is_connected(modem.fds) then
@@ -163,19 +176,25 @@ local metatable = {
         modem.defined_events = def_events
 
 		local self_lock = modem.lock.is_owner_or_set_if_unlocked("self")
-		print("self_lock: ", self_lock)
 
         modem.state.init(modem, timer, notifier)
         modem.timer.init(modem, state, notifier)
         modem.notifier.init(modem, state, timer)
 
         modem.state:make_ubus()
-		-- modem.state:tsmsms_subscribe_ubus()
 
 		uloop.init()
-		modem:poll()
 
+		-- Инициализируем и включаем опрос модема на порту /dev/tty
+		modem:init()
+		modem:poll()
+		
+		-- Повторяем периодически инициализацию и опрос только в том случае если модем нештатно отключися от порта /dev/tty
 		timer.general:set(timer.interval.general)
+
+		-- Периодически послаем в модем различные АТ-команды
+		-- для получения сотояния сотовой сети.
+
 		timer.CPIN:set(timer.interval.cpin)
 		timer.CREG:set(timer.interval.reg)
 		timer.CSQ:set(timer.interval.signal)
@@ -184,7 +203,6 @@ local metatable = {
 
 		local unlock_status
 		unlock_status, self_lock = modem.lock.unlock("self")
-		print("self_lock: ", self_lock)
 
 		uloop.run()
 		state.conn:close()

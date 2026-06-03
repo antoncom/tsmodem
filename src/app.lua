@@ -1,3 +1,5 @@
+-- Главный файл сервиса, запускаемый из /etc/init.d/tsmodem -> /usr/sbin/tsmodem -> lua app.lua
+
 local timer = require "tsmodem.driver.timer"
 local state = require "tsmodem.driver.state"
 local modem = require "tsmodem.driver.modem"

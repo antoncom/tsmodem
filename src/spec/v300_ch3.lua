@@ -21,7 +21,7 @@ local v300_ch3 = {}
 function v300_ch3:parse_AT(modem, chunk)
 	if (chunk:find("+CME ERROR") or chunk:find("+CPIN: READY") or chunk:find("+SIMCARD: NOT AVAILABLE")) then
 		local cpin = CPIN_parser:match(chunk)
-		if_debug("cpin", "AT", "ANSWER", cpin, "[spec/v300_ch3.lua]: chunk: " .. chunk:gsub("%c+", " "))
+		if_debug("cpin", "AT", "ANSWER", cpin, "[spec/v300_ch3.lua]: chunk: " .. chunk:gsub("%c+", " "), true)
 		local _,_, SWITCHING = modem.state:get("switching", "value")
 		if cpin and (SWITCHING ~= "true") and (cpin == "true" or cpin == "false" or cpin == "failure") then
 			modem.state:update("cpin", cpin, "AT+CPIN?", "")
@@ -29,14 +29,14 @@ function v300_ch3:parse_AT(modem, chunk)
 		end
 	elseif chunk:find("+CREG:") then
 		local creg = CREG_parser:match(chunk)
-		if_debug("reg", "AT", "ANSWER", creg, "[spec/v300_ch3.lua]: chunk: " .. chunk:gsub("%c+", " "))
+		if_debug("reg", "AT", "ANSWER", creg, "[spec/v300_ch3.lua]: chunk: " .. chunk:gsub("%c+", " "), true)
 		if creg and creg ~= "" then
 			modem.state:update("reg", creg, "AT+CREG?", "")
 			modem.state:update("usb", "connected", modem.device .. " open", "")
 		end
 	elseif chunk:find("+CSQ:") then
 		local signal = CSQ_parser:match(chunk)
-		if_debug("signal", "AT", "ANSWER", signal, "[spec/v300_ch3.lua]: +CSQ parsed every " .. tostring(modem.timer.interval.signal).."ms")
+		if_debug("signal", "AT", "ANSWER", signal, "[spec/v300_ch3.lua]: +CSQ parsed every " .. tostring(modem.timer.interval.signal).."ms", true)
 		--local no_signal_aliase = {"0", "99", "31", "nil", nil, ""}
 		local no_signal_aliase = {"99", "nil", nil, ""}
 		if not util.contains(no_signal_aliase, signal) then

@@ -1,3 +1,5 @@
+-- Проверяет наличие объекта на шине UBUS, а также наличие метода у данного объекта
+
 function check_ubus_object(conn, obj, method)
 	if conn then
 		local namespaces = conn:objects()

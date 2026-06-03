@@ -1,9 +1,13 @@
+-- Модуль таймеров служит для запуска различных таймеров и задержек.
+-- Используется для периодического опроса GSM-модема, т.е. отправки АТ-команд модему с заданным интервалом.
+-- Например, АТ-CSQ (запрос уровня сигнала), посылаемый в GSM-модем через каждые 4 секунды.
+-- Данный модуль свяан с другими модулями сервиса - см. .init()
+
 local bit = require "bit"
 local uci = require "luci.model.uci".cursor()
 local util = require "luci.util"
 local log = require "tsmodem.util.log"
 local uloop = require "uloop"
-local flist = require "tsmodem.util.filelist"
 local nixio = require "nixio"
 
 
@@ -13,10 +17,6 @@ local U = require 'posix.unistd'
 
 
 require "tsmodem.driver.util"
-
-local CREG_STATE = require "tsmodem.constants.creg_state"
-local balance_event_keys = require "tsmodem.constants.balance_event_keys"
-
 
 local timer = {}
 timer.modem = nil
@@ -50,7 +50,9 @@ timer.init = function(modem, state, notifier)
     return timer
 end
 
---[[ General driver timer ]]
+-- Периодически запускает инициализацию модуля modem, а также запуск опроса
+-- Это нужно для проверки того, что модем подключен, идентифицирован на логическом порту.
+-- В случае "падения", происходит инициализация и запуска процесса опроса.
 function t_general()
     timer.modem:init()
     timer.modem:poll()

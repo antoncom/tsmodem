@@ -10,11 +10,8 @@ end
 function balance(sim_id)
 	local provider_id = uci:get("tsmodem", "sim_" .. sim_id, "provider")
 	local balance_mask = provider_id and uci:get("tsmodem_adapter_provider", provider_id, "balance_mask")
-	print("balance_mask",balance_mask)
 	local n_RUB = balance_mask and balance_mask:find("__RUB__")
-	print("n_RUB", n_RUB)
 	local first_chunk = n_RUB and balance_mask:sub(1, n_RUB - 1) or ""
-	print("first_chunk",first_chunk)
 
 	local spc = lpeg.S(" \t\n\r")^0
 

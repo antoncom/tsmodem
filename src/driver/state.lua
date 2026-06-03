@@ -1,4 +1,9 @@
 
+-- Модуль состояний (методов) на шине UBUS.
+-- Создаёт объект на шине UBUS.
+-- Имеет функции update(), get() для работы с состояниями на шине UBUS.
+-- Связан с другими модулями сервиса - см. .init()
+
 local bit = require "bit"
 local uci = require "luci.model.uci".cursor()
 local util = require "luci.util"
@@ -12,8 +17,6 @@ local U = require 'posix.unistd'
 
 require "tsmodem.driver.util"
 require "tsmodem.util.pdu_encoder"
-local CREG_STATE = require "tsmodem.constants.creg_state"
-local balance_event_keys = require "tsmodem.constants.balance_event_keys"
 
 local spec_V300_ch9 = require "tsmodem.spec.v300_ch9"
 
@@ -264,32 +267,6 @@ local ubus_methods = {
         },
     }
 }
-
--- function state:tsmsms_subscribe_ubus()
---     local ok, error = pcall(function ()
---         local sub = {
---             notify = function(msg, name)
---                 if name == "NEW-SMS-RECEIVED" then
---                     print("[tsmsms_subscribe_ubus -> NEW-SMS-RECEIVED]", util.serialize_json(msg))
---                     if
---                         msg["sender"] == "000100" or -- Megafon
---                         msg["sender"] == "111" or -- MTC
---                         msg["sender"] == "1111" or -- Beline
---                         msg["sender"] == "105" or -- Tele2
---                         msg["sender"] == "100" -- Yota
---                     then
---                         local balance_str = string.match(msg["message"], "%d+")
---                         state:update("balance", balance_str, "", "")
---                     end
---                 end
---             end
---         }
---         state.conn:subscribe("tsmodem.sms", sub)
---     end)
---     if not ok then
---         uloop.timer(function () state:tsmsms_subscribe_ubus() end, 3000)
---     end
--- end
 
 function state:make_ubus()
     state.conn = ubus.connect()
