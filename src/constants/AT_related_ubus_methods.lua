@@ -6,6 +6,8 @@ local AT_RELATED_UBUS_METHODS = {
     "balance",
     "provider_name",
     "signal",
-    "send_at"
+    "send_at",
+    "cpin",
+    "remote_control"
 }
 return AT_RELATED_UBUS_METHODS

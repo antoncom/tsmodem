@@ -50,7 +50,6 @@ debug() {
     uci set tsmodem.debug.type=$PAR2
     uci commit
 
-    (sleep 3; echo "=============="; echo " "; echo "TSMCONSOLE RUN TOO"; echo " "; echo "=============="; tsmconsole start) &
     exec /usr/bin/lua /usr/lib/lua/tsmodem/app.lua
 
     RETVAL=$?

@@ -60,12 +60,15 @@ modem.section = "sim"
 function modem:init()
 	if not self:is_connected(modem.fds) then
 
-		if_debug(modem.debug_type, "INIT 1", "", "", "")
+		if_debug(modem.debug_type, "modem:init(), modem:unpoll()", "", "", "")
 
 		modem:unpoll()
+
 		if modem.fds then
-			if_debug(modem.debug_type, "INIT 2", "", "", "")
+			if_debug(modem.debug_type, "U.close(modem.fds)", "", "", "")
+
 			U.close(modem.fds)
+			
 			modem.state:update("usb", "disconnected", modem.device .. " close")
 			modem.state:update("reg", "7", "AT+CREG?")
 			modem.state:update("signal", "", "AT+CSQ")
@@ -74,6 +77,10 @@ function modem:init()
 
 		local fds, err, errnum = F.open(modem.device, bit.bor(F.O_RDWR, F.O_NONBLOCK))
 		if fds then
+
+			if_debug(modem.debug_type, "F.open(modem.device... OK", "", "", "")
+
+
 			local term_attrs = M.tcsetattr(fds, 0, {
 			   cflag = M.B115200 + M.CS8 + M.CLOCAL + M.CREAD,
 			   iflag = M.IGNPAR,
@@ -86,6 +93,9 @@ function modem:init()
 			modem.fds = fds
 			-- Принудительный перевод модема в режим Text
 			U.write(modem.fds, "AT+CMGF=1\r\n")
+
+			if_debug(modem.debug_type, "AT+CMGF=1 - Переводим модем в text-mode", "", "", "")
+
 			--
 			local ok, err, sim_id = modem.state:get("sim", "value")
 			if ok and (sim_id == "1" or sim_id == "0") then
@@ -131,6 +141,9 @@ function modem:poll()
 			end
 
 			if not err then
+
+				-- Разбираем АТ-ответы от модема согласно спецификации
+				
 				spec_V300_ch3:parse_AT(modem, chunk)
 				spec_V300_ch4:parse_AT(modem, chunk) -- balance via USSD, sim provider_id check
 				spec_V300_ch9:parse_AT(modem, chunk)
@@ -140,6 +153,9 @@ function modem:poll()
 					local payload = {
 						answer = chunk,
 					}
+
+					if_debug(modem.debug_type, "Fire event:", event_name, "Payload:", util.serialize_json(payload))
+
 					modem.notifier:fire(event_name, payload)
 				end
 			else
