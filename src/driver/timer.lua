@@ -128,12 +128,10 @@ function t_CNSMOD()
         if not SWITCHING then
             if(timer.modem:is_connected(timer.modem.fds)) then
                 local _,_,reg = timer.state:get("reg", "value")
-                if reg == "1" then
-                    if (timer.modem.debug and (timer.modem.debug_type == "netmode" or timer.modem.debug_type == "all")) then print("AT sends: ","AT+CNSMOD?") end
-                    if_debug("netmode", "AT", "ASK", "AT+CNSMOD?", "[timer.lua]: t_CNSMOD() every " .. tostring(timer.interval.netmode).."ms")
+                if (timer.modem.debug and (timer.modem.debug_type == "netmode" or timer.modem.debug_type == "all")) then print("AT sends: ","AT+CNSMOD?") end
+                if_debug("netmode", "AT", "ASK", "AT+CNSMOD?", "[timer.lua]: t_CNSMOD() every " .. tostring(timer.interval.netmode).."ms")
 
-                    local chunk, err, errcode = U.write(timer.modem.fds, "AT+CNSMOD?" .. "\r\n")
-                end
+                local chunk, err, errcode = U.write(timer.modem.fds, "AT+CNSMOD?" .. "\r\n")
             end
         end
     end
