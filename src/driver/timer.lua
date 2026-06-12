@@ -127,11 +127,12 @@ function t_CNSMOD()
         local SWITCHING = (timer.state:get("switching", "value") == "true")
         if not SWITCHING then
             if(timer.modem:is_connected(timer.modem.fds)) then
-                local _,_,reg = timer.state:get("reg", "value")
-                if (timer.modem.debug and (timer.modem.debug_type == "netmode" or timer.modem.debug_type == "all")) then print("AT sends: ","AT+CNSMOD?") end
-                if_debug("netmode", "AT", "ASK", "AT+CNSMOD?", "[timer.lua]: t_CNSMOD() every " .. tostring(timer.interval.netmode).."ms")
-
-                local chunk, err, errcode = U.write(timer.modem.fds, "AT+CNSMOD?" .. "\r\n")
+                local reg = timer.state:get("reg", "value")
+                if reg == "1" then
+                    if (timer.modem.debug and (timer.modem.debug_type == "netmode" or timer.modem.debug_type == "all")) then print("AT sends: ","AT+CNSMOD?") end
+                    if_debug("netmode", "AT", "ASK", "AT+CNSMOD?", "[timer.lua]: t_CNSMOD() every " .. tostring(timer.interval.netmode).."ms")
+                    local chunk, err, errcode = U.write(timer.modem.fds, "AT+CNSMOD?" .. "\r\n")
+                end
             end
         end
     end
@@ -142,7 +143,7 @@ timer.CNSMOD = uloop.timer(t_CNSMOD)
 
 --[[ Balance request timeout ]]
 function t_BAL_TIMEOUT()
-    local noerror, errmsg, val = timer.state:get("balance", "value")
+    local val = timer.state:get("balance", "value")
     if val == "*" then
         timer.state:update("balance", "", "", "")
         if (timer.modem.debug and (timer.modem.debug_type == "balance" or timer.modem.debug_type == "all")) then

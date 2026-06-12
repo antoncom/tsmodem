@@ -97,8 +97,8 @@ function modem:init()
 			if_debug(modem.debug_type, "AT+CMGF=1 - Переводим модем в text-mode", "", "", "")
 
 			--
-			local ok, err, sim_id = modem.state:get("sim", "value")
-			if ok and (sim_id == "1" or sim_id == "0") then
+			local sim_id = modem.state:get("sim", "value")
+			if (sim_id == "1" or sim_id == "0") then
                 local provider_id = get_provider_id(sim_id)
 				local apn_provider = uci:get(modem.config_gsm, provider_id, "gate_address") or "APNP"
 				local apn_network = uci:get("network", "tsmodem", "apn") or "APNN"
