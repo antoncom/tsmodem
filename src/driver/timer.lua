@@ -66,7 +66,7 @@ function t_CREG()
         local SWITCHING = (timer.state:get("switching", "value") == "true")
         if not SWITCHING then
             if(timer.modem:is_connected(timer.modem.fds)) then
-                if_debug("reg", "AT", "ASK", "AT+CREG?", "[timer.lua]: t_CREG() every " .. tostring(timer.interval.reg).."ms. when SWITCHING == " .. tostring(SWITCHING) .. " and modem:is_connected().")
+                if_debug("reg", "AT ASK AT+CREG? every " .. tostring(timer.interval.reg))
                 local chunk, err, errcode = U.write(timer.modem.fds, "AT+CREG?" .. "\r\n")
             end
         end
@@ -81,7 +81,7 @@ function t_CPIN()
         local SWITCHING = (timer.state:get("switching", "value") == "true")
         if not SWITCHING then
             if(timer.modem:is_connected(timer.modem.fds)) then
-                if_debug("cpin", "AT", "ASK", "AT+CPIN?", "[timer.lua]: t_CPIN() every " .. tostring(timer.interval.cpin).."ms")
+                if_debug("cpin", "AT ASK AT+CPIN? every " .. tostring(timer.interval.cpin).."ms")
                 local chunk, err, errcode = U.write(timer.modem.fds, "AT+CPIN?" .. "\r\n")
             end
         end
@@ -96,7 +96,7 @@ function t_CSQ()
         local SWITCHING = (timer.state:get("switching", "value") == "true")
         if not SWITCHING then
             if(timer.modem:is_connected(timer.modem.fds)) then
-                if_debug("signal", "AT", "ASK", "AT+CSQ", "[timer.lua]: t_CSQ() every " .. tostring(timer.interval.signal).."ms")
+                if_debug("signal", "AT ASK AT+CSQ every " .. tostring(timer.interval.signal).."ms")
                 local chunk, err, errcode = U.write(timer.modem.fds, "AT+CSQ" .. "\r\n")
             end
         end
@@ -111,7 +111,7 @@ function t_COPS()
         local SWITCHING = (timer.state:get("switching", "value") == "true")
         if not SWITCHING then
             if(timer.modem:is_connected(timer.modem.fds)) then
-                if_debug("provider", "AT", "ASK", "AT+COPS?", "[timer.lua]: t_COPS() every " .. tostring(timer.interval.provider).."ms")
+                if_debug("provider", "AT ASK AT+COPS? every " .. tostring(timer.interval.provider).."ms")
                 local chunk, err, errcode = U.write(timer.modem.fds, "AT+COPS?" .. "\r\n")
             end
         end
@@ -129,8 +129,7 @@ function t_CNSMOD()
             if(timer.modem:is_connected(timer.modem.fds)) then
                 local reg = timer.state:get("reg", "value")
                 if reg == "1" then
-                    if (timer.modem.debug and (timer.modem.debug_type == "netmode" or timer.modem.debug_type == "all")) then print("AT sends: ","AT+CNSMOD?") end
-                    if_debug("netmode", "AT", "ASK", "AT+CNSMOD?", "[timer.lua]: t_CNSMOD() every " .. tostring(timer.interval.netmode).."ms")
+                    if_debug("netmode", "AT ASK AT+CNSMOD? every " .. tostring(timer.interval.netmode).."ms")
                     local chunk, err, errcode = U.write(timer.modem.fds, "AT+CNSMOD?" .. "\r\n")
                 end
             end
@@ -147,7 +146,7 @@ function t_BAL_TIMEOUT()
     if val == "*" then
         timer.state:update("balance", "", "", "")
         if (timer.modem.debug and (timer.modem.debug_type == "balance" or timer.modem.debug_type == "all")) then
-            print(string.format("[timer.lua]: Clear balance on BAL_TIMEOUT: %s %s %s", tostring(noerror), tostring(errmsg), tostring(val)))
+            if_debug("", string.format("[timer.lua]: Clear balance on BAL_TIMEOUT: %s %s %s", tostring(noerror), tostring(errmsg), tostring(val)))
         end
     end
 end

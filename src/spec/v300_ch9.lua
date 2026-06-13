@@ -26,7 +26,9 @@ function v300_ch9:parse_AT(modem, chunk)
 	self.modem = modem
 	if chunk:find("+CMTI:") then
 		self.resive_sms_counter = remote_control_pars:get_sms_count(chunk)
-		if_debug("remote_control", "AT", "NOTIFY", self.resive_sms_counter, "[spec/v300_ch9.lua]: +CMTI new sms receive, sms count=" .. tostring(self.resive_sms_counter))
+		if_debug("remote_control", "AT ANSWER +CMTI SMS Counter: " .. tostring(self.resive_sms_counter) .. " when chunk is: " .. chunk:gsub("%c+", " "))
+		if_debug("remote_control", "----------------------")
+
 		-- Задержка для модема, дающая время на обработку запроса
 		self.read_sms_timer = uloop.timer(v300_ch9:AtCommandReadSMS())
 		self.read_sms_timer:set(3000) -- Задержка 3 сек
@@ -39,20 +41,24 @@ function v300_ch9:parse_AT(modem, chunk)
         if chunk:find("OK") then
             shift = 8
         end
-
-		print("[v300_ch9] chunk", chunk)
+		if_debug("remote_control", "AT ANSWER +CMGR "  .. " when chunk is: " .. chunk:gsub("%c+", " "))
+		if_debug("remote_control", "----------------------")
         for i = #chunk - shift, 1, -1 do
             if chunk:sub(i, i) == '\n' then break end
             pdu_data = chunk:sub(i, i) .. pdu_data
         end
-		print("[v300_ch9] pdu_data", pdu_data)
+		if_debug("remote_control", "AT ANSWER +CMGR pdu_data: " .. tostring(pdu_data))
+		if_debug("remote_control", "----------------------")
 
 		local parsed_sms = pdu_decoder.parse(pdu_data)
 
 		-- Запись принятых данных в state: [param, value, command, comment]
 		v300_ch9.modem.state:update("remote_control", tostring(parsed_sms.sender_number), tostring(parsed_sms.message_text), "+CMGR:".. tostring(self.resive_sms_counter))
-		if_debug("remote_control", "AT", "ANSWER", parsed_sms.sender_number, "[spec/v300_ch9.lua]: +CMGR Sender Phone Number")
-		if_debug("remote_control", "AT", "ANSWER", parsed_sms.message_text, "[spec/v300_ch9.lua]: +CMGR Resive Command")
+
+		if_debug("remote_control", "AT ANSWER +CMGR Resive Command from Phome: " .. tostring(parsed_sms.sender_number))
+		if_debug("remote_control", "AT ANSWER +CMGR Resive Command Text: " .. tostring(parsed_sms.message_text))
+		if_debug("remote_control", "----------------------")
+
 
 		local event_name = v300_ch9.modem.defined_events[4]
 		local event_payload = {
@@ -63,11 +69,12 @@ function v300_ch9:parse_AT(modem, chunk)
 		v300_ch9.modem.notifier:fire(event_name, event_payload)
 
 		-- Удалить все СМС если их колличество больше 10
-		print('[v300_ch9] self.resive_sms_counter', self.resive_sms_counter)
 		if self.resive_sms_counter and type(self.resive_sms_counter) == "number" and self.resive_sms_counter > 10 then
 			-- Отправить команду в модем на удаление смс
 			U.write(v300_ch9.modem.fds, "AT+CMGD=,1" .. "\r\n")
-			if_debug("remote_control", "AT", "ANSWER", self.resive_sms_counter, "[spec/v300_ch9.lua]: SMS storage limited. Deleteting all read messages.")
+			if_debug("remote_control", "AT ANSWER +CMGD Deleting all read sms as storage is limited: [" .. tostring(self.resive_sms_counter) .. "] total num.")
+			if_debug("remote_control", "----------------------")
+
 		end
 
 	elseif (chunk:find("AT%+CMGS=") or chunk:find("%+CMGS: ") or chunk:find("%+CMS ERROR")) then
@@ -75,7 +82,9 @@ function v300_ch9:parse_AT(modem, chunk)
 		local is_sms_sent_ok = cmgs_ok:match(removed_ctrlZ_chunk) and type(cmgs_ok:match(removed_ctrlZ_chunk) == "string")
 		local is_sms_sent_error = cmgs_error:match(removed_ctrlZ_chunk) and type(cmgs_error:match(removed_ctrlZ_chunk) == "string")
 
-		if_debug("send_at", "v300_ch9.lua", removed_ctrlZ_chunk, cmgs_ok:match(removed_ctrlZ_chunk), "")
+		if_debug("send_at", "AT ANSWER +CMGS: Removed ctrlZ: " .. tostring(removed_ctrlZ_chunk) .. " sent_OK: [" .. tostring(is_sms_sent_ok) .. "]. Sent_Err: [" .. tostring(is_sms_sent_error) .. "]")
+		if_debug("send_at", "----------------------")
+
 
 		local event_name = ""
 		local event_payload = {}
@@ -89,7 +98,9 @@ function v300_ch9:parse_AT(modem, chunk)
 				automation = automation_mode
 			}
 			v300_ch9.modem.notifier:fire(event_name, event_payload)
-			if_debug("send_at", "NOTIFY", event_name, cmgs_ok:match(removed_ctrlZ_chunk), string.format("[spec/v300_ch9.lua]: %s event", event_name))
+			if_debug("send_at", "NOTIFY: " .. tostring(event_name) .. " sent_OK: [" .. cmgs_ok:match(removed_ctrlZ_chunk))
+			if_debug("send_at", "----------------------")
+
 		elseif is_sms_sent_error then
 			event_name = v300_ch9.modem.defined_events[3]
 			event_payload = {
@@ -97,14 +108,16 @@ function v300_ch9:parse_AT(modem, chunk)
 				automation = automation_mode
 			}
 			v300_ch9.modem.notifier:fire(event_name, event_payload)
-			if_debug("send_at", "NOTIFY", event_name, cmgs_error:match(removed_ctrlZ_chunk), string.format("[spec/v300_ch9.lua]: %s event", event_name))
+			if_debug("send_at", "NOTIFY: " .. tostring(event_name) .. " sent_Err: [" .. cmgs_error:match(removed_ctrlZ_chunk))
+			if_debug("send_at", "----------------------")
 		else
-			event_name = v300_ch9.modem.defined_events[1]
-			event_payload = {
-				answer = removed_ctrlZ_chunk,
-				automation = automation_mode
-			}
-			if_debug("send_at", "NOTIFY", event_name, removed_ctrlZ_chunk, string.format("[spec/v300_ch9.lua]: %s event", event_name))
+			-- TODO: it seems not used anywhere.
+
+			-- event_name = v300_ch9.modem.defined_events[1]
+			-- event_payload = {
+			-- 	answer = removed_ctrlZ_chunk,
+			-- 	automation = automation_mode
+			-- }
 		end
 	elseif chunk:match("+CMGS:") then
 		--modem.state.conn:notify(modem.state.ubus_methods["tsmodem.driver"].__ubusobj, "SMS-SENT", {answer = chunk} )
@@ -119,7 +132,9 @@ function v300_ch9:AtCommandReadSMS()
 		U.write(v300_ch9.modem.fds, at_set_PDU_mode)
 		local at_get_sms_counter = "\r\nAT+CMGR=" .. tostring(v300_ch9.resive_sms_counter) .. "\r\n"
 		U.write(v300_ch9.modem.fds, at_get_sms_counter)
-		if_debug("remote_control", "AT", "ANSWER", at_get_sms_counter, "[modem.lua]: Send AT to read SMS")
+		if_debug("remote_control", "AT ANSWER +CMGR: Get SMS counter: " .. tostring(at_get_sms_counter))
+		if_debug("remote_control", "----------------------")
+
 		v300_ch9.read_sms_timer:cancel() -- отмена таймера
 	end
 end

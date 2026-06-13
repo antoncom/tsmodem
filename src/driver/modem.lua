@@ -47,6 +47,7 @@ modem.ws_pipeout_file = "/tmp/wspipeout.fifo"	-- Gwsocket creates it
 modem.ws_pipein_file = "/tmp/wspipein.fifo" -- Gwsocket creates it
 modem.defined_events = {}
 modem.lock = lock
+modem.tty_old_connected = "nil"
 
 -- [[ UCI staff ]]
 modem.config = "tsmodem"
@@ -60,12 +61,10 @@ modem.section = "sim"
 function modem:init()
 	if not self:is_connected(modem.fds) then
 
-		if_debug(modem.debug_type, "modem:init(), modem:unpoll()", "", "", "")
-
 		modem:unpoll()
 
 		if modem.fds then
-			if_debug(modem.debug_type, "U.close(modem.fds)", "", "", "")
+			if_debug(modem.debug_type, "......")
 
 			U.close(modem.fds)
 			
@@ -78,7 +77,10 @@ function modem:init()
 		local fds, err, errnum = F.open(modem.device, bit.bor(F.O_RDWR, F.O_NONBLOCK))
 		if fds then
 
-			if_debug(modem.debug_type, "F.open(modem.device... OK", "", "", "")
+
+            if_debug("","┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
+            if_debug("","┃ Modem connected to " .. tostring(modem.device) .." ┃")
+            if_debug("","┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
 
 
 			local term_attrs = M.tcsetattr(fds, 0, {
@@ -94,7 +96,7 @@ function modem:init()
 			-- Принудительный перевод модема в режим Text
 			U.write(modem.fds, "AT+CMGF=1\r\n")
 
-			if_debug(modem.debug_type, "AT+CMGF=1 - Переводим модем в text-mode", "", "", "")
+			if_debug(modem.debug_type, "AT+CMGF=1 - I go to text-mode.")
 
 			--
 			local sim_id = modem.state:get("sim", "value")
@@ -119,7 +121,21 @@ function modem:init()
 end
 
 function modem:is_connected(fd)
-	return fd and U.isatty(fd)
+	local tty_connected = (fd and U.isatty(fd))
+	if ((not tty_connected) and modem.tty_old_connected == "1") then 
+		if_debug("","┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
+        if_debug("","┃ Modem disconnected from " .. tostring(modem.device) .." ┃")
+        if_debug("","┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
+
+        if_debug("","┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
+        if_debug("",'┃ Type "tsmslot debug" in a different shell ┃')
+        if_debug("","┃ to see how to the slot resetting process  ┃")
+        if_debug("","┃ is going on..                             ┃")
+        if_debug("","┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
+	end
+	modem.tty_old_connected = tostring(tty_connected)
+	return tty_connected
+
 end
 
 -- Функция запускает опрос модема (ожидает данные а файловом дескрипторе).
@@ -137,7 +153,7 @@ function modem:poll()
 			local chunk, err, errcode = U.read(modem.fds, 1024)
 
 			if (err) then
-				if_debug(modem.debug_type, "POLL", err, chunk, "[modem.lua]: " .. string.format("tsmodem: U.read(modem.fds, 1024) ERROR CODE: %s", tostring(errcode)))
+				if_debug(modem.debug_type, "POLL err[" .. tostring(err) .. "]" .. chunk .. string.format("tsmodem: U.read(modem.fds, 1024) ERROR CODE: %s", tostring(errcode)))
 			end
 
 			if not err then
@@ -154,13 +170,13 @@ function modem:poll()
 						answer = chunk,
 					}
 
-					if_debug(modem.debug_type, "Fire event:", event_name, "Payload:", util.serialize_json(payload))
+					if_debug(modem.debug_type, "Fire event:" .. tostring(event_name) .. " Payload:" .. util.serialize_json(payload))
 
 					modem.notifier:fire(event_name, payload)
 				end
 			else
 				if (modem.debug and (util.contains(AT_RELATED_UBUS_METHODS, modem.debug_type) or modem.debug_type == "all")) then
-					if_debug(modem.debug_type, "FILE", "POLL", "ERROR", "[modem.lua]: " .. string.format("tsmodem: U.read(modem.fds, 1024) ERROR CODE: %s", tostring(errcode)))
+					if_debug(modem.debug_type, "FILE  POLL  ERROR " .. string.format("tsmodem: U.read(modem.fds, 1024) ERROR CODE: %s", tostring(errcode)))
 				end
 			end
 		end, uloop.ULOOP_READ)
@@ -171,14 +187,12 @@ function modem:unpoll()
 	if(modem.fds_ev) then
 		modem.fds_ev:delete()
 		modem.fds_ev = nil
-		if (modem.debug) then print("MODEM UNPOLLED") end
 	end
 end
 
 function modem:close()
 	if(modem.fds) then
 		U.close(modem.fds)
-		if (modem.debug) then print("MODEM FD CLOSED") end
 	end
 end
 

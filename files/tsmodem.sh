@@ -30,7 +30,6 @@ run() {
     uci set tsmodem.debug.type='all'
     uci commit
 
-    (sleep 3; tsmconsole start) &
     exec /usr/bin/lua /usr/lib/lua/tsmodem/app.lua
     RETVAL=$?
 }
@@ -79,7 +78,6 @@ case "$CMD" in
         list
         ;;
     stop)
-        (sleep 1; tsmconsole stop) &
         callinit $CMD
         ;;
     *help|*?)

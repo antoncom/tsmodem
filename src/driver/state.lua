@@ -17,6 +17,7 @@ local U = require 'posix.unistd'
 
 require "tsmodem.driver.util"
 require "tsmodem.util.pdu_encoder"
+require "tsmodem.constants.lock_owners_debug"
 
 local spec_V300_ch9 = require "tsmodem.spec.v300_ch9"
 
@@ -155,18 +156,12 @@ local ubus_methods = {
             function(req, msg)
                 local resp = {}
 
-                print("\n\n\n==============================")
-                print("message from ubus: ")
-                for key, value in pairs(msg) do
-                    print(key, value)
-                end
-                print("==============================")
+                if_debug("send_at", "I've got AT command by UBUS: " .. luci.util.serialize_json(msg))
 
                 if not msg["module_name"] then msg["module_name"] = "unknown" end
                 if not state.modem.lock.is_owner_or_set_if_unlocked(msg["module_name"]) then
                     resp.status = "busy"
                     resp.msg = "tsmodem is busy"
-                    print("send_at: ", resp.status, resp.msg)
                     state.conn:reply(req, resp)
                     return
                 end
@@ -175,17 +170,17 @@ local ubus_methods = {
                     if(state.modem:is_connected(state.modem.fds)) then
                         if (msg["what-to-update"] == "balance") then
                             state.timer.BAL_TIMEOUT:set(state.timer.timeout["balance"]) -- clear balance state after timeout
-                            if_debug("send_at", "AT", "ASK", msg, "Note: sends AT command to get balance and clear balance state if no AT-answer during " .. tostring(state.timer.timeout["balance"]/60000) .. " min.")
+                            if_debug("send_at", "AT ASK" .. tostring(msg) .. " Note: sends AT command to get balance and clear balance state if no AT-answer during " .. tostring(state.timer.timeout["balance"]/60000) .. " min.")
                         end
 
                         if(string.find(state.last_at_command, "AT%+CMGS") and string.find(state.last_at_command, "AT%+CMGS") > 0) then
                             local chunk, err, errcode = U.write(state.modem.fds, msg["command"] .. "\26")
                             state.last_at_command = ""
-                            if_debug("send_at", "UBUS", "ASK", msg["command"] .. "\26", "SMS was sent")
+                            if_debug("send_at", "UBUS ASK " .. tostring(msg["command"]) .. "\26 SMS was sent")
                         else
                             local chunk, err, errcode = U.write(state.modem.fds, msg["command"] .. "\r\n")
                             state.last_at_command = msg["command"]
-                            if_debug("send_at", "UBUS", "ASK", msg, "Note: sends AT command to the modem")
+                            if_debug("send_at", "UBUS ASK " .. tostring(msg) .. " Note: sends AT command to the modem")
                         end
 
                         if err then
@@ -206,11 +201,22 @@ local ubus_methods = {
             function (req, msg)
                 local resp = {}
                 if not msg["module_name"] then msg["module_name"] = "unknown" end
+                        -- if_debug(" ")
+                        -- if_debug("┏━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
+                        -- if_debug('┃ Tsmodem is loclked by: [] ┃')
+                        -- if_debug('┗━━━━━━━━━━━━━━━━━━━━━━━━━━┛')
+                        -- if_debug("┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
+                        -- if_debug('┃ Type "tsmodem debug all" in a different shell ┃')
+                        -- if_debug('┃ to see how the sim-card or network            ┃')
+                        -- if_debug('┃ detecting process is going on..               ┃')
+                        -- if_debug('┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛')
+                        -- if_debug(" ")
                 if state.modem.lock.is_owner_or_set_if_unlocked(msg["module_name"]) then
                     resp.is_owner = true
                 else
                     resp.is_owner = false
                 end
+
                 state.conn:reply(req, resp)
             end, { module_name = ubus.STRING }
         },
@@ -219,7 +225,8 @@ local ubus_methods = {
             function (req, msg)
                 if not msg["module_name"] then msg["module_name"] = "unknown" end
                 local unlock_status, unlock_msg = state.modem.lock.unlock(msg["module_name"])
-                print("> ", unlock_status, unlock_msg)
+                if_debug("lock", "I'm unlocked by [" .. msg["module_name"] .. "] via UBUS. Status: [" .. tostring(unlock_status) .. "]. Msg: [" ..tostring(unlock_msg) .. "].", "bright_yellow")
+
                 local resp = { unlock_status = unlock_status, msg = unlock_msg }
                 state.conn:reply(req, resp)
             end, { module_name = ubus.STRING }
@@ -247,7 +254,8 @@ local ubus_methods = {
                 state:update("netmode", "", "", "")
                 state:update("cpin", "", "", "")
 
-                if_debug("clear_state", "UBUS", "ANSWER", resp, "")
+                if_debug("clear_state", "UBUS ANSWER " .. tostring(resp))
+
 
                 state.conn:reply(req, resp);
 

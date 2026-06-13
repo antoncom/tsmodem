@@ -1,3 +1,5 @@
+require "tsmodem.driver.util"
+
 -- Преобразвание номера абонента
 function PhoneNumberToPDU(PhoneNumber)
   local TempStr = PhoneNumber
@@ -13,7 +15,9 @@ function PhoneNumberToPDU(PhoneNumber)
       Result = Result .. string.sub(TempStr, I + 1, I + 1) .. string.sub(TempStr, I, I)
     end
   end
-  print("PhoneNumberToPDU: " .. tostring(Result))
+
+  if_debug("", "PhoneNumberToPDU: " .. tostring(Result))
+
   return Result
 end
 
@@ -59,7 +63,7 @@ end
 -- Определение длинны тела смс сообщения
 function LengthUtf8Mess(message_in_utf8_code)
   local Result = string.format("%02X", #message_in_utf8_code / 2) -- '0D' - 2 элемента в строке
-  print("LengthUtf8Mess: " .. tostring(Result))
+  if_debug("", "LengthUtf8Mess: " .. tostring(Result))
   return Result
 end
 
@@ -81,8 +85,8 @@ end
 --return EncoderPDU
   
 -- Тесты
-local num = "+79030507175"
-local sms = "Ёлька, вилька, булька, тарелька Йогъ"
-local len, pdu_send_mess = EncoderPDU(num, sms)
-print(pdu_send_mess)
-print("Len PDU " .. len)
+-- local num = "+79030507175"
+-- local sms = "Ёлька, вилька, булька, тарелька Йогъ"
+-- local len, pdu_send_mess = EncoderPDU(num, sms)
+--print(pdu_send_mess)
+--print("Len PDU " .. len)

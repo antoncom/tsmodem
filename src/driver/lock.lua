@@ -22,6 +22,7 @@ end
 function lock.unlock_if_timeout()
     if lock.owner ~= "" and os.difftime(os.time(), lock.last_request_time) > 60 then
         lock.unlock("", true)
+        if_debug("lock", "I'm unlocked on timeout.","bright_yellow")
     end
 end
 
@@ -31,12 +32,16 @@ function lock.is_owner_or_set_if_unlocked(module_name)
     if lock.owner == "" then
         lock.owner = module_name
         lock.last_request_time = os.time()
-        print("> ", "locked")
+
+        if_debug("lock", "When free, I'm locked by: [" .. tostring(module_name) .. "]","bright_yellow")
+
+
         return true
     end
 
     if lock.owner == module_name then
         lock.last_request_time = os.time()
+        if_debug("lock", "......","bright_yellow")
         return true
     end
 

@@ -8,6 +8,9 @@ local AT_RELATED_UBUS_METHODS = {
     "signal",
     "send_at",
     "cpin",
-    "remote_control"
+    "remote_control",
+    "lock",
+    "unlock",
+    "lock_status"
 }
 return AT_RELATED_UBUS_METHODS

@@ -36,14 +36,16 @@ function v300_ch4:parse_AT(modem, chunk)
 			else
 				modem.state:update("netmode", netmode, "AT+CNSMOD?", CNSMODES["0"])
 			end
-			if_debug("netmode", "AT", "ANSWER", CNSMODES[netmode]:split("|")[2]:gsub("%s+", ""), "[spec/v300_ch4.lua] parse_AT_response() +NSMOD parsed.", true)
+			if_debug("netmode", "AT ANSWER " .. CNSMODES[netmode]:split("|")[2]:gsub("%s+", "") .. " when chunk is: " .. chunk:gsub("%c+", " "))
+
 		end
 
 	elseif chunk:find("+NITZ") then
 		local pname = provider_name:match(chunk)
 		if pname and pname ~= "" then
 			modem.state:update("provider_name", pname, "+NITZ", "")
-			if_debug("provider", "AT", "ANSWER", pname, "[spec/v300_ch4.lua] parse_AT_response() +NITZ parsed every " .. tostring(modem.timer.interval.provider).."ms.", true)
+			if_debug("provider", "AT ANSWER " .. tostring(pname) .. " when chunk is: " .. chunk:gsub("%c+", " "))
+
 		end
 
 	elseif chunk:find("+COPS:") then
@@ -56,54 +58,56 @@ function v300_ch4:parse_AT(modem, chunk)
 					modem.state:update("provider_name", pname, "AT+COPS?", pcode[2])
 				end
 			end)
-		if_debug("provider", "AT", "ANSWER", pname, "[spec/v300_ch4.lua] parse_AT_response() +COPS parsed every " .. tostring(modem.timer.interval.provider).."ms.", true)
+		if_debug("provider", "AT ANSWER " .. tostring(pname) .. " when chunk is: " .. chunk:gsub("%c+", " "))
+
 		end
 	end
 end
 
 function v300_ch4:balance_parsing_and_update(modem, chunk)
-	if_debug("balance", "AT", "ANSWER", chunk:gsub("%c+", " "), "[spec/v300_ch4.lua]: Balance..")
 
-	local ok, err, sim_id = modem.state:get("sim", "value")
+	local sim_id = modem.state:get("sim", "value")
     local balance = 0
-	if ok then
-		local provider_id = get_provider_id(sim_id)
-		local ussd_command = uci:get(modem.config_gsm, provider_id, "balance_ussd")
+	local provider_id = get_provider_id(sim_id)
+	local ussd_command = uci:get(modem.config_gsm, provider_id, "balance_ussd")
 
-		-- Если USSD-ответ о балансе поступил в кодировке UCS2 - раскодируем
-		local ussd_response_body = balance_msg_ucs2():match(chunk) or balance_msg_text():match(chunk) or "USSD balance response format unknown!"
+	-- Если USSD-ответ о балансе поступил в кодировке UCS2 - раскодируем
+	local ussd_response_body = balance_msg_ucs2():match(chunk) or balance_msg_text():match(chunk) or "USSD balance response format unknown!"
 
-		if_debug("balance", "AT", "ANSWER", ussd_response_body, "[spec/v300_ch4.lua]: ussd_response_body " .. chunk, true)
-
-		-- Если USSD-ответ о балансе поступил в виде текста - удаляем одинарные кавычки и переводы строки
-		local balance_message = ussd_response_body:gsub("'", "\'"):gsub("\n", " "):gsub("%c+", " ")
-
-		local balance = BAL_parser(sim_id):match(balance_message)
-		if_debug("balance", "AT", "ANSWER", balance, "[spec/v300_ch4.lua]: balance value parsed", true)
+	if_debug("balance", "AT ANSWER " .. ussd_response_body .. " when chunk is: " .. chunk:gsub("%c+", " "))
+	if_debug("balance", "----------------------")
 
 
-------------------------------------------------------------------------------
--- TODO Решить проблему с USSD session (cancel) и ошибочным форматом сообщений
-------------------------------------------------------------------------------
 
-		if (balance and type(balance) == "number") then --[[ if balance value is OK ]]
-			modem.state:update("balance", balance, ussd_command, balance_message)
-			uci:set(modem.config_gsm, provider_id, "balance_last_message", balance_message)
-			uci:commit(modem.config_gsm)
-			if_debug("balance", "AT", "ANSWER", balance, "[spec/v300_ch4.lua]: Got balance OK.", true)
-		else
-			if(#balance_message > 0) then -- If balance message template is wrong
-				modem.state:update("balance", "", ussd_command, balance_message)
-				if_debug("balance", "AT", "ANSWER", balance_message, "[spec/v300_ch4.lua]: balance_message when parsed can't fetch value.", true)
-			elseif(chunk:find("+CUSD: 2") and #chunk <= 12) then -- we need send USSD once again
-				modem.state:update("balance", "", ussd_command, balance_message)
-				if_debug("balance", "AT", "ANSWER", chunk, "[spec/v300_ch4.lua]: chunk when balance_message is empty.", true)
-				return ""
-			end
-		end
+	-- Если USSD-ответ о балансе поступил в виде текста - удаляем одинарные кавычки и переводы строки
+	local balance_message = ussd_response_body:gsub("'", "\'"):gsub("\n", " "):gsub("%c+", " ")
+
+	local balance = BAL_parser(sim_id):match(balance_message)
+
+	if_debug("balance", "AT ANSWER " .. tostring(balance) .. " when chunk is: " .. chunk:gsub("%c+", " "))
+
+
+	if (balance and type(balance) == "number") then --[[ if balance value is OK ]]
+		modem.state:update("balance", balance, ussd_command, balance_message)
+		uci:set(modem.config_gsm, provider_id, "balance_last_message", balance_message)
+		uci:commit(modem.config_gsm)
+		if_debug("balance", "AT ANSWER OK " .. tostring(balance) .. " when chunk is: " .. chunk:gsub("%c+", " "))
+		if_debug("balance", "----------------------")
+
 	else
-		util.perror('driver.lua : ' .. err)
+		if(#balance_message > 0) then -- If balance message template is wrong
+			modem.state:update("balance", "", ussd_command, balance_message)
+			if_debug("balance", "AT ANSWER FAIL " .. tostring(balance_message) .. " when chunk is: " .. chunk:gsub("%c+", " "))
+			if_debug("balance", "----------------------")
+
+		elseif(chunk:find("+CUSD: 2") and #chunk <= 12) then -- we need send USSD once again
+			modem.state:update("balance", "", ussd_command, balance_message)
+			if_debug("balance", "AT ANSWER EMPTY " .. " when chunk is: " .. chunk:gsub("%c+", " "))
+			if_debug("balance", "----------------------")
+			return ""
+		end
 	end
+
     return balance
 end
 
