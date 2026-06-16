@@ -29,6 +29,11 @@ function v300_ch9:parse_AT(modem, chunk)
 		if_debug("remote_control", "AT ANSWER +CMTI SMS Counter: " .. tostring(self.resive_sms_counter) .. " when chunk is: " .. chunk:gsub("%c+", " "))
 		if_debug("remote_control", "----------------------")
 
+		-- Удалить все прочитанные СМС перед чтением новой смс
+		-- U.write(v300_ch9.modem.fds, "AT+CMGD=,1" .. "\r\n")
+		-- if_debug("remote_control", "AT SEND +CMGD: delete all read SMS before reading new sms")
+		-- if_debug("remote_control", "----------------------")
+
 		-- Задержка для модема, дающая время на обработку запроса
 		self.read_sms_timer = uloop.timer(v300_ch9:AtCommandReadSMS())
 		self.read_sms_timer:set(3000) -- Задержка 3 сек
@@ -68,14 +73,18 @@ function v300_ch9:parse_AT(modem, chunk)
 		}
 		v300_ch9.modem.notifier:fire(event_name, event_payload)
 
-		-- Удалить все СМС если их колличество больше 10
-		if self.resive_sms_counter and type(self.resive_sms_counter) == "number" and self.resive_sms_counter > 10 then
-			-- Отправить команду в модем на удаление смс
-			U.write(v300_ch9.modem.fds, "AT+CMGD=,1" .. "\r\n")
-			if_debug("remote_control", "AT ANSWER +CMGD Deleting all read sms as storage is limited: [" .. tostring(self.resive_sms_counter) .. "] total num.")
-			if_debug("remote_control", "----------------------")
+		-- Удалить все СМС, возможно нужно будет переписать, чтобы оставлять последние N смс.
+		U.write(v300_ch9.modem.fds, "AT+CMGD=1,4" .. "\r\n")
+		if_debug("remote_control", "AT SEND +CMGD: delete all SMS")
+		if_debug("remote_control", "----------------------")
 
-		end
+		-- Удалить все СМС если их колличество больше 10
+		-- if self.resive_sms_counter and type(self.resive_sms_counter) == "number" and self.resive_sms_counter > 10 then
+		-- 	-- Отправить команду в модем на удаление смс
+		-- 	U.write(v300_ch9.modem.fds, "AT+CMGD=,1" .. "\r\n")
+		-- 	if_debug("remote_control", "AT ANSWER +CMGD Deleting all read sms as storage is limited: [" .. tostring(self.resive_sms_counter) .. "] total num.")
+		-- 	if_debug("remote_control", "----------------------")
+		-- end
 
 	elseif (chunk:find("AT%+CMGS=") or chunk:find("%+CMGS: ") or chunk:find("%+CMS ERROR")) then
 		local removed_ctrlZ_chunk = chunk:gsub("%c", " ")
