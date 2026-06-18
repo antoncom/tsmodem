@@ -1,5 +1,6 @@
 
 config sim 'sim_0'
+	option name 'SIM-1'
 	option timeout_bal '120'
 	option timeout_sim_absent '120'
 	option timeout_signal '120'
@@ -14,6 +15,7 @@ config sim 'sim_0'
 	option balance_time '1723555578'
 
 config sim 'sim_1'
+	option name 'SIM-2'
 	option signal_min '10'
 	option timeout_bal '120'
 	option timeout_signal '120'
