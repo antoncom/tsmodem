@@ -1,3 +1,6 @@
+-- Модуль управления микроконтроллером STM32
+-- В данной версии 4.1.2 для прибора RZE BR-02 - не используется.
+
 local uci = require "luci.model.uci".cursor()
 local util = require "luci.util"
 local log = require "tsmodem.util.log"

@@ -4,7 +4,9 @@ local uci = require "luci.model.uci".cursor()
 
 --[[
 	Этот подмодуль отвечает за разбор - парсиниг AT ответов от модема согласно 
+	A76XXSeries_AT CommandManual V1.06 2021.11.9, а также:
 	SIM7500_SIM7600 Series_AT Command Manual V3.00 2021.5.18, Chapter 3. AT Commands According to V.25TER
+
 ]]
 
 local CPIN_parser = require 'tsmodem.parser.cpin'
