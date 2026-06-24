@@ -28,7 +28,7 @@ local v300_ch4 = {}
 function v300_ch4:parse_AT(modem, chunk)
 	if chunk:find("+CUSD:") then
 		self:balance_parsing_and_update(modem, chunk)
-		--[[ Parse and update 3G/4G mode ]]
+	--[[ Parse and update 3G/4G mode ]]
 	elseif chunk:find("+CNSMOD:") then
 		local netmode = CNSMOD_parser:match(chunk) or ""
 		if((tonumber(netmode) ~= nil) and tonumber(netmode) <= 16) then
@@ -66,43 +66,28 @@ function v300_ch4:parse_AT(modem, chunk)
 end
 
 function v300_ch4:balance_parsing_and_update(modem, chunk)
-
-	local sim_id = modem.state:get("sim", "value")
-    local balance = 0
-	local provider_id = get_provider_id(sim_id)
-	local ussd_command = uci:get(modem.config_gsm, provider_id, "balance_ussd")
-
 	-- Если USSD-ответ о балансе поступил в кодировке UCS2 - раскодируем
 	local ussd_response_body = balance_msg_ucs2():match(chunk) or balance_msg_text():match(chunk) or "USSD balance response format unknown!"
 
 	if_debug("balance", "AT ANSWER " .. ussd_response_body .. " when chunk is: " .. chunk:gsub("%c+", " "))
 	if_debug("balance", "----------------------")
 
-
-
 	-- Если USSD-ответ о балансе поступил в виде текста - удаляем одинарные кавычки и переводы строки
 	local balance_message = ussd_response_body:gsub("'", "\'"):gsub("\n", " "):gsub("%c+", " ")
-
-	local balance = BAL_parser(sim_id):match(balance_message)
-
+	local balance = BAL_parser(balance_message)
 	if_debug("balance", "AT ANSWER " .. tostring(balance) .. " when chunk is: " .. chunk:gsub("%c+", " "))
 
-
 	if (balance and type(balance) == "number") then --[[ if balance value is OK ]]
-		modem.state:update("balance", balance, ussd_command, balance_message)
-		uci:set(modem.config_gsm, provider_id, "balance_last_message", balance_message)
-		uci:commit(modem.config_gsm)
+		modem.state:update("balance", balance, "", balance_message)
 		if_debug("balance", "AT ANSWER OK " .. tostring(balance) .. " when chunk is: " .. chunk:gsub("%c+", " "))
 		if_debug("balance", "----------------------")
-
 	else
 		if(#balance_message > 0) then -- If balance message template is wrong
-			modem.state:update("balance", "", ussd_command, balance_message)
+			modem.state:update("balance", "", "", balance_message)
 			if_debug("balance", "AT ANSWER FAIL " .. tostring(balance_message) .. " when chunk is: " .. chunk:gsub("%c+", " "))
 			if_debug("balance", "----------------------")
-
 		elseif(chunk:find("+CUSD: 2") and #chunk <= 12) then -- we need send USSD once again
-			modem.state:update("balance", "", ussd_command, balance_message)
+			modem.state:update("balance", "", "", balance_message)
 			if_debug("balance", "AT ANSWER EMPTY " .. " when chunk is: " .. chunk:gsub("%c+", " "))
 			if_debug("balance", "----------------------")
 			return ""
