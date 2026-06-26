@@ -8,6 +8,8 @@ local uci = require "luci.model.uci".cursor()
 	SIM7500_SIM7600 Series_AT Command Manual V3.00 2021.5.18, Chapter 4. AT Commands for Network
 ]]
 
+local U = require 'posix.unistd'
+
 local CNSMOD_parser = require 'tsmodem.parser.cnsmod'
 local CNSMODES = require 'tsmodem.constants.cnsmodes'
 local CUSD_parser = require 'tsmodem.parser.cusd'
@@ -83,16 +85,20 @@ function v300_ch4:balance_parsing_and_update(modem, chunk)
 		if_debug("balance", "----------------------")
 	else
 		if(#balance_message > 0) then -- If balance message template is wrong
-			modem.state:update("balance", "", "", balance_message)
+			-- modem.state:update("balance", "", "", balance_message)
 			if_debug("balance", "AT ANSWER FAIL " .. tostring(balance_message) .. " when chunk is: " .. chunk:gsub("%c+", " "))
 			if_debug("balance", "----------------------")
 		elseif(chunk:find("+CUSD: 2") and #chunk <= 12) then -- we need send USSD once again
-			modem.state:update("balance", "", "", balance_message)
+			-- modem.state:update("balance", "", "", balance_message)
 			if_debug("balance", "AT ANSWER EMPTY " .. " when chunk is: " .. chunk:gsub("%c+", " "))
 			if_debug("balance", "----------------------")
 			return ""
 		end
 	end
+
+	U.write(modem.fds, "AT+CUSD=2\r\n")
+
+	modem.lock.unlock("ussd_balance")
 
     return balance
 end
