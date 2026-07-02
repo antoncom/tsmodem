@@ -245,7 +245,7 @@ local ubus_methods = {
         -- [[ e.g. when we save Sim-settings on the web UI]]
         clear_state = {
             function(req, msg)
-                if_debug("clear_state", "UBUS", "ASK", msg, "Note: Clear states, e.g. when we save Sim-settings on the web UI")
+                if_debug("UBUS ASK 'clear_state' " ..  tostring(msg) .. " Note: Clear states, e.g. when we save Sim-settings on the web UI")
 
                 local resp = { res = "OK" }
                 state:update("reg", "7", "", "")
