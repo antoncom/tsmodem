@@ -14,6 +14,7 @@ local cmgs_ok = require 'tsmodem.parser.cmgs_ok'
 local cmgs_error = require 'tsmodem.parser.cmgs_error'
 local remote_control_pars = require 'tsmodem.parser.parser_sms'
 local pdu_decoder = require 'tsmodem.util.pdu_decoder'
+local cmgr_pdu = require 'tsmodem.parser.cmgr_pdu'
 
 require "tsmodem.driver.util"
 
@@ -30,63 +31,46 @@ function v300_ch9:parse_AT(modem, chunk)
 		if_debug("remote_control", "AT ANSWER +CMTI SMS Counter: " .. tostring(self.resive_sms_counter) .. " when chunk is: " .. chunk:gsub("%c+", " "))
 		if_debug("remote_control", "----------------------")
 
-		-- Удалить все прочитанные СМС перед чтением новой смс
-		-- U.write(v300_ch9.modem.fds, "AT+CMGD=,1" .. "\r\n")
-		-- if_debug("remote_control", "AT SEND +CMGD: delete all read SMS before reading new sms")
-		-- if_debug("remote_control", "----------------------")
-
 		-- Задержка для модема, дающая время на обработку запроса
 		self.read_sms_timer = uloop.timer(v300_ch9:AtCommandReadSMS())
 		self.read_sms_timer:set(3000) -- Задержка 3 сек
 
 	-- Обработать ответ и выделить тело смс.
 	elseif chunk:find("+CMGR:") then
-		local pdu_data = ""
-        local shift = 2
-
-        if chunk:find("OK") then
-            shift = 8
-        end
 		if_debug("remote_control", "AT ANSWER +CMGR "  .. " when chunk is: " .. chunk:gsub("%c+", " "))
 		if_debug("remote_control", "----------------------")
-        for i = #chunk - shift, 1, -1 do
-            if chunk:sub(i, i) == '\n' then break end
-            pdu_data = chunk:sub(i, i) .. pdu_data
-        end
-		if_debug("remote_control", "AT ANSWER +CMGR pdu_data: " .. tostring(pdu_data))
-		if_debug("remote_control", "----------------------")
 
-		local parsed_sms = pdu_decoder.parse(pdu_data)
+		local pdu_data = cmgr_pdu:match(chunk)
+		if pdu_data == nil then
+			if_debug("remote_control", "PDU DATA: nil")
+			if_debug("remote_control", "----------------------")
+		else
+			if_debug("remote_control", "AT ANSWER +CMGR pdu_data: " .. tostring(pdu_data))
+			if_debug("remote_control", "----------------------")
 
-		-- Запись принятых данных в state: [param, value, command, comment]
-		v300_ch9.modem.state:update("remote_control", tostring(parsed_sms.sender_number), tostring(parsed_sms.message_text), "+CMGR:".. tostring(self.resive_sms_counter))
+			local parsed_sms = pdu_decoder.parse(pdu_data)
 
-		if_debug("remote_control", "AT ANSWER +CMGR Resive Command from Phome: " .. tostring(parsed_sms.sender_number))
-		if_debug("remote_control", "AT ANSWER +CMGR Resive Command Text: " .. tostring(parsed_sms.message_text))
-		if_debug("remote_control", "----------------------")
+			-- Запись принятых данных в state: [param, value, command, comment]
+			v300_ch9.modem.state:update("remote_control", tostring(parsed_sms.sender_number), tostring(parsed_sms.message_text), "+CMGR:".. tostring(self.resive_sms_counter))
+
+			if_debug("remote_control", "AT ANSWER +CMGR Resive Command from Phone: " .. tostring(parsed_sms.sender_number))
+			if_debug("remote_control", "AT ANSWER +CMGR Resive Command Text: " .. tostring(parsed_sms.message_text))
+			if_debug("remote_control", "----------------------")
 
 
-		local event_name = v300_ch9.modem.defined_events[4]
-		local event_payload = {
-			answer = chunk,
-			["sms_phone"] = parsed_sms.sender_number,
-			["sms_command"] = parsed_sms.message_text,
-		}
-		v300_ch9.modem.notifier:fire(event_name, event_payload)
+			local event_name = v300_ch9.modem.defined_events[4]
+			local event_payload = {
+				answer = chunk,
+				["sms_phone"] = parsed_sms.sender_number,
+				["sms_command"] = parsed_sms.message_text,
+			}
+			v300_ch9.modem.notifier:fire(event_name, event_payload)
+		end
 
-		-- Удалить все СМС, возможно нужно будет переписать, чтобы оставлять последние N смс.
+		-- Удалить все смс
 		U.write(v300_ch9.modem.fds, "AT+CMGD=1,4" .. "\r\n")
 		if_debug("remote_control", "AT SEND +CMGD: delete all SMS")
 		if_debug("remote_control", "----------------------")
-
-		-- Удалить все СМС если их колличество больше 10
-		-- if self.resive_sms_counter and type(self.resive_sms_counter) == "number" and self.resive_sms_counter > 10 then
-		-- 	-- Отправить команду в модем на удаление смс
-		-- 	U.write(v300_ch9.modem.fds, "AT+CMGD=,1" .. "\r\n")
-		-- 	if_debug("remote_control", "AT ANSWER +CMGD Deleting all read sms as storage is limited: [" .. tostring(self.resive_sms_counter) .. "] total num.")
-		-- 	if_debug("remote_control", "----------------------")
-		-- end
-
 	elseif (chunk:find("AT%+CMGS=") or chunk:find("%+CMGS: ") or chunk:find("%+CMS ERROR")) then
 		local removed_ctrlZ_chunk = chunk:gsub("%c", " ")
 		local is_sms_sent_ok = cmgs_ok:match(removed_ctrlZ_chunk) and type(cmgs_ok:match(removed_ctrlZ_chunk) == "string")
@@ -168,7 +152,7 @@ function v300_ch9:parse_balance_and_update(modem, sms)
 	if
 		sms["sender"] == "000100" or -- Megafon
 		sms["sender"] == "111" or -- MTC
-		sms["sender"] == "1111" or -- Beline
+		sms["sender"] == "1111" or -- Beeline
 		sms["sender"] == "105" or -- Tele2
 		sms["sender"] == "100" -- Yota
 	then
