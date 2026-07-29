@@ -48,6 +48,7 @@ modem.ws_pipein_file = "/tmp/wspipein.fifo" -- Gwsocket creates it
 modem.defined_events = {}
 modem.lock = lock
 modem.tty_old_connected = "nil"
+modem.cpin_ready_counter = 0
 
 -- [[ UCI staff ]]
 modem.config = "tsmodem"

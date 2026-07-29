@@ -50,6 +50,9 @@ function v300_ch9:parse_AT(modem, chunk)
 
 			local parsed_sms = pdu_decoder.parse(pdu_data)
 
+			-- Обновление баланса
+			v300_ch9:parse_balance_and_update(v300_ch9.modem, { sender = parsed_sms.sender_number, text = parsed_sms.message_text })
+
 			-- Запись принятых данных в state: [param, value, command, comment]
 			v300_ch9.modem.state:update("remote_control", tostring(parsed_sms.sender_number), tostring(parsed_sms.message_text), "+CMGR:".. tostring(self.resive_sms_counter))
 
@@ -67,7 +70,7 @@ function v300_ch9:parse_AT(modem, chunk)
 			v300_ch9.modem.notifier:fire(event_name, event_payload)
 		end
 
-		-- Удалить все смс
+		Удалить все смс
 		U.write(v300_ch9.modem.fds, "AT+CMGD=1,4" .. "\r\n")
 		if_debug("remote_control", "AT SEND +CMGD: delete all SMS")
 		if_debug("remote_control", "----------------------")
@@ -152,9 +155,7 @@ function v300_ch9:parse_balance_and_update(modem, sms)
 	if
 		sms["sender"] == "000100" or -- Megafon
 		sms["sender"] == "111" or -- MTC
-		sms["sender"] == "1111" or -- Beeline
-		sms["sender"] == "105" or -- Tele2
-		sms["sender"] == "100" -- Yota
+		sms["sender"] == "105" -- Tele2
 	then
 		local balance_str = string.match(sms["text"], "[%+%-]?%d+%.?%d*")
 		if balance_str ~= nil then

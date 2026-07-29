@@ -20,6 +20,7 @@ require "tsmodem.util.pdu_encoder"
 require "tsmodem.constants.lock_owners_debug"
 
 local spec_V300_ch9 = require "tsmodem.spec.v300_ch9"
+local clear_sms_storage = require "tsmodem.util.clear_sms_storage"
 
 
 local state = {}
@@ -262,17 +263,26 @@ local ubus_methods = {
             end, {}
         },
 
-        update_balance = {
+        clear_sms_storage = {
             function (req, msg)
-                if msg["sender"] and msg["text"] then
-                    local sms = { sender = msg["sender"], text = msg["text"] }
-                    spec_V300_ch9:parse_balance_and_update(state.modem, sms)
-                end
-
-                local resp = makeResponse("balance")
-                state.conn:reply(req, resp)
+                if_debug("clear_sms_storage", "clear_sms_storage ubus call")
+                -- pcall(clear_sms_storage.clear, state.modem)
+                state.modem.cpin_ready_counter = 0
+                state.conn:reply(req, { })
             end, {}
         },
+
+        -- update_balance = {
+        --     function (req, msg)
+        --         if msg["sender"] and msg["text"] then
+        --             local sms = { sender = msg["sender"], text = msg["text"] }
+        --             spec_V300_ch9:parse_balance_and_update(state.modem, sms)
+        --         end
+
+        --         local resp = makeResponse("balance")
+        --         state.conn:reply(req, resp)
+        --     end, {}
+        -- },
     }
 }
 

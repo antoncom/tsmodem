@@ -76,6 +76,17 @@ function v300_ch4:balance_parsing_and_update(modem, chunk)
 
 	-- Если USSD-ответ о балансе поступил в виде текста - удаляем одинарные кавычки и переводы строки
 	local balance_message = ussd_response_body:gsub("'", "\'"):gsub("\n", " "):gsub("%c+", " ")
+
+	util.ubus("tsmodem.journal", "send", {
+		journal = {
+			datetime = os.date("%Y-%m-%d %H:%M:%S"),
+			name = "Получен USSD ответ",
+			source = "Tsmodem",
+			command = "USSD запрос",
+			response = balance_message,
+		}
+	})
+
 	local balance = BAL_parser(balance_message)
 	if_debug("balance", "AT ANSWER " .. tostring(balance) .. " when chunk is: " .. chunk:gsub("%c+", " "))
 
