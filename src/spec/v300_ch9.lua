@@ -70,7 +70,7 @@ function v300_ch9:parse_AT(modem, chunk)
 			v300_ch9.modem.notifier:fire(event_name, event_payload)
 		end
 
-		Удалить все смс
+		-- Удалить все смс
 		U.write(v300_ch9.modem.fds, "AT+CMGD=1,4" .. "\r\n")
 		if_debug("remote_control", "AT SEND +CMGD: delete all SMS")
 		if_debug("remote_control", "----------------------")
