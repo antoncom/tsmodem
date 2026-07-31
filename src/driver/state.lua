@@ -254,6 +254,8 @@ local ubus_methods = {
                 state:update("provider_name", "", "", "")
                 state:update("netmode", "", "", "")
                 state:update("cpin", "", "", "")
+                state:update("balance", "", "", "")
+
 
                 if_debug("clear_state", "UBUS ANSWER " .. tostring(resp))
 
@@ -272,17 +274,31 @@ local ubus_methods = {
             end, {}
         },
 
-        -- update_balance = {
-        --     function (req, msg)
-        --         if msg["sender"] and msg["text"] then
-        --             local sms = { sender = msg["sender"], text = msg["text"] }
-        --             spec_V300_ch9:parse_balance_and_update(state.modem, sms)
-        --         end
+        sim_slot_off = {
+            function (req, msg)
+                local chunk, err, errcode = U.write(state.modem.fds, "AT+CFUN=0" .. "\r\n")
+                if_debug("sim_slot", "AT+CFUN=0 resut: " .. tostring(chunk))
 
-        --         local resp = makeResponse("balance")
-        --         state.conn:reply(req, resp)
-        --     end, {}
-        -- },
+                state:update("reg", "7", "", "")
+                state:update("signal", "", "", "")
+                state:update("provider_name", "", "", "")
+                state:update("netmode", "", "", "")
+                state:update("cpin", "", "", "")
+                state:update("balance", "", "", "")
+
+
+                state.conn:reply(req, { })
+            end, {}
+        },
+
+        sim_slot_on = {
+            function (req, msg)
+                local chunk, err, errcode = U.write(state.modem.fds, "AT+CFUN=1" .. "\r\n")
+                if_debug("sim_slot", "AT+CFUN=1 resut: " .. tostring(chunk))
+                state.conn:reply(req, { })
+            end, {}
+        },
+
     }
 }
 
