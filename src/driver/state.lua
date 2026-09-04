@@ -279,6 +279,8 @@ local ubus_methods = {
                 local chunk, err, errcode = U.write(state.modem.fds, "AT+CFUN=0" .. "\r\n")
                 if_debug("sim_slot", "AT+CFUN=0 resut: " .. tostring(chunk))
 
+                os.execute("ubus call network.interface.modem down")
+
                 state:update("reg", "7", "", "")
                 state:update("signal", "", "", "")
                 state:update("provider_name", "", "", "")
@@ -295,6 +297,9 @@ local ubus_methods = {
             function (req, msg)
                 local chunk, err, errcode = U.write(state.modem.fds, "AT+CFUN=1" .. "\r\n")
                 if_debug("sim_slot", "AT+CFUN=1 resut: " .. tostring(chunk))
+
+                os.execute("ubus call network.interface.modem up")
+
                 state.conn:reply(req, { })
             end, {}
         },
