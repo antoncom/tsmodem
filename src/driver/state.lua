@@ -268,8 +268,7 @@ local ubus_methods = {
         clear_sms_storage = {
             function (req, msg)
                 if_debug("clear_sms_storage", "clear_sms_storage ubus call")
-                -- pcall(clear_sms_storage.clear, state.modem)
-                state.modem.cpin_ready_counter = 0
+                pcall(clear_sms_storage.clear, state.modem)
                 state.conn:reply(req, { })
             end, {}
         },

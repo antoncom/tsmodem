@@ -44,25 +44,35 @@ function v300_ch4:parse_AT(modem, chunk)
 		end
 
 	elseif chunk:find("+NITZ") then
-		local pname = provider_name:match(chunk)
-		if pname and pname ~= "" then
-			modem.state:update("provider_name", pname, "+NITZ", "")
-			if_debug("provider", "AT ANSWER " .. tostring(pname) .. " when chunk is: " .. chunk:gsub("%c+", " "))
-
+		local SWITCHING = modem.slot_changed_recently
+		if not SWITCHING then
+			local pname = provider_name:match(chunk)
+			if pname and pname ~= "" then
+				modem.state:update("provider_name", pname, "+NITZ", "")
+				if_debug("provider_name", "AT ANSWER " .. tostring(pname) .. " when chunk is: " .. chunk:gsub("%c+", " "))
+			else
+				modem.state:update("provider_name", "", "", "")
+            	if_debug("", "It's too early to parse AT +NITZ", "yellow")
+			end
 		end
 
 	elseif chunk:find("+COPS:") then
-		local pcode = chunk:split('\"')
-		local pname = ""
-		if pcode and pcode[2] then
-			uci:foreach(modem.config_gsm, "adapter", function(sec)
-				if sec.code == pcode[2] then
-					pname = sec.name
-					modem.state:update("provider_name", pname, "AT+COPS?", pcode[2])
-				end
-			end)
-		if_debug("provider", "AT ANSWER " .. tostring(pname) .. " when chunk is: " .. chunk:gsub("%c+", " "))
-
+		local SWITCHING = modem.slot_changed_recently
+		if not SWITCHING then
+			local pcode = chunk:split('\"')
+			local pname = ""
+			if pcode and pcode[2] then
+				uci:foreach(modem.config_gsm, "adapter", function(sec)
+					if sec.code == pcode[2] then
+						pname = sec.name
+						modem.state:update("provider_name", pname, "AT+COPS?", pcode[2])
+					end
+				end)
+				if_debug("provider_name", "AT ANSWER " .. tostring(pname) .. " when chunk is: " .. chunk:gsub("%c+", " "))
+			end
+		else
+			modem.state:update("provider_name", "", "", "")
+            if_debug("", "It's too early to parse AT +COPS", "yellow")
 		end
 	end
 end
@@ -113,5 +123,6 @@ function v300_ch4:balance_parsing_and_update(modem, chunk)
 
     return balance
 end
+
 
 return v300_ch4

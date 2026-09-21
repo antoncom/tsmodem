@@ -49,6 +49,7 @@ modem.defined_events = {}
 modem.lock = lock
 modem.tty_old_connected = "nil"
 modem.cpin_ready_counter = 0
+modem.slot_changed_recently = nil
 
 -- [[ UCI staff ]]
 modem.config = "tsmodem"
@@ -98,6 +99,20 @@ function modem:init()
 			U.write(modem.fds, "AT+CMGF=1\r\n")
 
 			if_debug(modem.debug_type, "AT+CMGF=1 - I go to text-mode.")
+
+			-- Удаление всех смс с сим-карты при первом старте Tsmodem
+			U.write(modem.fds, "AT+CMGF=1;+CMGD=1,4" .. "\r\n")
+		    if_debug("", "AT SEND +CMGD: delete all SMS")
+    		if_debug("", "----------------------")
+
+    		-- AT+CGEREP=2,1 — это команда, которая включает уведомления о событиях GPRS/PS (Packet Switched). 
+    		-- Расшифровывается как Cellular GPRS Event REPorting.
+			U.write(modem.fds, "AT+CGEREP=2,1" .. "\r\n")
+		    if_debug("", "AT+CGEREP=2,1 - включить уведомления о событиях GPRS/PS")
+    		if_debug("", "----------------------")
+
+    		
+
 
 			--
 			local sim_id = modem.state:get("sim", "value")
@@ -231,6 +246,17 @@ local metatable = {
 		timer.CSQ:set(timer.interval.signal)
 		timer.COPS:set(timer.interval.provider)
 		timer.CNSMOD:set(timer.interval.netmode)
+		timer.SLOT:set(timer.interval.slotinfo)
+
+		if modem.debug then
+			if_debug("", "DEBUG ONLY TIMERS TO CHECK: +CGREG, +CEREG, +CGATT, +CGACT, +CGDCONT","yellow")
+
+			timer.CGREG:set(5000)
+			timer.CEREG:set(7000)
+			timer.CGATT:set(9000)
+			timer.CGACT:set(11000)
+			timer.CGDCONT:set(13000)
+		end
 
 		local unlock_status
 		unlock_status, self_lock = modem.lock.unlock("self")

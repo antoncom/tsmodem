@@ -27,15 +27,6 @@ function v300_ch3:parse_AT(modem, chunk)
 		if_debug("cpin", "AT ANSWER CPIN" .. tostring(cpin) .. " when chunk is: " .. chunk:gsub("%c+", " "))
 		if_debug("cpin", "----------------------")
 
-		if chunk:find("READY") and modem.cpin_ready_counter <= 20 then
-			if modem.cpin_ready_counter % 10 == 0 then
-				if_debug("cpin", "cpin ready: delete sms")
-				pcall(clear_sms_storage.clear, modem)
-			end
-
-			modem.cpin_ready_counter = modem.cpin_ready_counter + 1
-		end
-
 		local SWITCHING = modem.state:get("switching", "value")
 		if cpin and (SWITCHING ~= "true") and (cpin == "true" or cpin == "false" or cpin == "failure") then
 			modem.state:update("cpin", cpin, "AT+CPIN?", "")

@@ -70,10 +70,6 @@ function v300_ch9:parse_AT(modem, chunk)
 			v300_ch9.modem.notifier:fire(event_name, event_payload)
 		end
 
-		-- Удалить все смс
-		U.write(v300_ch9.modem.fds, "AT+CMGD=1,4" .. "\r\n")
-		if_debug("remote_control", "AT SEND +CMGD: delete all SMS")
-		if_debug("remote_control", "----------------------")
 	elseif (chunk:find("AT%+CMGS=") or chunk:find("%+CMGS: ") or chunk:find("%+CMS ERROR")) then
 		local removed_ctrlZ_chunk = chunk:gsub("%c", " ")
 		local is_sms_sent_ok = cmgs_ok:match(removed_ctrlZ_chunk) and type(cmgs_ok:match(removed_ctrlZ_chunk) == "string")
