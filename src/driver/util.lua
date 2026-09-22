@@ -87,8 +87,10 @@ if_debug = function(dtype, msg, ...)
 		local millis = math.floor((now % 1) * 100)  
 		if(#color > 0) then
 			print(colors[color[1]] .. string.format('%s.%02d', d, millis) .. " [tsmodem]: " .. tostring(val))
+			util.perror(colors[color[1]] .. string.format('%s.%02d', d, millis) .. " [tsmodem]: " .. tostring(val))
 		else
 			print(colors["white"] .. string.format('%s.%02d', d, millis) .. " [tsmodem]: " .. tostring(val))
+			util.perror(colors["white"] .. string.format('%s.%02d', d, millis) .. " [tsmodem]: " .. tostring(val))
 		end
 	end
 end
