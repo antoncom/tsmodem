@@ -28,8 +28,8 @@ function v300_ch9:parse_AT(modem, chunk)
 	self.modem = modem
 	if chunk:find("+CMTI:") then
 		self.resive_sms_counter = remote_control_pars:get_sms_count(chunk)
-		if_debug("remote_control", "AT ANSWER +CMTI SMS Counter: " .. tostring(self.resive_sms_counter) .. " when chunk is: " .. chunk:gsub("%c+", " "))
-		if_debug("remote_control", "----------------------")
+		if_debug("send_at", "AT ANSWER +CMTI SMS Counter: " .. tostring(self.resive_sms_counter) .. " when chunk is: " .. chunk:gsub("%c+", " "))
+		if_debug("send_at", "----------------------")
 
 		-- Задержка для модема, дающая время на обработку запроса
 		self.read_sms_timer = uloop.timer(v300_ch9:AtCommandReadSMS())
@@ -37,31 +37,38 @@ function v300_ch9:parse_AT(modem, chunk)
 
 	-- Обработать ответ и выделить тело смс.
 	elseif chunk:find("+CMGR:") then
-		if_debug("remote_control", "AT ANSWER +CMGR "  .. " when chunk is: " .. chunk:gsub("%c+", " "))
-		if_debug("remote_control", "----------------------")
+		if_debug("send_at", "AT ANSWER +CMGR "  .. " when chunk is: " .. chunk:gsub("%c+", " "))
+		if_debug("send_at", "----------------------")
 
 		local pdu_data = cmgr_pdu:match(chunk)
 		if pdu_data == nil then
-			if_debug("remote_control", "PDU DATA: nil")
-			if_debug("remote_control", "----------------------")
+			if_debug("send_at", "PDU DATA: nil")
+			if_debug("send_at", "----------------------")
 		else
-			if_debug("remote_control", "AT ANSWER +CMGR pdu_data: " .. tostring(pdu_data))
-			if_debug("remote_control", "----------------------")
+			if_debug("send_at", "AT ANSWER +CMGR pdu_data: " .. tostring(pdu_data))
+			if_debug("send_at", "----------------------")
 
 			local parsed_sms = pdu_decoder.parse(pdu_data)
 
 			-- Обновление баланса
-			v300_ch9:parse_balance_and_update(v300_ch9.modem, { sender = parsed_sms.sender_number, text = parsed_sms.message_text })
+			-- v300_ch9:parse_balance_and_update(v300_ch9.modem, { sender = parsed_sms.sender_number, text = parsed_sms.message_text })
 
 			-- Запись принятых данных в state: [param, value, command, comment]
-			v300_ch9.modem.state:update("remote_control", tostring(parsed_sms.sender_number), tostring(parsed_sms.message_text), "+CMGR:".. tostring(self.resive_sms_counter))
+			-- v300_ch9.modem.state:update("remote_control", tostring(parsed_sms.sender_number), tostring(parsed_sms.message_text), "+CMGR:".. tostring(self.resive_sms_counter))
 
-			if_debug("remote_control", "AT ANSWER +CMGR Resive Command from Phone: " .. tostring(parsed_sms.sender_number))
-			if_debug("remote_control", "AT ANSWER +CMGR Resive Command Text: " .. tostring(parsed_sms.message_text))
-			if_debug("remote_control", "----------------------")
+			-- if_debug("remote_control", "AT ANSWER +CMGR Resive Command from Phone: " .. tostring(parsed_sms.sender_number))
+			-- if_debug("remote_control", "AT ANSWER +CMGR Resive Command Text: " .. tostring(parsed_sms.message_text))
+			-- if_debug("remote_control", "----------------------")
 
+			local event_name = ""
+			if self.modem.lock.owner == "tsmsms" then
+				event_name = v300_ch9.modem.defined_events[5]
+				if_debug("send_at", "EVENT NAME", event_name, "red")
+			elseif self.modem.lock.owner == "" then
+				event_name = v300_ch9.modem.defined_events[4]
+				if_debug("send_at", "EVENT NAME", event_name, "blue")
+			end
 
-			local event_name = v300_ch9.modem.defined_events[4]
 			local event_payload = {
 				answer = chunk,
 				["sms_phone"] = parsed_sms.sender_number,
@@ -91,8 +98,6 @@ function v300_ch9:parse_AT(modem, chunk)
 				automation = automation_mode
 			}
 			v300_ch9.modem.notifier:fire(event_name, event_payload)
-			if_debug("send_at", "NOTIFY: " .. tostring(event_name) .. " sent_OK: [" .. cmgs_ok:match(removed_ctrlZ_chunk))
-			if_debug("send_at", "----------------------")
 
 		elseif is_sms_sent_error then
 			event_name = v300_ch9.modem.defined_events[3]
@@ -101,8 +106,6 @@ function v300_ch9:parse_AT(modem, chunk)
 				automation = automation_mode
 			}
 			v300_ch9.modem.notifier:fire(event_name, event_payload)
-			if_debug("send_at", "NOTIFY: " .. tostring(event_name) .. " sent_Err: [" .. cmgs_error:match(removed_ctrlZ_chunk))
-			if_debug("send_at", "----------------------")
 		else
 			-- TODO: it seems not used anywhere.
 
@@ -125,8 +128,8 @@ function v300_ch9:AtCommandReadSMS()
 		U.write(v300_ch9.modem.fds, at_set_PDU_mode)
 		local at_get_sms_counter = "\r\nAT+CMGR=" .. tostring(v300_ch9.resive_sms_counter) .. "\r\n"
 		U.write(v300_ch9.modem.fds, at_get_sms_counter)
-		if_debug("remote_control", "AT ANSWER +CMGR: Get SMS counter: " .. tostring(at_get_sms_counter))
-		if_debug("remote_control", "----------------------")
+		if_debug("send_at", "AT ANSWER +CMGR: Get SMS counter: " .. tostring(at_get_sms_counter))
+		if_debug("send_at", "----------------------")
 
 		v300_ch9.read_sms_timer:cancel() -- отмена таймера
 	end
@@ -137,7 +140,7 @@ end
 -- 	if self.modem.automation == "stop" then
 -- 		self.modem.state.conn:notify( modem.state.ubus_methods["tsmodem.driver"].__ubusobj, "AT-answer", {answer = chunk} )
 -- 		if string.find(chunk, "tsmsms") then
--- 			if_debug("remote_control", "AT", "ANSWER", at_get_sms_counter, "[modem.lua]: Send AT to read SMS")
+-- 			if_debug("send_at", "AT", "ANSWER", at_get_sms_counter, "[modem.lua]: Send AT to read SMS")
 -- 			print("[modem.lua] send_AT_responce_to_webconsole(SMS-SENT")
 -- 			modem.state.conn:notify( modem.state.ubus_methods["tsmodem.driver"].__ubusobj, "SMS-SENT", {answer = chunk} )
 -- 		end

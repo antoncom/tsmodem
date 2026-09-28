@@ -117,7 +117,7 @@ function t_COPS()
             end
         else
             timer.state:update("provider_name", "", "", "")
-            if_debug("", "It's too early after switch to send AT", "yellow")
+            if_debug(modem.debug_type, "It's too early after switch to send AT", "yellow")
         end
     end
     timer.COPS:set(timer.interval.provider)
@@ -150,7 +150,7 @@ function t_BAL_TIMEOUT()
     if val == "*" then
         timer.state:update("balance", "", "", "")
         if (timer.modem.debug and (timer.modem.debug_type == "balance" or timer.modem.debug_type == "all")) then
-            if_debug("", string.format("[timer.lua]: Clear balance on BAL_TIMEOUT: %s %s %s", tostring(noerror), tostring(errmsg), tostring(val)))
+            if_debug(modem.debug_type, string.format("[timer.lua]: Clear balance on BAL_TIMEOUT: %s %s %s", tostring(noerror), tostring(errmsg), tostring(val)))
         end
     end
 end
@@ -164,13 +164,11 @@ function t_SLOT()
         local last_switch_time = tsmslot_info and tsmslot_info["last_switch_time"] or 0
         if(tonumber(last_switch_time) and (os.time() - tonumber(last_switch_time)) < 30) then
             timer.modem.slot_changed_recently = true
-            if_debug("", "SLOT check every " .. tostring(tonumber(timer.interval.slotinfo)/1000) .. "s: changed recently [" .. tostring(timer.modem.slot_changed_recently) .. "]", "yellow")
-            if_debug("", "----------------------", "yellow")
+            if_debug(modem.debug_type, "SLOT check every " .. tostring(tonumber(timer.interval.slotinfo)/1000) .. "s: changed recently [" .. tostring(timer.modem.slot_changed_recently) .. "]", "yellow")
+            if_debug(modem.debug_type, "----------------------", "yellow")
 
         else
             timer.modem.slot_changed_recently = false
-            if_debug("", "SLOT check every " .. tostring(tonumber(timer.interval.slotinfo)/1000) .. "s: changed recently [" .. tostring(timer.modem.slot_changed_recently) .. "]", "white")
-            if_debug("", "----------------------", "white")
         end
     end)
     timer.SLOT:set(timer.interval.slotinfo)

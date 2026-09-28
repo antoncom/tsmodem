@@ -52,7 +52,7 @@ function v300_ch4:parse_AT(modem, chunk)
 				if_debug("provider_name", "AT ANSWER " .. tostring(pname) .. " when chunk is: " .. chunk:gsub("%c+", " "))
 			else
 				modem.state:update("provider_name", "", "", "")
-            	if_debug("", "It's too early to parse AT +NITZ", "yellow")
+            	if_debug(modem.debug_type, "It's too early to parse AT +NITZ", "yellow")
 			end
 		end
 
@@ -72,7 +72,7 @@ function v300_ch4:parse_AT(modem, chunk)
 			end
 		else
 			modem.state:update("provider_name", "", "", "")
-            if_debug("", "It's too early to parse AT +COPS", "yellow")
+            if_debug(modem.debug_type, "It's too early to parse AT +COPS", "yellow")
 		end
 	end
 end

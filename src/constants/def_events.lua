@@ -6,7 +6,8 @@ local def_events = {
 	[1] = "AT-ANSWER",
 	[2] = "SMS-SENT-OK",
 	[3] = "SMS-SENT-ERROR",
-	[4] = "SMS-RECEIVED"
+	[4] = "SMS-RECEIVED",
+	[5] = "SMS-READ"
 }
 
 return def_events

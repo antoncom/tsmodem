@@ -80,9 +80,9 @@ function modem:init()
 		if fds then
 
 
-            if_debug("","┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
-            if_debug("","┃ Modem connected to " .. tostring(modem.device) .." ┃")
-            if_debug("","┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
+            if_debug(modem.debug_type,"┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
+            if_debug(modem.debug_type,"┃ Modem connected to " .. tostring(modem.device) .." ┃")
+            if_debug(modem.debug_type,"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
 
 
 			local term_attrs = M.tcsetattr(fds, 0, {
@@ -98,18 +98,18 @@ function modem:init()
 			-- Принудительный перевод модема в режим Text
 			U.write(modem.fds, "AT+CMGF=1\r\n")
 
-			if_debug(modem.debug_type, "AT+CMGF=1 - I go to text-mode.")
+			if_debug("send_at", "AT+CMGF=1 - I go to text-mode.")
 
 			-- Удаление всех смс с сим-карты при первом старте Tsmodem
 			U.write(modem.fds, "AT+CMGF=1;+CMGD=1,4" .. "\r\n")
-		    if_debug("", "AT SEND +CMGD: delete all SMS")
-    		if_debug("", "----------------------")
+		    if_debug("send_at", "AT SEND +CMGD: delete all SMS")
+    		if_debug("send_at", "----------------------")
 
     		-- AT+CGEREP=2,1 — это команда, которая включает уведомления о событиях GPRS/PS (Packet Switched). 
     		-- Расшифровывается как Cellular GPRS Event REPorting.
 			U.write(modem.fds, "AT+CGEREP=2,1" .. "\r\n")
-		    if_debug("", "AT+CGEREP=2,1 - включить уведомления о событиях GPRS/PS")
-    		if_debug("", "----------------------")
+		    if_debug(modem.debug_type, "AT+CGEREP=2,1 - включить уведомления о событиях GPRS/PS")
+    		if_debug(modem.debug_type, "----------------------")
 
     		
 
@@ -139,15 +139,15 @@ end
 function modem:is_connected(fd)
 	local tty_connected = (fd and U.isatty(fd))
 	if ((not tty_connected) and modem.tty_old_connected == "1") then 
-		if_debug("","┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
-        if_debug("","┃ Modem disconnected from " .. tostring(modem.device) .." ┃")
-        if_debug("","┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
+		if_debug(modem.debug_type,"┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
+        if_debug(modem.debug_type,"┃ Modem disconnected from " .. tostring(modem.device) .." ┃")
+        if_debug(modem.debug_type,"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
 
-        if_debug("","┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
-        if_debug("",'┃ Type "tsmslot debug" in a different shell ┃')
-        if_debug("","┃ to see how to the slot resetting process  ┃")
-        if_debug("","┃ is going on..                             ┃")
-        if_debug("","┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
+        if_debug(modem.debug_type,"┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
+        if_debug(modem.debug_type,'┃ Type "tsmslot debug" in a different shell ┃')
+        if_debug(modem.debug_type,"┃ to see how to the slot resetting process  ┃")
+        if_debug(modem.debug_type,"┃ is going on..                             ┃")
+        if_debug(modem.debug_type,"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
 	end
 	modem.tty_old_connected = tostring(tty_connected)
 	return tty_connected
@@ -160,6 +160,8 @@ end
 -- а затем проверяется был ли запущен опрос (polling). Если нет - запускает polling.
 
 -- В процессе ожидания АТ-ответов от модема данная функция запускает парсинг.
+modem.at_answer_buffer = ""
+modem.at_answer_timer = nil
 
 function modem:poll()
 	if (modem.fds_ev == nil) and modem:is_connected(modem.fds) then
@@ -180,15 +182,51 @@ function modem:poll()
 				spec_V300_ch4:parse_AT(modem, chunk) -- balance via USSD, sim provider_id check
 				spec_V300_ch9:parse_AT(modem, chunk)
 
+				-- Если АТ-овет предназначен для стороннего сервиса (Tsmsms, Tsmatconsole и т.п.)
+				-- то отправляем событие не сразу, а подождав 1 сек. пока возможные "хвосты"
+				-- AT-ответа придут в переменую-буфер "modem.at_answer_buffer":
+
 				if modem.lock.is_notify() then
-					local event_name = "AT-ANSWER"
-					local payload = {
-						answer = chunk,
-					}
 
-					if_debug(modem.debug_type, "Fire event:" .. tostring(event_name) .. " Payload:" .. util.serialize_json(payload))
+					if modem.at_answer_timer == nil then
+						modem.at_answer_timer = uloop.timer(function()
+							if_debug("send_at", "AT-ANSWER IN 1 SEC", "yellow")
+							local event_name = "AT-ANSWER"
+							local payload = {
+								answer = modem.at_answer_buffer,
+							}
+							modem.notifier:fire(event_name, payload)
+							modem.at_answer_timer:cancel()
+							modem.at_answer_timer = nil
+							modem.at_answer_buffer = ""
+						end)
+						modem.at_answer_timer:set(1000)
+					end
 
-					modem.notifier:fire(event_name, payload)
+					modem.at_answer_buffer = modem.at_answer_buffer .. chunk
+
+
+
+					-- if(chunk:find("+CMGL")) then
+
+					-- 	local parts = {}
+					-- 	for header, pdu in chunk:gmatch("%+CMGL:%s*([^\r\n]+)\r\n([^\r\n]+)") do
+					-- 	    parts[#parts + 1] = "+CMGL: " .. header .. "\r\n" .. pdu
+					-- 	end
+
+					-- 	for i, p in ipairs(parts) do
+					-- 	    print(i, string.format("%q", p))
+					-- 	    payload.answer = p
+					-- 	    local t = uloop.timer(function()
+					-- 	    	modem.notifier:fire(event_name, payload)
+					-- 		end)
+					-- 		t:set(500)
+						    
+					-- 	end
+					-- else
+					-- 	modem.notifier:fire(event_name, payload)
+					-- end
+
 				end
 			else
 				if (modem.debug and (util.contains(AT_RELATED_UBUS_METHODS, modem.debug_type) or modem.debug_type == "all")) then
@@ -249,7 +287,7 @@ local metatable = {
 		timer.SLOT:set(timer.interval.slotinfo)
 
 		if modem.debug then
-			if_debug("", "DEBUG ONLY TIMERS TO CHECK: +CGREG, +CEREG, +CGATT, +CGACT, +CGDCONT","yellow")
+			if_debug("gsm", "DEBUG ONLY TIMERS TO CHECK: +CGREG, +CEREG, +CGATT, +CGACT, +CGDCONT","yellow")
 
 			timer.CGREG:set(5000)
 			timer.CEREG:set(7000)

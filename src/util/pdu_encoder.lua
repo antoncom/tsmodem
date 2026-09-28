@@ -16,7 +16,7 @@ function PhoneNumberToPDU(PhoneNumber)
     end
   end
 
-  if_debug("", "PhoneNumberToPDU: " .. tostring(Result))
+  if_debug("send_at", "PhoneNumberToPDU: " .. tostring(Result))
 
   return Result
 end
@@ -63,7 +63,7 @@ end
 -- Определение длинны тела смс сообщения
 function LengthUtf8Mess(message_in_utf8_code)
   local Result = string.format("%02X", #message_in_utf8_code / 2) -- '0D' - 2 элемента в строке
-  if_debug("", "LengthUtf8Mess: " .. tostring(Result))
+  if_debug("send_at", "LengthUtf8Mess: " .. tostring(Result))
   return Result
 end
 
