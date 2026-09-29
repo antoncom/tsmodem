@@ -80,11 +80,6 @@ function modem:init()
 		if fds then
 
 
-            if_debug(modem.debug_type,"┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
-            if_debug(modem.debug_type,"┃ Modem connected to " .. tostring(modem.device) .." ┃")
-            if_debug(modem.debug_type,"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
-
-
 			local term_attrs = M.tcsetattr(fds, 0, {
 			   cflag = M.B115200 + M.CS8 + M.CLOCAL + M.CREAD,
 			   iflag = M.IGNPAR,
@@ -95,6 +90,17 @@ function modem:init()
 			   }
 			})
 			modem.fds = fds
+
+
+			-- При запуске Tsmodem станвится busy до тех пор, пока не подключиться к порту /dev/ttyUSBx
+			-- Как только подключился к порту - разлокируем для потребтелей
+			local lock_res, lock_note = lock.unlock("tsmodem", true)
+
+			if_debug(modem.debug_type,"┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓")
+            if_debug(modem.debug_type,"┃ Modem connected to " .. tostring(modem.device) .." ┃")
+            if_debug(modem.debug_type,"┃ Tsmodem lock: " .. tostring(lock_note) .."          ┃")
+            if_debug(modem.debug_type,"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
+
 			-- Принудительный перевод модема в режим Text
 			U.write(modem.fds, "AT+CMGF=1\r\n")
 
@@ -195,6 +201,7 @@ function modem:poll()
 							local payload = {
 								answer = modem.at_answer_buffer,
 							}
+							if_debug("send_at", "AT-ANSWER RIGHT NOW", "white")
 							modem.notifier:fire(event_name, payload)
 							modem.at_answer_timer:cancel()
 							modem.at_answer_timer = nil

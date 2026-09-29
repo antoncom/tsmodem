@@ -3,8 +3,8 @@
 -- для того, чтобы потребители друг другу не мешали.
 
 local lock = {
-    owner = "",
-    last_request_time = 0,
+    owner = "tsmodem",
+    last_request_time = os.time(),
 }
 
 function lock.unlock(module_name, is_timeout)

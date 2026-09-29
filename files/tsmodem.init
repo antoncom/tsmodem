@@ -31,10 +31,3 @@ stop_service() {
 
 }
 
-service_started() {
-    # перезапускаем сервисы для возобновления подписки на Tsmodem только если они сейчас запущены
-    ( sleep 1; /etc/init.d/applogic restart ) >/dev/null 2>&1 &
-    ( sleep 1; /etc/init.d/tsmatconsole restart ) >/dev/null 2>&1 &
-    ( sleep 1; /etc/init.d/tsmsms restart ) >/dev/null 2>&1 &
-    ( sleep 1; /etc/init.d/tsmsmsconsole restart ) >/dev/null 2>&1 &
-}
