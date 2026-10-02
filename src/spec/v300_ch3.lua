@@ -39,6 +39,12 @@ function v300_ch3:parse_AT(modem, chunk)
 		if creg and creg ~= "" then
 			modem.state:update("reg", creg, "AT+CREG?", "")
 			modem.state:update("usb", "connected", modem.device .. " open", "")
+
+			-- if modem.need_network_restart and (tostring(creg) == "1" or tostring(creg) == "5") then
+			--     modem.need_network_restart = false
+			--     if_debug(modem.debug_type, "Restarting network afetr CREG=1..", "red")
+			--     modem:restart_network()
+			-- end
 		end
 	elseif chunk:find("+CSQ:") then
 		local signal = CSQ_parser:match(chunk)

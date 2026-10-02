@@ -110,6 +110,9 @@ local ubus_methods = {
         reg = {
             function(req, msg)
                 local resp = makeResponse("reg")
+                if state:get("cpin", "value") ~= "true" then
+                    resp.value = "0"
+                end
                 state.conn:reply(req, resp);
             end, {}
         },
@@ -140,6 +143,9 @@ local ubus_methods = {
         netmode = {
             function(req, msg)
                 local resp = makeResponse("netmode")
+                if ((state:get("reg", "value") ~= "1") and (state:get("reg", "value") ~= "5")) then
+                    resp.value = ""
+                end
                 state.conn:reply(req, resp);
 
             end, {}

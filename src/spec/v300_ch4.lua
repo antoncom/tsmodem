@@ -34,12 +34,14 @@ function v300_ch4:parse_AT(modem, chunk)
 	elseif chunk:find("+CNSMOD:") then
 		local netmode = CNSMOD_parser:match(chunk) or ""
 		if((tonumber(netmode) ~= nil) and tonumber(netmode) <= 16) then
-			if(CNSMODES[netmode] ~= nil) then
-				modem.state:update("netmode", CNSMODES[netmode]:split("|")[2]:gsub("%s+", "") or "", "AT+CNSMOD?", CNSMODES[netmode])
-			else
-				modem.state:update("netmode", netmode, "AT+CNSMOD?", CNSMODES["0"])
-			end
-			if_debug("netmode", "AT ANSWER " .. CNSMODES[netmode]:split("|")[2]:gsub("%s+", "") .. " when chunk is: " .. chunk:gsub("%c+", " "))
+			--if(CNSMODES[netmode] ~= nil) then
+			if_debug("netmode", "AT________ ANSWER " .. CNSMODES[netmode]:split("|")[2]:gsub("%s+", "") .. " when chunk is: " .. chunk:gsub("%c+", " "))
+			local nm = CNSMODES[netmode]:split("|")[2]:gsub("%s+", "") or ""
+			modem.state:update("netmode", nm, "AT+CNSMOD?", CNSMODES[netmode])
+			--modem.state:update("netmode", "6G", "AT+CNSMOD?", CNSMODES[netmode])
+			--else
+			--	modem.state:update("netmode", netmode, "AT+CNSMOD?", CNSMODES["0"])
+			--end
 
 		end
 

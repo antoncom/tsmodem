@@ -50,6 +50,11 @@ modem.lock = lock
 modem.tty_old_connected = "nil"
 modem.cpin_ready_counter = 0
 modem.slot_changed_recently = nil
+modem.slot_reset_recently = nil
+
+modem.last_iccid = nil
+modem.crsm_buf = ""
+modem.need_network_restart = false
 
 -- [[ UCI staff ]]
 modem.config = "tsmodem"
@@ -61,6 +66,7 @@ modem.section = "sim"
 -- Запускается периодически по таймеру (см. в модуле timer.general)
 -- Выполняется только при условии, что модем не подключен к файловому дескриптору.
 function modem:init()
+	
 	if not self:is_connected(modem.fds) then
 
 		modem:unpoll()
@@ -111,16 +117,7 @@ function modem:init()
 		    if_debug("send_at", "AT SEND +CMGD: delete all SMS")
     		if_debug("send_at", "----------------------")
 
-    		-- AT+CGEREP=2,1 — это команда, которая включает уведомления о событиях GPRS/PS (Packet Switched). 
-    		-- Расшифровывается как Cellular GPRS Event REPorting.
-			U.write(modem.fds, "AT+CGEREP=2,1" .. "\r\n")
-		    if_debug(modem.debug_type, "AT+CGEREP=2,1 - включить уведомления о событиях GPRS/PS")
-    		if_debug(modem.debug_type, "----------------------")
-
-    		
-
-
-			--
+    			--
 			local sim_id = modem.state:get("sim", "value")
 			if (sim_id == "1" or sim_id == "0") then
                 local provider_id = get_provider_id(sim_id)
@@ -170,6 +167,7 @@ modem.at_answer_buffer = ""
 modem.at_answer_timer = nil
 
 function modem:poll()
+
 	if (modem.fds_ev == nil) and modem:is_connected(modem.fds) then
 		modem.fds_ev = uloop.fd_add(modem.fds, function(ufd, events)
 
@@ -181,6 +179,50 @@ function modem:poll()
 			end
 
 			if not err then
+
+				if chunk:find("+CRSM") then
+
+					if_debug(modem.debug_type, "AT-ANSWER +CRSM: " .. chunk:gsub("%c+", " "))
+
+					-- вызывать на каждый пришедший кусок ответа на AT+CRSM
+					-- возвращает: nil — ответ ещё неполный; true/false — карта сменилась/нет
+					local function check_sim_changed(chunk)
+					    modem.crsm_buf = modem.crsm_buf .. chunk
+
+					    local finished = modem.crsm_buf:find("\r\nOK\r\n", 1, true)
+					                  or modem.crsm_buf:find("ERROR", 1, true)
+					    if not finished then
+					        return nil                          -- ждём продолжения, ничего не решаем
+					    end
+
+					    local resp = modem.crsm_buf
+					    modem.crsm_buf = ""
+
+					    local sw1, data = resp:match('%+CRSM:%s*(%d+),%d+,"(%x+)"')
+					    if sw1 ~= "144" or not data then
+					        return true                         -- полный ответ, но карта не прочиталась
+					    end
+					    if last_iccid and data ~= last_iccid then
+					        last_iccid = data
+					        return true
+					    end
+					    last_iccid = data
+					    return false
+					end
+
+					if not modem.slot_reset_recently then
+						if check_sim_changed(chunk) then
+							if_debug("", "SIM ICCID changed. AT+CFUN=0/1 run via Tsmslot reset ubus method..", "red")
+							util.ubus("tsmslot", "reset", {})
+
+							-- Также прекращаем Link до gsm-провайдера
+							local t = uloop.timer(function()
+								util.ubus("network.interface.modem", "down", {})
+							end)
+							t:set(1000)
+						end
+					end
+				end
 
 				-- Разбираем АТ-ответы от модема согласно спецификации
 				
@@ -213,36 +255,17 @@ function modem:poll()
 					modem.at_answer_buffer = modem.at_answer_buffer .. chunk
 
 
-
-					-- if(chunk:find("+CMGL")) then
-
-					-- 	local parts = {}
-					-- 	for header, pdu in chunk:gmatch("%+CMGL:%s*([^\r\n]+)\r\n([^\r\n]+)") do
-					-- 	    parts[#parts + 1] = "+CMGL: " .. header .. "\r\n" .. pdu
-					-- 	end
-
-					-- 	for i, p in ipairs(parts) do
-					-- 	    print(i, string.format("%q", p))
-					-- 	    payload.answer = p
-					-- 	    local t = uloop.timer(function()
-					-- 	    	modem.notifier:fire(event_name, payload)
-					-- 		end)
-					-- 		t:set(500)
-						    
-					-- 	end
-					-- else
-					-- 	modem.notifier:fire(event_name, payload)
-					-- end
-
 				end
 			else
 				if (modem.debug and (util.contains(AT_RELATED_UBUS_METHODS, modem.debug_type) or modem.debug_type == "all")) then
 					if_debug(modem.debug_type, "FILE  POLL  ERROR " .. string.format("tsmodem: U.read(modem.fds, 1024) ERROR CODE: %s", tostring(errcode)))
 				end
+				modem.no_any_at_answer_diring_15_sec = true
 			end
 		end, uloop.ULOOP_READ)
 	end
 end
+
 
 function modem:unpoll()
 	if(modem.fds_ev) then
@@ -292,16 +315,8 @@ local metatable = {
 		timer.COPS:set(timer.interval.provider)
 		timer.CNSMOD:set(timer.interval.netmode)
 		timer.SLOT:set(timer.interval.slotinfo)
+		timer.SIM_CHANGED_IN_THE_SAME_SLOT:set(timer.interval.check_sim_changed_in_the_same_slot)
 
-		if modem.debug then
-			if_debug("gsm", "DEBUG ONLY TIMERS TO CHECK: +CGREG, +CEREG, +CGATT, +CGACT, +CGDCONT","yellow")
-
-			timer.CGREG:set(5000)
-			timer.CEREG:set(7000)
-			timer.CGATT:set(9000)
-			timer.CGACT:set(11000)
-			timer.CGDCONT:set(13000)
-		end
 
 		local unlock_status
 		unlock_status, self_lock = modem.lock.unlock("self")

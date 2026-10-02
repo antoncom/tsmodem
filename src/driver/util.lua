@@ -11,37 +11,6 @@ function get_provider_id(sim_id)
 	return provider_id or ""
 end
 
---[[
-	ubus_method 			- название метода ubus для tsmodem.driver
-	protocol 				- UBUS, AT, PING, FILE, STM
-	request_or_response 	- "ASK", "ANSWER", "NOTIFY" or "POLL"
-	value 					- значение
-	comment 				- подсказка,
-	bottomline			- линия-разделитель (true/false)
-]]
--- function if_debug(ubus_method, protocol, request_or_response, value, comment, ...)
--- 	local is_debug = (uci:get("tsmodem", "debug", "enable") == "1")
--- 	local debug_type =uci:get("tsmodem", "debug", "type")
--- 	local val = ""
-
--- 	if (is_debug and (debug_type == ubus_method or debug_type == "all" or ubus_method == "")) then
--- 		if (value and type(value) == "table") then
--- 			val = util.serialize_json(value)
--- 		elseif (value and type(value) == "string") then
--- 			val = value:gsub("%c", " ")
--- 		else
--- 			val = value
--- 		end
--- 		print(protocol .. ":" .. ubus_method, request_or_response,"", val,"","", comment)
--- 		local bottomline = {...}
--- 		if (#bottomline > 0 and bottomline[1] == true) then
--- 			print("------------------------------------------------")
--- 		end
-
--- 	end
--- end
-
-
 
 
 
@@ -85,9 +54,9 @@ if_debug = function(dtype, msg, ...)
 		local socket = require 'socket'  
 		local now = socket.gettime()  
 		local millis = math.floor((now % 1) * 100)  
-		if(#color > 0) then
-			print(colors[color[1]] .. string.format('%s.%02d', d, millis) .. " [tsmodem]: " .. tostring(val))
-			util.perror(colors[color[1]] .. string.format('%s.%02d', d, millis) .. " [tsmodem]: " .. tostring(val))
+		if(#color > 0 and #color[1] > 0 and colors[color[1]]) then
+			print(tostring(colors[color[1]]) .. string.format('%s.%02d', d, millis) .. " [tsmodem]: " .. tostring(val))
+			util.perror(tostring(colors[color[1]]) .. string.format('%s.%02d', d, millis) .. " [tsmodem]: " .. tostring(val))
 		else
 			print(colors["white"] .. string.format('%s.%02d', d, millis) .. " [tsmodem]: " .. tostring(val))
 			util.perror(colors["white"] .. string.format('%s.%02d', d, millis) .. " [tsmodem]: " .. tostring(val))

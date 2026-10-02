@@ -50,23 +50,14 @@ function v300_ch9:parse_AT(modem, chunk)
 
 			local parsed_sms = pdu_decoder.parse(pdu_data)
 
-			-- Обновление баланса
-			-- v300_ch9:parse_balance_and_update(v300_ch9.modem, { sender = parsed_sms.sender_number, text = parsed_sms.message_text })
-
-			-- Запись принятых данных в state: [param, value, command, comment]
-			-- v300_ch9.modem.state:update("remote_control", tostring(parsed_sms.sender_number), tostring(parsed_sms.message_text), "+CMGR:".. tostring(self.resive_sms_counter))
-
-			-- if_debug("remote_control", "AT ANSWER +CMGR Resive Command from Phone: " .. tostring(parsed_sms.sender_number))
-			-- if_debug("remote_control", "AT ANSWER +CMGR Resive Command Text: " .. tostring(parsed_sms.message_text))
-			-- if_debug("remote_control", "----------------------")
 
 			local event_name = ""
 			if self.modem.lock.owner == "tsmsms" then
 				event_name = v300_ch9.modem.defined_events[5]
-				if_debug("send_at", "EVENT NAME", event_name, "red")
+				if_debug("send_at", "EVENT NAME: " .. tostring(event_name), "red")
 			elseif self.modem.lock.owner == "" then
 				event_name = v300_ch9.modem.defined_events[4]
-				if_debug("send_at", "EVENT NAME", event_name, "blue")
+				if_debug("send_at", "EVENT NAME: " .. tostring(event_name), "blue")
 			end
 
 			local event_payload = {
@@ -135,20 +126,6 @@ function v300_ch9:AtCommandReadSMS()
 	end
 end
 
--- function v300_ch9:notifier(chunk)
--- 	-- Send notification only when web-cosole is opened. E.g. when modem automation mode is "stop".
--- 	if self.modem.automation == "stop" then
--- 		self.modem.state.conn:notify( modem.state.ubus_methods["tsmodem.driver"].__ubusobj, "AT-answer", {answer = chunk} )
--- 		if string.find(chunk, "tsmsms") then
--- 			if_debug("send_at", "AT", "ANSWER", at_get_sms_counter, "[modem.lua]: Send AT to read SMS")
--- 			print("[modem.lua] send_AT_responce_to_webconsole(SMS-SENT")
--- 			modem.state.conn:notify( modem.state.ubus_methods["tsmodem.driver"].__ubusobj, "SMS-SENT", {answer = chunk} )
--- 		end
--- 		if (modem.debug and (util.contains(AT_RELATED_UBUS_METHODS, modem.debug_type) or modem.debug_type == "all")) then
--- 			if_debug(modem.debug_type, "UBUS", "NOTIFY", {answer = chunk}, "[modem.lua]: tsmodem.driver notifies subscribers, e.g. when AT-response sent to web-console.")
--- 		end
--- 	end
--- end
 
 function v300_ch9:parse_balance_and_update(modem, sms)
 	if
