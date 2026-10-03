@@ -110,12 +110,30 @@ function modem:init()
 			-- Принудительный перевод модема в режим Text
 			U.write(modem.fds, "AT+CMGF=1\r\n")
 
-			if_debug("send_at", "AT+CMGF=1 - I go to text-mode.")
+			local urc_setup = {
+			    "AT+CREG=1",        -- URC "+CREG: <stat>" (режим 2 добавляет lac/ci, вам не нужен)
+			    "AT+AUTOCSQ=1,1",   -- "+CSQ: ..." только при изменении
+			    "AT+CSQDELTA=2",    -- порог изменения, 0..5
+			    "AT+CNSMOD=1",      -- "+CNSMOD: <stat>" при смене 2G/3G/LTE
+			    "AT+CSQ", "AT+CREG?", "AT+CNSMOD?", "AT+CRSM=176,12258,0,0,10", -- начальные значения
+			}
+			local i = 0
+			local t
+			t = uloop.timer(function()
+			    i = i + 1
+			    if urc_setup[i] and modem:is_connected(modem.fds) then
+			        U.write(modem.fds, urc_setup[i] .. "\r\n")
+			        t:set(300)
+			    end
+			end)
+			t:set(300)
+
+			--if_debug("send_at", "AT+CMGF=1 - I go to text-mode.")
 
 			-- Удаление всех смс с сим-карты при первом старте Tsmodem
-			U.write(modem.fds, "AT+CMGF=1;+CMGD=1,4" .. "\r\n")
-		    if_debug("send_at", "AT SEND +CMGD: delete all SMS")
-    		if_debug("send_at", "----------------------")
+			--U.write(modem.fds, "AT+CMGF=1;+CMGD=1,4" .. "\r\n")
+		    --if_debug("send_at", "AT SEND +CMGD: delete all SMS")
+    		--if_debug("send_at", "----------------------")
 
     			--
 			local sim_id = modem.state:get("sim", "value")
@@ -180,55 +198,65 @@ function modem:poll()
 
 			if not err then
 
-				if chunk:find("+CRSM") then
+				if modem.sim_probe_waiting and not modem.sim_probe_echoed then
+				    -- эхо может прийти двумя кусками, поэтому ищем в склейке
+				    modem.sim_probe_echo_buf = ((modem.sim_probe_echo_buf or "") .. chunk):sub(-80)
+				    if modem.sim_probe_echo_buf:find("CRSM=242", 1, true) then
+				        modem.sim_probe_echoed = true
+				        modem.sim_probe_lost = 0
+				    end
+				end
 
-					if_debug(modem.debug_type, "AT-ANSWER +CRSM: " .. chunk:gsub("%c+", " "))
+				if_debug("send_at", "AT-ANSWER in my script: " .. chunk)
 
-					-- вызывать на каждый пришедший кусок ответа на AT+CRSM
-					-- возвращает: nil — ответ ещё неполный; true/false — карта сменилась/нет
-					local function check_sim_changed(chunk)
-					    modem.crsm_buf = modem.crsm_buf .. chunk
-
-					    local finished = modem.crsm_buf:find("\r\nOK\r\n", 1, true)
-					                  or modem.crsm_buf:find("ERROR", 1, true)
-					    if not finished then
-					        return nil                          -- ждём продолжения, ничего не решаем
-					    end
-
-					    local resp = modem.crsm_buf
-					    modem.crsm_buf = ""
-
-					    local sw1, data = resp:match('%+CRSM:%s*(%d+),%d+,"(%x+)"')
-					    if sw1 ~= "144" or not data then
-					        return true                         -- полный ответ, но карта не прочиталась
-					    end
-					    if last_iccid and data ~= last_iccid then
-					        last_iccid = data
-					        return true
-					    end
-					    last_iccid = data
-					    return false
+				local probe_answer = false
+				if chunk:match("%+CRSM:%s*%d+,%d+") then
+				    probe_answer = true                                   -- карта ответила: она на месте
+					if modem.state:get("cpin", "value") ~= "true" then
+					    modem.state:update("cpin", "true", "AT+CRSM=242,28423,0,0,0", "")
+					    modem.timer.request_iccid()            -- карта вернулась: та же ли она?
 					end
-
-					if not modem.slot_reset_recently then
-						if check_sim_changed(chunk) then
-							if_debug("", "SIM ICCID changed. AT+CFUN=0/1 run via Tsmslot reset ubus method..", "red")
-							util.ubus("tsmslot", "reset", {})
-
-							-- Также прекращаем Link до gsm-провайдера
-							local t = uloop.timer(function()
-								util.ubus("network.interface.modem", "down", {})
-							end)
-							t:set(1000)
-						end
-					end
+				elseif modem.sim_probe_waiting and chunk:find("+CME ERROR", 1, true) then
+				    probe_answer = true                                   -- cpin выставит парсер
+				end
+				if probe_answer then
+				    modem.sim_probe_waiting = false
 				end
 
 				-- Разбираем АТ-ответы от модема согласно спецификации
 				
-				spec_V300_ch3:parse_AT(modem, chunk)
-				spec_V300_ch4:parse_AT(modem, chunk) -- balance via USSD, sim provider_id check
+				-- spec_V300_ch3:parse_AT(modem, chunk)
+				-- spec_V300_ch4:parse_AT(modem, chunk) -- balance via USSD, sim provider_id check
+				-- spec_V300_ch9:parse_AT(modem, chunk)
+
+				modem.line_buf = (modem.line_buf or "") .. chunk
+				for line in modem.line_buf:gmatch("([^\r\n]+)[\r\n]+") do
+
+				    -- Ответ на AT+CRSM=176 (ICCID): 20 символов данных. Ответ на проверку SIM длиннее.
+					local iccid = line:match('%+CRSM:%s*%d+,%d+,"(%x+)"')
+				    if iccid and #iccid == 20 then
+				        if modem.iccid and modem.iccid ~= iccid then
+				            if_debug("", "SIM CARD CHANGED: " .. modem.iccid .. " -> " .. iccid .. ", reinit modem", "red")
+				            modem.state:sim_off()              -- заодно забудет старый ICCID
+				            modem.timer.SIM_RESCAN_ON:set(2000)
+				        else
+				            modem.iccid = iccid
+				        end
+				    end
+
+				    spec_V300_ch3:parse_AT(modem, line)
+				    if not line:find("+CUSD:", 1, true) then
+				        spec_V300_ch4:parse_AT(modem, line)
+				    end
+				end
+				modem.line_buf = modem.line_buf:match("[^\r\n]*$")
+
+
+				if chunk:find("+CUSD:", 1, true) then spec_V300_ch4:parse_AT(modem, chunk) end
 				spec_V300_ch9:parse_AT(modem, chunk)
+
+
+
 
 				-- Если АТ-овет предназначен для стороннего сервиса (Tsmsms, Tsmatconsole и т.п.)
 				-- то отправляем событие не сразу, а подождав 1 сек. пока возможные "хвосты"
@@ -309,13 +337,11 @@ local metatable = {
 		-- Периодически послаем в модем различные АТ-команды
 		-- для получения сотояния сотовой сети.
 
-		timer.CPIN:set(timer.interval.cpin)
-		timer.CREG:set(timer.interval.reg)
-		timer.CSQ:set(timer.interval.signal)
-		timer.COPS:set(timer.interval.provider)
-		timer.CNSMOD:set(timer.interval.netmode)
 		timer.SLOT:set(timer.interval.slotinfo)
-		timer.SIM_CHANGED_IN_THE_SAME_SLOT:set(timer.interval.check_sim_changed_in_the_same_slot)
+		timer.CSQ_CREG:set(timer.interval.csq_creg)
+		timer.SIM_PROBE:set(timer.interval.sim_probe)
+		timer.SIM_RESCAN:set(timer.interval.sim_rescan)
+
 
 
 		local unlock_status

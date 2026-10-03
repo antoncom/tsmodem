@@ -281,36 +281,44 @@ local ubus_methods = {
 
         sim_slot_off = {
             function (req, msg)
-                local chunk, err, errcode = U.write(state.modem.fds, "AT+CFUN=0" .. "\r\n")
-                if_debug("sim_slot", "AT+CFUN=0 resut: " .. tostring(chunk))
-
-                os.execute("ubus call network.interface.modem down")
-
-                state:update("reg", "7", "", "")
-                state:update("signal", "", "", "")
-                state:update("provider_name", "", "", "")
-                state:update("netmode", "", "", "")
-                state:update("cpin", "", "", "")
-                state:update("balance", "", "", "")
-
-
+                state:sim_off()
                 state.conn:reply(req, { })
             end, {}
         },
 
         sim_slot_on = {
             function (req, msg)
-                local chunk, err, errcode = U.write(state.modem.fds, "AT+CFUN=1" .. "\r\n")
-                if_debug("sim_slot", "AT+CFUN=1 resut: " .. tostring(chunk))
-
-                os.execute("ubus call network.interface.modem up")
-
+                state:sim_on()
                 state.conn:reply(req, { })
             end, {}
         },
 
     }
 }
+
+
+function state:sim_on()
+    local chunk, err, errcode = U.write(state.modem.fds, "AT+CFUN=1" .. "\r\n")
+    if_debug("sim_slot", "AT+CFUN=1 resut: " .. tostring(chunk))
+end
+
+function state:sim_off()
+    state.modem.iccid = nil                    -- после сброса карта может быть другой
+    state.modem.sim_probe_hold_until = os.time() + 8
+    state.modem.sim_rescan_until = os.time() + 6
+    
+    local chunk, err, errcode = U.write(state.modem.fds, "AT+CFUN=0" .. "\r\n")
+    if_debug("sim_slot", "AT+CFUN=0 resut: " .. tostring(chunk))
+
+    os.execute("ubus call network.interface.modem down")
+
+    state:update("reg", "7", "", "")
+    state:update("signal", "", "", "")
+    state:update("provider_name", "", "", "")
+    state:update("netmode", "", "", "")
+    state:update("cpin", "", "", "")
+    state:update("balance", "", "", "")
+end
 
 function state:make_ubus()
     state.conn = ubus.connect()

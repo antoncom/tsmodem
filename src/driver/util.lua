@@ -59,7 +59,7 @@ if_debug = function(dtype, msg, ...)
 			util.perror(tostring(colors[color[1]]) .. string.format('%s.%02d', d, millis) .. " [tsmodem]: " .. tostring(val))
 		else
 			print(colors["white"] .. string.format('%s.%02d', d, millis) .. " [tsmodem]: " .. tostring(val))
-			util.perror(colors["white"] .. string.format('%s.%02d', d, millis) .. " [tsmodem]: " .. tostring(val))
+			--util.perror(colors["white"] .. string.format('%s.%02d', d, millis) .. " [tsmodem]: " .. tostring(val))
 		end
 	end
 end

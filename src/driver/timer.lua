@@ -25,24 +25,18 @@ timer.notifier = nil
 
 timer.interval = {
     general = 1400,     -- use 3000 interval in debug mode
-    reg = 4000,         -- Sim registration state (checking interval)
-    cpin = 5000,        -- Sim inserted or not?
-    signal = 6000,      -- Signal strength (checking interval)
-    balance = 18000,    -- Balance value (checking interval) - 60 sec. minimum to avoid Provider blocking USSD
-    netmode = 7000,     -- 4G/3G mode state (checking interval)
-    provider = 8000,    -- GSM provider name (autodetection checking interval)
-    slotinfo = 1100,   -- Check tsmslot service by ubus
-    check_sim_changed_in_the_same_slot = 15000,
-
-    last_balance_request_time = os.time(),  -- Helper. Need to avoid doing USSD requests too often.
-    balance_repeated_request_delay = 125,   -- If GSM opeator doen't send back the balance USSD-response
-                                            -- then we should wait 1..2 mins before repeating
+    csq_creg = 60000,   -- Level and CREG status once pert 60 sec
+    slotinfo = 2000,   -- Check tsmslot service by ubus
+    check_sim_changed_in_the_same_slot = 1000,
+    sim_rescan = 20000   -- как часто искать карту в пустом слоте
 }
 
-timer.timeout = {
-    balance = 60000      -- Once a balance USSD requested, "in progress" state is set on "tsmodem.driver balance" method.
-}                       -- Then, if by some reason provider will not respond to the balance USSD request,
-                        -- then we clear balance state after the timeout.
+
+timer.timeout = {}
+
+timer.interval.sim_probe = 500
+timer.timeout.sim_probe  = 1500   -- после инициализации карта отвечает за 500-640 мс
+
 
 
 timer.init = function(modem, state, notifier)
@@ -62,100 +56,117 @@ function t_general()
 end
 timer.general = uloop.timer(t_general)
 
+local function can_send()
+    local m = timer.modem
+    if m.sim_probe_waiting and os.time() - (m.sim_probe_time or 0) > 20 then
+        m.sim_probe_waiting = false           -- страховка от зависшего флага
+    end
+
+    return m.lock.is_automation() and not m.slot_changed_recently
+       and not m.sim_probe_waiting and m:is_connected(m.fds)
+       and os.time() >= (m.sim_rescan_until or 0)
+end
+timer.can_send = can_send
+
+function t_SIM_PROBE()
+    local m = timer.modem
+    local absent = timer.state:get("cpin", "value") == "false"
+    local due = (not absent) or (os.time() - (m.sim_probe_time or 0) >= 5)
+
+    if can_send() and due and os.time() >= (m.sim_probe_hold_until or 0) then
+        m.sim_probe_waiting = true
+        m.sim_probe_time = os.time()
+        m.sim_probe_echoed = false
+        m.sim_probe_echo_buf = ""
+        U.write(m.fds, "AT+CRSM=242,28423,0,0,0\r\n")
+        timer.SIM_PROBE_TIMEOUT:set(timer.timeout.sim_probe)
+    end
+    timer.SIM_PROBE:set(timer.interval.sim_probe)
+end
+timer.SIM_PROBE = uloop.timer(t_SIM_PROBE)
+
+-- Модем молчит: карты нет. Флаг ожидания НЕ снимаем: порт занят ~12 с.
+timer.SIM_PROBE_TIMEOUT = uloop.timer(function()
+    local m = timer.modem
+    if not m.sim_probe_waiting then return end -- ответ уже пришёл
+    if os.time() < (m.sim_probe_hold_until or 0) then return end   -- идёт сброс модема, молчание ожидаемо
+    if not m.sim_probe_echoed then
+        m.sim_probe_lost = (m.sim_probe_lost or 0) + 1
+        if_debug("", "SIM PROBE: command lost (no echo), retry #" .. m.sim_probe_lost, "yellow")
+        m.sim_probe_waiting = false        -- модем команду не получил, ждать нечего
+        if m.sim_probe_lost >= 5 then
+            if_debug("", "SIM PROBE: AT port does not respond", "red")
+            timer.state:update("cpin", "", "AT+CRSM=242,28423,0,0,0", "AT port does not respond")
+        end
+        return
+    end
+
+    if_debug("", "SIM PROBE: no answer in " .. timer.timeout.sim_probe .. " ms, cpin=false", "red")
+    timer.state:update("cpin", "false", "AT+CRSM=242,28423,0,0,0", "no answer")
+end)
+
+
 -- [[ AT+CREG requests interval ]]
-function t_CREG()
-    if timer.modem.lock.is_automation() then
-        local SWITCHING = timer.modem.slot_changed_recently
-        if not SWITCHING then
-            if(timer.modem:is_connected(timer.modem.fds)) then
-                if_debug("reg", "AT ASK AT+CREG? every " .. tostring(timer.interval.reg))
-                local chunk, err, errcode = U.write(timer.modem.fds, "AT+CREG?" .. "\r\n")
-            end
+function t_CSQ_CREG()
+    local cmds = { "AT+CSQ", "AT+CREG?", "AT+CNSMOD?" }
+    local i = 0
+    local t
+    t = uloop.timer(function()
+        if not cmds[i + 1] or not timer.modem:is_connected(timer.modem.fds) then
+            return                                  -- список закончился: таймер не перезапускаем
         end
-    end
-    timer.CREG:set(timer.interval.reg)
-end
-timer.CREG = uloop.timer(t_CREG)
-
--- [[ AT+CPIN? requests interval ]]
-function t_CPIN()
-    if timer.modem.lock.is_automation() then
-        local SWITCHING = timer.modem.slot_changed_recently
-        if not SWITCHING then
-            if(timer.modem:is_connected(timer.modem.fds)) then
-                if_debug("cpin", "AT ASK AT+CPIN? every " .. tostring(timer.interval.cpin).."ms")
-                local chunk, err, errcode = U.write(timer.modem.fds, "AT+CPIN?" .. "\r\n")
-            end
+        if can_send() then
+            i = i + 1
+            U.write(timer.modem.fds, cmds[i] .. "\r\n")
+            if_debug("", "ASK " .. cmds[i] .. " every " .. tostring(timer.interval.csq_creg), "yellow")
         end
+        t:set(300)                                  -- следующая команда или повтор, если порт был занят
+    end)
+    t:set(300)
+    if not timer.modem.iccid and timer.state:get("cpin", "value") == "true" then
+        timer.request_iccid()
     end
-    timer.CPIN:set(timer.interval.cpin)
+    timer.CSQ_CREG:set(timer.interval.csq_creg)
 end
-timer.CPIN = uloop.timer(t_CPIN)
+timer.CSQ_CREG = uloop.timer(t_CSQ_CREG)
 
--- [[ AT+CSQ requests interval ]]
-function t_CSQ()
-    if timer.modem.lock.is_automation() then
-        local SWITCHING = timer.modem.slot_changed_recently
-        if not SWITCHING then
-            if(timer.modem:is_connected(timer.modem.fds)) then
-                if_debug("signal", "AT ASK AT+CSQ every " .. tostring(timer.interval.signal).."ms")
-                local chunk, err, errcode = U.write(timer.modem.fds, "AT+CSQ" .. "\r\n")
-            end
+function t_SIM_RESCAN()
+    local m = timer.modem
+    if timer.state:get("cpin", "value") == "false" and can_send() then
+        if_debug("", "SIM RESCAN: AT+CFUN=0/1 to look for a card", "yellow")
+        m.sim_probe_hold_until = os.time() + 8      -- на время сброса проверки не слать
+        m.sim_rescan_until = os.time() + 6
+        --U.write(m.fds, "AT+CFUN=0\r\n")
+        timer.state:sim_off()
+        timer.state:update("cpin", "false", "AT+CFUN=0", "sim rescan")
+        timer.SIM_RESCAN_ON:set(2000)
+    end
+    timer.SIM_RESCAN:set(timer.interval.sim_rescan)
+end
+timer.SIM_RESCAN = uloop.timer(t_SIM_RESCAN)
+
+-- Вторая половина сброса: включить радиочасть обратно
+timer.SIM_RESCAN_ON = uloop.timer(function()
+    local m = timer.modem
+    if m:is_connected(m.fds) then
+        --U.write(m.fds, "AT+CFUN=1\r\n")
+        timer.state:sim_on()
+    end
+end)
+
+function timer.request_iccid()
+    local tries = 0
+    local t
+    t = uloop.timer(function()
+        tries = tries + 1
+        if can_send() then
+            U.write(timer.modem.fds, "AT+CRSM=176,12258,0,0,10\r\n")
+        elseif tries < 150 then
+            t:set(300)                     -- порт занят, попробуем позже
         end
-    end
-    timer.CSQ:set(timer.interval.signal)
+    end)
+    t:set(700)
 end
-timer.CSQ = uloop.timer(t_CSQ)
-
--- [[ AT+COPS: get GSM provider name from the GSM network ]]
-function t_COPS()
-    if timer.modem.lock.is_automation() then
-        local SWITCHING = timer.modem.slot_changed_recently
-        if not SWITCHING then
-            if(timer.modem:is_connected(timer.modem.fds)) then
-                if_debug("provider_name", "AT ASK AT+COPS? every " .. tostring(timer.interval.provider).."ms")
-                local chunk, err, errcode = U.write(timer.modem.fds, "AT+COPS?" .. "\r\n")
-            end
-        else
-            timer.state:update("provider_name", "", "", "")
-            if_debug(timer.modem.debug_type, "It's too early after switch to send AT", "yellow")
-        end
-    end
-    timer.COPS:set(timer.interval.provider)
-end
-timer.COPS = uloop.timer(t_COPS)
-
-
---[[ Get 3G/4G mode from the GSM network ]]
-function t_CNSMOD()
-    if timer.modem.lock.is_automation() then
-        local SWITCHING = timer.modem.slot_changed_recently
-        if not SWITCHING then
-            if(timer.modem:is_connected(timer.modem.fds)) then
-                local reg = timer.state:get("reg", "value")
-                if reg == "1" then
-                    if_debug("netmode", "AT ASK AT+CNSMOD? every " .. tostring(timer.interval.netmode).."ms")
-                    local chunk, err, errcode = U.write(timer.modem.fds, "AT+CNSMOD?" .. "\r\n")
-                end
-            end
-        end
-    end
-    timer.CNSMOD:set(timer.interval.netmode)
-end
-timer.CNSMOD = uloop.timer(t_CNSMOD)
-
-
---[[ Balance request timeout ]]
-function t_BAL_TIMEOUT()
-    local val = timer.state:get("balance", "value")
-    if val == "*" then
-        timer.state:update("balance", "", "", "")
-        if (timer.modem.debug and (timer.modem.debug_type == "balance" or timer.modem.debug_type == "all")) then
-            if_debug(timer.modem.debug_type, string.format("[timer.lua]: Clear balance on BAL_TIMEOUT: %s %s %s", tostring(noerror), tostring(errmsg), tostring(val)))
-        end
-    end
-end
-timer.BAL_TIMEOUT = uloop.timer(t_BAL_TIMEOUT)
 
 
 function t_SLOT()
@@ -182,18 +193,5 @@ function t_SLOT()
     timer.SLOT:set(timer.interval.slotinfo)
 end
 timer.SLOT = uloop.timer(t_SLOT)
-
---[[ Check whether sim-card changed in the same slot ]]
-function t_SIM_CHANGED_IN_THE_SAME_SLOT()
-    local SWITCHING = timer.modem.slot_changed_recently
-    if not SWITCHING then
-        timer.modem.crsm_buf = ""
-        if_debug("", "Check if SIM changed in the same slot every " .. tostring(timer.interval.check_sim_changed_in_the_same_slot).."ms", "yellow")
-        local chunk, err, errcode = U.write(timer.modem.fds, "AT+CRSM=176,12258,0,0,10" .. "\r\n")
-    end
-    timer.SIM_CHANGED_IN_THE_SAME_SLOT:set(timer.interval.check_sim_changed_in_the_same_slot)
-end
-timer.SIM_CHANGED_IN_THE_SAME_SLOT = uloop.timer(t_SIM_CHANGED_IN_THE_SAME_SLOT)
-
 
 return timer
