@@ -27,6 +27,8 @@ v300_ch9.read_sms_timer = nil
 function v300_ch9:parse_AT(modem, chunk)
 	self.modem = modem
 	if chunk:find("+CMTI:") then
+		modem.sim_probe_hold_until = os.time() + 6		-- не мешать чтению SMS
+		
 		self.resive_sms_counter = remote_control_pars:get_sms_count(chunk)
 		if_debug("send_at", "AT ANSWER +CMTI SMS Counter: " .. tostring(self.resive_sms_counter) .. " when chunk is: " .. chunk:gsub("%c+", " "))
 		if_debug("send_at", "----------------------")
@@ -37,6 +39,9 @@ function v300_ch9:parse_AT(modem, chunk)
 
 	-- Обработать ответ и выделить тело смс.
 	elseif chunk:find("+CMGR:") then
+		local pos = chunk:find("+CMGR:", 1, true)
+		chunk = chunk:sub(pos)		-- отбросить всё, что пришло перед ответом
+		
 		if_debug("send_at", "AT ANSWER +CMGR "  .. " when chunk is: " .. chunk:gsub("%c+", " "))
 		if_debug("send_at", "----------------------")
 

@@ -115,7 +115,7 @@ function modem:init()
 			    "AT+AUTOCSQ=1,1",   -- "+CSQ: ..." только при изменении
 			    "AT+CSQDELTA=2",    -- порог изменения, 0..5
 			    "AT+CNSMOD=1",      -- "+CNSMOD: <stat>" при смене 2G/3G/LTE
-			    "AT+CSQ", "AT+CREG?", "AT+CNSMOD?", "AT+CRSM=176,12258,0,0,10", -- начальные значения
+			    "AT+CSQ", "AT+CREG?", "AT+CNSMOD?", "AT+CNMI=2,1", "AT+CRSM=176,12258,0,0,10", -- начальные значения
 			}
 			local i = 0
 			local t
