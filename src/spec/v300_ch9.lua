@@ -53,7 +53,7 @@ function v300_ch9:parse_AT(modem, chunk)
 			if_debug("send_at", "AT ANSWER +CMGR pdu_data: " .. tostring(pdu_data))
 			if_debug("send_at", "----------------------")
 
-			local parsed_sms = pdu_decoder.parse(pdu_data)
+			local parsed_sms = pdu_decoder.parse(pdu_data) or { sender_number = "", message_text = "" }
 
 
 			local event_name = ""

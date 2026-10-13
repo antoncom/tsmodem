@@ -1,3 +1,5 @@
+-- Модуль преобразования текста в различные форматы
+
 local text_decoder = {}
 
 -- Convert a hex string (e.g., "0041") into a raw byte string (e.g., "\x00\x41")
@@ -70,85 +72,69 @@ function text_decoder.utf16be_to_utf8(packed_hex)
     return table.concat(out)
 end
 
--- Bitwise shift helpers using math
-local function lshift(x, n)
-    return (x * 2^n) % 256
-  end
-
-local function rshift(x, n)
-    return math.floor(x / 2^n)
-end
-
-local function band(a, b)
-    local result = 0
-    for i = 0, 7 do
-        local bit_a = a % 2
-        local bit_b = b % 2
-        if bit_a == 1 and bit_b == 1 then
-        result = result + 2^i
-        end
-        a = math.floor(a / 2)
-        b = math.floor(b / 2)
+-- 8-bit данные: интерпретируем как Latin-1 и переводим в UTF-8
+function text_decoder.latin1_to_utf8(hex)
+    local out = {}
+    for i = 1, #hex - 1, 2 do
+        encode_utf8(tonumber(hex:sub(i, i + 1), 16), out)
     end
-    return result
+    return table.concat(out)
 end
 
-local function bor(a, b)
-    local result = 0
-    for i = 0, 7 do
-        local bit_a = a % 2
-        local bit_b = b % 2
-        if bit_a == 1 or bit_b == 1 then
-        result = result + 2^i
-        end
-        a = math.floor(a / 2)
-        b = math.floor(b / 2)
-    end
-    return result
-end
+-- GSM 7-bit default alphabet (3GPP TS 23.038)
+local gsm7bit_table = {
+    [0] = '@', '£', '$', '¥', 'è', 'é', 'ù', 'ì', 'ò', 'Ç', '\n', 'Ø', 'ø', '\r', 'Å', 'å',
+    'Δ', '_', 'Φ', 'Γ', 'Λ', 'Ω', 'Π', 'Ψ', 'Σ', 'Θ', 'Ξ', '', 'Æ', 'æ', 'ß', 'É',
+    ' ', '!', '"', '#', '¤', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/',
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', ';', '<', '=', '>', '?',
+    '¡', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O',
+    'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'Ä', 'Ö', 'Ñ', 'Ü', '§',
+    '¿', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o',
+    'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'ä', 'ö', 'ñ', 'ü', 'à'
+}
+
+-- Таблица расширения (после escape-символа 0x1B)
+local gsm7bit_ext_table = {
+    [0x0A] = '\f', [0x14] = '^', [0x28] = '{', [0x29] = '}', [0x2F] = '\\',
+    [0x3C] = '[', [0x3D] = '~', [0x3E] = ']', [0x40] = '|', [0x65] = '€',
+}
 
 -- GSM 7-bit decoding function
-function text_decoder.gsm7bit_to_text(packed_hex)
+--   packed_hex    — упакованные септеты в hex
+--   septet_count  — сколько септетов декодировать (TP-UDL); nil = все, что поместились
+--   skip_septets  — сколько септетов пропустить в начале (UDH + fill bits)
+function text_decoder.gsm7bit_to_text(packed_hex, septet_count, skip_septets)
     local bytes = {}
-    for i = 1, #packed_hex, 2 do
-        table.insert(bytes, tonumber(packed_hex:sub(i, i+1), 16))
+    for i = 1, #packed_hex - 1, 2 do
+        bytes[#bytes + 1] = tonumber(packed_hex:sub(i, i + 1), 16)
     end
 
-    local septets = {}
-    local carry_over = 0
-    local carry_over_bits = 0
-
-    for i = 1, #bytes do
-        local current = bytes[i]
-        local shifted = lshift(current, carry_over_bits)
-        local septet = band(bor(shifted, carry_over), 0x7F)
-        table.insert(septets, septet)
-
-        carry_over = rshift(current, 7 - carry_over_bits)
-        carry_over_bits = carry_over_bits + 1
-
-        if carry_over_bits == 7 then
-        table.insert(septets, carry_over)
-        carry_over_bits = 0
-        carry_over = 0
-        end
+    local max_septets = math.floor(#bytes * 8 / 7)
+    if not septet_count or septet_count > max_septets then
+        septet_count = max_septets
     end
-
-    -- GSM 7-bit default alphabet
-    local gsm7bit_table = {
-        [0] = '@', '£', '$', '¥', 'è', 'é', 'ù', 'ì', 'ò', 'Ç', '\n', 'Ø', 'ø', '\r', 'Å', 'å',
-        'Δ', '_', 'Φ', 'Γ', 'Λ', 'Ω', 'Π', 'Ψ', 'Σ', 'Θ', 'Ξ', '', 'Æ', 'æ', 'ß', 'É',
-        ' ', '!', '"', '#', '¤', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/',
-        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', ';', '<', '=', '>', '?',
-        '¡', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O',
-        'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'Ä', 'Ö', 'Ñ', 'Ü', '§',
-        '¿', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o',
-        'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'ä', 'ö', 'ñ', 'ü', 'à'
-    }
+    skip_septets = skip_septets or 0
 
     local result = {}
-    for _, septet in ipairs(septets) do
-        table.insert(result, gsm7bit_table[septet] or '?')
+    local escape = false
+    for i = skip_septets, septet_count - 1 do
+        local bit_offset = i * 7
+        local byte_idx = math.floor(bit_offset / 8) + 1
+        local shift = bit_offset % 8
+        local value = math.floor(bytes[byte_idx] / 2 ^ shift)
+        if shift > 1 and bytes[byte_idx + 1] then
+            value = value + bytes[byte_idx + 1] * 2 ^ (8 - shift)
+        end
+        value = value % 128
+
+        if escape then
+            result[#result + 1] = gsm7bit_ext_table[value] or ' '
+            escape = false
+        elseif value == 0x1B then
+            escape = true
+        else
+            result[#result + 1] = gsm7bit_table[value] or '?'
+        end
     end
 
     return table.concat(result)
