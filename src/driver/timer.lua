@@ -170,17 +170,29 @@ end
 
 
 function t_SLOT()
-    local conn = ubus.connect()
     local tsmslot_info = timer.state.conn:call("tsmslot", "info", {})
     local last_switch_time = tsmslot_info and tsmslot_info["last_switch_time"] or 0
     local last_reset_time = tsmslot_info and tsmslot_info["last_reset_time"] or 0
 
     if(tonumber(last_switch_time) and (os.time() - tonumber(last_switch_time)) < 30) then
+        -- Слот только что переключили: забываем провайдера предыдущей Сим-карты.
+        -- Иначе, пока +COPS/+NITZ игнорируются, ubus "provider_name" отдаёт старого провайдера,
+        -- и applogic (14_rule) пропишет в интерфейс "modem" чужой APN.
+        if not timer.modem.slot_changed_recently then
+            timer.state:update("provider_name", "", "", "")
+        end
         timer.modem.slot_changed_recently = true
         if_debug(timer.modem.debug_type, "SLOT check every " .. tostring(tonumber(timer.interval.slotinfo)/1000) .. "s: changed recently [" .. tostring(timer.modem.slot_changed_recently) .. "]", "yellow")
         if_debug(timer.modem.debug_type, "----------------------", "yellow")
 
     else
+        -- Окно после переключения закончилось. Карта к этому времени обычно уже зарегистрировалась,
+        -- но +CREG/AT+COPS? внутри окна не обрабатывались. Опрашиваем модем сразу, не дожидаясь
+        -- следующего цикла CSQ_CREG (раз в 60 сек): ответ +CREG: 1/5 запустит AT+COPS?,
+        -- и провайдер определится через пару секунд, а не через 30..90 сек после переключения.
+        if timer.modem.slot_changed_recently then
+            timer.CSQ_CREG:set(100)
+        end
         timer.modem.slot_changed_recently = false
     end
 
